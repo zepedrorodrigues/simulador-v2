@@ -13,7 +13,7 @@
 .DS_Store
 
 # Documentação interna — vive no Confluence privado, não neste repositório.
-# Ver docs/LEIA-ME.md. Os ficheiros continuam no disco de quem tem acesso.
+# Ver a secção "Documentos" do README. Continuam no disco de quem tem acesso.
 #
 # ⚠️ `git clean -xdf` APAGA-OS: o `-x` remove precisamente o que está ignorado.
 # `git clean -df`, sem o `-x`, não lhes toca. Se acontecer, repõem-se do
