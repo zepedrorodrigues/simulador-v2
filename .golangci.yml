@@ -1,0 +1,85 @@
+# Esquema v2 — o repositório fixa o golangci-lint 2.12.2 no bloco `tool` do
+# go.mod. Uma configuração v1 não é lida por esta versão.
+#
+# Correr sempre por `go tool golangci-lint run ./...` (é o que o `make
+# verificar` faz). O binário `golangci-lint` do PATH desta máquina é o v1.64.8 e
+# não lê este ficheiro.
+version: "2"
+
+linters:
+  # standard = errcheck, govet, staticcheck, ineffassign, unused.
+  default: standard
+  enable:
+    - bodyclose
+    - contextcheck
+    - depguard
+
+  settings:
+    # A regra de dependência de docs/ARQUITETURA.md §3, imposta e não prometida:
+    #
+    #   dominio    → (nada, além da stdlib)
+    #   bancos     → dominio
+    #   aplicacao  → dominio, bancos
+    #   infra      → dominio, bancos, aplicacao
+    #   cmd        → infra
+    #
+    # Cada lista nomeia a camada de onde o import parte; a mensagem do depguard
+    # sai como «import '...' is not allowed from list '<camada>'».
+    depguard:
+      rules:
+        dominio:
+          files:
+            - "**/internal/dominio/**"
+          deny:
+            - pkg: github.com/zepedrorodrigues/simulador-v2/internal/bancos
+              desc: o dominio não depende de ninguém no projecto (ARQUITETURA.md §3)
+            - pkg: github.com/zepedrorodrigues/simulador-v2/internal/aplicacao
+              desc: o dominio não depende de ninguém no projecto (ARQUITETURA.md §3)
+            - pkg: github.com/zepedrorodrigues/simulador-v2/internal/infra
+              desc: o dominio não sabe que existe HTTP nem base de dados (ARQUITETURA.md §3)
+            - pkg: github.com/zepedrorodrigues/simulador-v2/cmd
+              desc: nenhuma camada importa o binário (ARQUITETURA.md §3)
+
+        bancos:
+          files:
+            - "**/internal/bancos/**"
+          deny:
+            - pkg: github.com/zepedrorodrigues/simulador-v2/internal/aplicacao
+              desc: um banco é chamado pelo caso de uso, não o contrário (ARQUITETURA.md §3)
+            - pkg: github.com/zepedrorodrigues/simulador-v2/internal/infra
+              desc: um banco não sabe que existe base de dados nem cache (ARQUITETURA.md §3)
+            - pkg: github.com/zepedrorodrigues/simulador-v2/cmd
+              desc: nenhuma camada importa o binário (ARQUITETURA.md §3)
+
+        aplicacao:
+          files:
+            - "**/internal/aplicacao/**"
+          deny:
+            - pkg: github.com/zepedrorodrigues/simulador-v2/internal/infra
+              desc: o caso de uso não sabe se foi chamado por HTTP ou pela linha de comandos (ARQUITETURA.md §3)
+            - pkg: github.com/zepedrorodrigues/simulador-v2/cmd
+              desc: nenhuma camada importa o binário (ARQUITETURA.md §3)
+
+        infra:
+          files:
+            - "**/internal/infra/**"
+          deny:
+            - pkg: github.com/zepedrorodrigues/simulador-v2/cmd
+              desc: nenhuma camada importa o binário (ARQUITETURA.md §3)
+
+        cmd:
+          files:
+            - "**/cmd/**"
+          deny:
+            - pkg: github.com/zepedrorodrigues/simulador-v2/internal/dominio
+              desc: o binário monta o que a infra construir; o resto chega por lá (ARQUITETURA.md §3)
+            - pkg: github.com/zepedrorodrigues/simulador-v2/internal/bancos
+              desc: o binário monta o que a infra construir; o resto chega por lá (ARQUITETURA.md §3)
+            - pkg: github.com/zepedrorodrigues/simulador-v2/internal/aplicacao
+              desc: o binário monta o que a infra construir; o resto chega por lá (ARQUITETURA.md §3)
+
+formatters:
+  # No esquema v2 o gofumpt é formatador, não linter — `run` reporta o que
+  # estiver por formatar.
+  enable:
+    - gofumpt

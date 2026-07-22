@@ -8,12 +8,19 @@ força; este fica curto por construção.
 
 ## Onde estamos
 
-**Toolchain instalada e fixada. Zero linhas de código de negócio.**
+**Esqueleto das quatro camadas de pé, com a regra de dependência imposta. Zero
+linhas de código de negócio.**
 
 O desenho está feito e é vinculativo (`docs/ARQUITETURA.md`). O backlog está nas
 issues 1-27. O issue #1 está fechado: Go 1.26.5 e Node 24.18.0 instalados, e as
 quatro ferramentas de geração fixadas no bloco `tool` do `go.mod` — correm-se por
 `go tool …`, nunca pelo `PATH` (ver README, secção Toolchain).
+
+O issue #2 está fechado: `cmd/simulador/` e `internal/{dominio,bancos,aplicacao,
+infra}/`, o `.golangci.yml` (esquema v2) com o `depguard` a impor as cinco linhas
+de `ARQUITETURA.md` §3, e o `Makefile` com `verificar`. Verificado por reversão —
+um `import` proibido em cada camada reprova o portão a nomear a camada de onde
+parte.
 
 ## O que está decidido
 
@@ -29,15 +36,18 @@ quatro ferramentas de geração fixadas no bloco `tool` do `go.mod` — correm-s
 
 ## Próximo passo
 
-**Issue #2 — esqueleto de pacotes e `depguard`.** O `go.mod` já existe
-(`github.com/zepedrorodrigues/simulador-v2`), por isso o #2 começa nas pastas e
-na regra de dependência, não na iniciação do módulo.
+**Issue #3 — `docker-compose` com PostgreSQL e Redis.** O `Makefile` já existe;
+o #3 acrescenta-lhe o alvo `dev`. Depois, pela ordem do `PLAN.md`: #4 (migrações)
+→ #5 (`sqlc`, que traz o alvo `gerar`) → #6 (openapi.yaml, que desbloqueia a app
+em paralelo).
 
-Depois, pela ordem do `PLAN.md`: #3 (docker-compose + `Makefile`) → #4 (migrações)
-→ #6 (openapi.yaml, que desbloqueia a app em paralelo).
+⚠️ Correr o lint por `go tool golangci-lint run ./...` — é o que o `make
+verificar` faz. O `golangci-lint` do `PATH` desta máquina é o v1.64.8 e não lê o
+`.golangci.yml` v2.
 
-⚠️ O `.golangci.yml` do #3 tem de ser **esquema v2** (`version: "2"` no topo): o
-repositório fixa o golangci-lint 2.12.2, e a configuração v1 não é lida.
+⚠️ O `make` não existia nesta máquina — foi instalado por
+`winget install ezwinports.make` (GNU make 4.4.1). Entrou no `PATH` do
+utilizador, mas só em shells abertas **depois** da instalação.
 
 ## O que está por resolver
 
