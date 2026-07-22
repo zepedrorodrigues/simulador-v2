@@ -1,0 +1,98 @@
+# Ambiente de desenvolvimento: PostgreSQL e Redis, e mais nada.
+#
+# A app não entra aqui — o `Dockerfile` é o issue #28, fase 4. O `make dev` sobe
+# estes dois serviços e espera que respondam de facto.
+#
+# Todas as variáveis têm default: `make dev` funciona numa máquina limpa, sem
+# `.env` nenhum. O que se pode afinar está em `.env.example`.
+
+name: simulador-v2
+
+services:
+  postgres:
+    image: postgres:18.4-alpine
+
+    # ⚠️ Portas fora das habituais, e fora das do v1. Nesta máquina a 5432 está
+    # ocupada por um PostgreSQL nativo, e o `simulador-credito-habitacao`
+    # publica a 55432 — os dois repositórios têm de poder estar de pé ao mesmo
+    # tempo, que é precisamente a situação de quem compara o v2 com o v1.
+    #
+    # ⚠️ Só em 127.0.0.1, nunca 0.0.0.0: no dia em que isto corra num VPS, um
+    # bind em todas as interfaces põe a base de dados na internet.
+    ports:
+      - "127.0.0.1:${PG_PORTA:-55433}:5432"
+
+    environment:
+      POSTGRES_USER: ${PG_UTILIZADOR:-simulador}
+      POSTGRES_PASSWORD: ${PG_PASSWORD:-simulador}
+      POSTGRES_DB: ${PG_BASE:-simulador}
+
+    # ⚠️ `/var/lib/postgresql` e **não** `/var/lib/postgresql/data`. Nas imagens
+    # 18+ os dados passaram a viver numa subpasta com o nome da major, e a
+    # imagem **recusa arrancar** se encontrar um mount no caminho antigo:
+    #
+    #   Error: in 18+, these Docker images are configured to store database data
+    #          in a format which is compatible with "pg_ctlcluster" [...]
+    #          there appears to be PostgreSQL data in:
+    #            /var/lib/postgresql/data (unused mount/volume)
+    #
+    # O compose do v1 tem a linha antiga. Copiá-la para aqui não degrada — mata
+    # o contentor à saída.
+    volumes:
+      - pgdata:/var/lib/postgresql
+
+    # ⚠️ O `-h 127.0.0.1` não é enfeite. A entrada da imagem corre o `initdb` e
+    # depois um servidor **temporário** com `listen_addresses=''` — só socket
+    # unix — para aplicar a inicialização. Esse servidor responde a um
+    # `pg_isready` sem `-h`, e a seguir é desligado. Medido, sonda de 100 ms por
+    # dentro do contentor com volume limpo:
+    #
+    #   socket=nao tcp=nao   (×11)
+    #   socket=SIM tcp=nao   ← o servidor do initdb: pronto por socket
+    #   socket=nao tcp=nao   ← e já desligado
+    #   socket=SIM tcp=SIM   ← só aqui é o servidor a sério
+    #
+    # Sem o `-h`, o healthcheck fica verde na 12.ª amostra, o `--wait` devolve, e
+    # o que vier a seguir liga-se a um servidor que está prestes a desaparecer.
+    # Falha intermitente, que é a pior espécie. Forçar TCP exclui o servidor de
+    # inicialização por construção: esse não escuta em TCP nenhum.
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -h 127.0.0.1 -U ${PG_UTILIZADOR:-simulador} -d ${PG_BASE:-simulador}
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  redis:
+    image: redis:8.8-alpine
+
+    ports:
+      - "127.0.0.1:${REDIS_PORTA:-56379}:6379"
+
+    # ⚠️ O `--save ''` desliga os snapshots RDB, porque o default da imagem
+    # **persiste**. Medido, `CONFIG GET save` num contentor sem argumentos:
+    #
+    #   save  3600 1 300 100 60 10000      (dir=/data)
+    #
+    # Aqui só vive cache e o *gate* por banco (ARQUITETURA.md §7): perder o
+    # conteúdo é inconsequente por construção — mas **recuperá-lo** não é. Um
+    # `stop`/`start` do mesmo contentor recarregaria um `dump.rdb` com taxas de
+    # ontem, e a §7 diz que a validade nunca atravessa a viragem do dia.
+    #
+    # O `--appendonly no` fica de fora de propósito: já é o default medido, e uma
+    # linha que finge fazer alguma coisa é pior do que não a ter.
+    command: redis-server --save ''
+
+    # Sem volume, e é literal: ao contrário da imagem do postgres, esta não
+    # declara `VOLUME` nenhum (`docker inspect` → `Volumes: null`), por isso não
+    # nasce um volume anónimo a cada recriação.
+
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep -q PONG"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  pgdata:
