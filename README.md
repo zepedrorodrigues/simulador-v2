@@ -38,6 +38,7 @@ técnica sobre os bancos — o que se apurou sobre cada um está preservado em
 | `goose` | 3.27.3 | `go.mod`, bloco `tool` |
 | `golangci-lint` | 2.12.2 | `go.mod`, bloco `tool` |
 | `oapi-codegen` | 2.8.0 | `go.mod`, bloco `tool` |
+| `make` | GNU make | não fixado — só invoca; em Windows, `winget install ezwinports.make` |
 
 As quatro ferramentas de geração e lint correm-se **pelo módulo**, não pelo
 `PATH`:
@@ -56,9 +57,14 @@ garantia — nesta máquina, por exemplo, o `golangci-lint` instalado por
 para o último v1. Correr o lint pelo `PATH` linta com outra ferramenta que não a
 do repositório.
 
-O `golangci-lint` v2 tem esquema de configuração próprio (`version: "2"` no
-`.golangci.yml`). Ainda não há configuração — entra com o [issue #3](../../issues/3),
-que traz o `Makefile` e os alvos do portão.
+O `golangci-lint` v2 tem esquema de configuração próprio, e o `.golangci.yml`
+deste repositório está nele (`version: "2"` no topo). Uma configuração v1 seria
+ignorada em silêncio.
+
+O portão corre-se por `make verificar` — `go tool golangci-lint run ./...` e
+`go test -race ./...`, o repositório todo e não um subconjunto. Os alvos `dev` e
+`gerar` entram com os issues que criam os ficheiros de que dependem
+([#3](../../issues/3) o `docker-compose`, [#5](../../issues/5) o `sqlc`).
 
 ## Bancos
 
