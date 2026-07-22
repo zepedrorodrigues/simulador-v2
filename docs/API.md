@@ -246,7 +246,15 @@ continua a funcionar. Remover ou mudar o tipo de um campo obriga a `/api/v2` a
 correr em paralelo até a app estar actualizada nas lojas — ⚠️ com uma app móvel
 publicada **não se pode assumir que o cliente actualiza**.
 
-`/api/rate-catalog` não é versionada porque não muda. Se um dia tiver de mudar
-(ver a ideia de cache decomposta na issue #22 do v1, que separava o spread lento
-da Euribor rápida), isso é um endpoint novo, com o antigo a servir até o
-`viabilidade-imobiliaria` migrar.
+`/api/rate-catalog` não é versionada porque não muda — **por agora**.
+
+⚠️ **A congelação é interina.** O `viabilidade-imobiliaria` vai levar o mesmo
+tratamento que este repositório está a levar, e nessa altura o contrato
+redesenha-se **em conjunto**: nomes em português como o resto, e a decomposição
+spread/Euribor que a issue #22 do v1 propunha (guardar o spread, que se move
+devagar, e recalcular a parte que depende da Euribor, que fixa todos os dias).
+
+Até lá o formato antigo é lei, e por uma razão simples: o consumidor está em
+produção e não pede licença para ser partido. Quando chegar a altura, é um
+endpoint novo a nascer ao lado do antigo, e o antigo só desaparece depois de o
+outro repositório ter migrado.

@@ -112,12 +112,29 @@ fácil de adiar e a mais fácil de fazer mal cedo demais.
 
 ## A app React Native
 
-Repositório separado, ainda por criar. Arranca em paralelo com a **fase 1**,
-assim que `api/openapi.yaml` existir — os tipos TypeScript são gerados dele, por
-isso a app pode ser construída contra um servidor falso antes de o servidor a
-sério estar pronto.
+Repositório separado: **`simulador-v2-app`**. Arranca em paralelo com a **fase
+1**, assim que `api/openapi.yaml` existir (issue #6) — os tipos TypeScript são
+gerados dele, por isso a app constrói-se contra um servidor falso antes de o
+servidor a sério responder.
 
-Ecrãs especificados em [`docs/ECRAS.md`](docs/ECRAS.md).
+Ecrãs em [`docs/ECRAS.md`](docs/ECRAS.md), stack e fases em
+[`docs/APP.md`](docs/APP.md).
+
+⚠️ **A app impõe uma restrição ao backend, e é bloqueante:** com uma app nas
+lojas não se controla quem actualiza, por isso `/api/v1` **só pode mudar por
+acrescento**. E o caminho de «esta versão é demasiado antiga» custa pouco agora e
+é impossível de acrescentar quando já houver versões antigas no terreno — que é
+exactamente quando faz falta.
+
+## Uso responsável
+
+[`docs/USO-RESPONSAVEL.md`](docs/USO-RESPONSAVEL.md). O v1 era um script pessoal;
+o v2 é uma app publicada que corre os simuladores de dez bancos a partir do nosso
+IP. As decisões técnicas estão tomadas e estão espalhadas pelas issues (cache,
+quantização, tecto por IP, nunca tocar em endpoints de *lead*).
+
+⚠️ **As perguntas que exigem parecer jurídico são bloqueantes da publicação nas
+lojas** — não da fase 1. Estão na §3 desse documento e na issue própria.
 
 ---
 

@@ -23,7 +23,10 @@ técnica sobre os bancos — o que se apurou sobre cada um está preservado em
 | [`docs/DOSSIE-BANCOS.md`](docs/DOSSIE-BANCOS.md) | o que o v1 apurou sobre cada um dos 10 bancos |
 | [`docs/API.md`](docs/API.md) | as duas fronteiras HTTP |
 | [`docs/ECRAS.md`](docs/ECRAS.md) | os ecrãs da app |
+| [`docs/APP.md`](docs/APP.md) | a stack da app e o que ela impõe ao backend |
+| [`docs/USO-RESPONSAVEL.md`](docs/USO-RESPONSAVEL.md) | carga nos bancos, dados pessoais, e o que exige parecer |
 | [`PLAN.md`](PLAN.md) | as fases e a ordem |
+| [`RESUME.md`](RESUME.md) | estado da sessão e próximos passos |
 
 ## Bancos
 

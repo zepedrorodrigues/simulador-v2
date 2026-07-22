@@ -246,6 +246,13 @@ aviso. Há um teste de contrato dedicado.
 Sem chave configurada o catálogo fica aberto — é o comportamento de
 desenvolvimento, e é um aviso alto no arranque.
 
+⚠️ **A congelação é interina, não permanente.** O `viabilidade-imobiliaria` vai
+levar o mesmo tratamento que este repositório está a levar. Quando isso
+acontecer, o contrato redesenha-se **em conjunto** — com os nomes em português e
+com a decomposição spread/Euribor que a issue #22 do v1 propunha. Até lá, o
+formato antigo é lei: quem consome está em produção e não pede licença para
+partir.
+
 ## 7. Cache e capacidade
 
 O v1 mediu isto a sério; o v2 começa já do outro lado da medição.
