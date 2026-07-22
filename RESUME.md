@@ -22,6 +22,20 @@ de `ARQUITETURA.md` §3, e o `Makefile` com `verificar`. Verificado por reversã
 um `import` proibido em cada camada reprova o portão a nomear a camada de onde
 parte.
 
+O issue #3 está fechado: `docker-compose.yml` com PostgreSQL 18.4 em
+`127.0.0.1:55433` e Redis 8.8 em `127.0.0.1:56379`, `.env.example`, e os alvos
+`dev`/`parar`/`limpar`. Máquina limpa sem `.env`: 5,5 s até ambos responderem;
+segunda corrida 0,8 s sem recriar nada. Dois achados que ficaram comentados no
+compose, porque cada um custaria uma sessão a descobrir por acidente:
+
+- ⚠️ **O `postgres:18` recusa arrancar com o mount do v1.** Nas imagens 18+ é
+  `/var/lib/postgresql`, não `/var/lib/postgresql/data`. Copiar a linha do v1
+  mata o contentor à saída.
+- ⚠️ **`pg_isready` sem `-h 127.0.0.1` dá pronto cedo demais** — responde o
+  servidor temporário do `initdb`, que só escuta no socket unix. Com a janela do
+  `initdb` alargada a 5 s, o defeito dá **5 falsos positivos em 5**; com o `-h`,
+  **0 em 5**.
+
 ## O que está decidido
 
 - **Go**, PostgreSQL, Redis, `chi`, `pgx` + `sqlc`, `goose`, OpenAPI escrito à mão
@@ -36,10 +50,16 @@ parte.
 
 ## Próximo passo
 
-**Issue #3 — `docker-compose` com PostgreSQL e Redis.** O `Makefile` já existe;
-o #3 acrescenta-lhe o alvo `dev`. Depois, pela ordem do `PLAN.md`: #4 (migrações)
-→ #5 (`sqlc`, que traz o alvo `gerar`) → #6 (openapi.yaml, que desbloqueia a app
-em paralelo).
+**Issue #4 — migrações iniciais (`goose`): `catalogo_taxas` e `limites`.** O
+ambiente já está de pé (`make dev`), e as tabelas estão desenhadas em
+`ARQUITETURA.md` §4 — `numeric` e não `float`, `timestamptz` e não instante
+ingénuo, `jsonb` e não `text`. Depois, pela ordem do `PLAN.md`: #5 (`sqlc`, que
+traz o alvo `gerar`) → #6 (openapi.yaml, que desbloqueia a app em paralelo).
+
+⚠️ **Decisão que o #4 força e o #3 não tomou:** se o portão passa a exigir os
+serviços de pé. Um teste que confirme a ligação faz o `go test -race ./...`
+depender do Docker. É coerente com a decisão herdada do v1 — os testes correm no
+mesmo motor que a produção — mas tem preço, e não havia nada para ligar ainda.
 
 ⚠️ Correr o lint por `go tool golangci-lint run ./...` — é o que o `make
 verificar` faz. O `golangci-lint` do `PATH` desta máquina é o v1.64.8 e não lê o

@@ -39,6 +39,9 @@ técnica sobre os bancos — o que se apurou sobre cada um está preservado em
 | `golangci-lint` | 2.12.2 | `go.mod`, bloco `tool` |
 | `oapi-codegen` | 2.8.0 | `go.mod`, bloco `tool` |
 | `make` | GNU make | não fixado — só invoca; em Windows, `winget install ezwinports.make` |
+| PostgreSQL | 18.4 (`postgres:18.4-alpine`) | `docker-compose.yml` |
+| Redis | 8.8 (`redis:8.8-alpine`) | `docker-compose.yml` |
+| Docker Compose | v2+ | não fixado — o `make dev` usa `--wait`, que existe desde a v2 |
 
 As quatro ferramentas de geração e lint correm-se **pelo módulo**, não pelo
 `PATH`:
@@ -62,9 +65,39 @@ deste repositório está nele (`version: "2"` no topo). Uma configuração v1 se
 ignorada em silêncio.
 
 O portão corre-se por `make verificar` — `go tool golangci-lint run ./...` e
-`go test -race ./...`, o repositório todo e não um subconjunto. Os alvos `dev` e
-`gerar` entram com os issues que criam os ficheiros de que dependem
-([#3](../../issues/3) o `docker-compose`, [#5](../../issues/5) o `sqlc`).
+`go test -race ./...`, o repositório todo e não um subconjunto. O alvo `gerar`
+entra com o issue que cria os ficheiros de que depende
+([#5](../../issues/5), o `sqlc`).
+
+## Ambiente de desenvolvimento
+
+```
+make dev      # sobe PostgreSQL e Redis, e espera que respondam de facto
+make parar    # pára, guardando os dados
+make limpar   # pára e leva o volume do PostgreSQL à frente
+```
+
+O `make dev` funciona numa máquina limpa **sem `.env` nenhum** — tudo tem default
+no `docker-compose.yml`. O `.env.example` documenta o que se pode afinar, e
+cresce com cada issue que traga um sítio novo a ler ambiente.
+
+| serviço | porta | notas |
+|---|---|---|
+| PostgreSQL | `127.0.0.1:55433` | dados em volume nomeado `pgdata` |
+| Redis | `127.0.0.1:56379` | efémero de propósito, sem volume |
+
+⚠️ **Portas fora das habituais, e fora das do v1.** A 5432 costuma estar ocupada
+por um PostgreSQL nativo na máquina de desenvolvimento, e o
+`simulador-credito-habitacao` publica a 55432 — os dois repositórios têm de poder
+estar de pé ao mesmo tempo, que é a situação de quem compara o v2 com o v1. Ambas
+publicadas só no *loopback*: um bind em `0.0.0.0` punha a base de dados na
+internet no dia em que isto corresse num VPS.
+
+O `make dev` não usa `sleep`: espera pelos healthchecks do compose, que são
+literalmente o `pg_isready` e o `redis-cli ping`. ⚠️ O `pg_isready` leva
+`-h 127.0.0.1` de propósito — sem ele responde o servidor temporário do `initdb`,
+que só escuta no socket unix e é desligado a seguir. A razão está comentada no
+`docker-compose.yml`, com a medição.
 
 ## Bancos
 
