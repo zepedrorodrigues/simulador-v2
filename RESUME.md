@@ -8,10 +8,12 @@ força; este fica curto por construção.
 
 ## Onde estamos
 
-**Planeamento fechado, zero linhas de código.**
+**Toolchain instalada e fixada. Zero linhas de código de negócio.**
 
 O desenho está feito e é vinculativo (`docs/ARQUITETURA.md`). O backlog está nas
-issues 1-27. Nada foi implementado.
+issues 1-27. O issue #1 está fechado: Go 1.26.5 e Node 24.18.0 instalados, e as
+quatro ferramentas de geração fixadas no bloco `tool` do `go.mod` — correm-se por
+`go tool …`, nunca pelo `PATH` (ver README, secção Toolchain).
 
 ## O que está decidido
 
@@ -27,12 +29,15 @@ issues 1-27. Nada foi implementado.
 
 ## Próximo passo
 
-**Issue #1 — instalar a toolchain.** ⚠️ Medido nesta máquina: **o Go não está
-instalado e o Node também não.** Estão o Docker e o `gh`. Nada arranca antes
-disto.
+**Issue #2 — esqueleto de pacotes e `depguard`.** O `go.mod` já existe
+(`github.com/zepedrorodrigues/simulador-v2`), por isso o #2 começa nas pastas e
+na regra de dependência, não na iniciação do módulo.
 
-Depois, pela ordem do `PLAN.md`: #2 (esqueleto + `depguard`) → #3 (docker-compose)
-→ #4 (migrações) → #6 (openapi.yaml, que desbloqueia a app em paralelo).
+Depois, pela ordem do `PLAN.md`: #3 (docker-compose + `Makefile`) → #4 (migrações)
+→ #6 (openapi.yaml, que desbloqueia a app em paralelo).
+
+⚠️ O `.golangci.yml` do #3 tem de ser **esquema v2** (`version: "2"` no topo): o
+repositório fixa o golangci-lint 2.12.2, e a configuração v1 não é lida.
 
 ## O que está por resolver
 
