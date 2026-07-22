@@ -1,0 +1,4 @@
+# Fins de linha LF em toda a árvore, incluindo em Windows. O `sqlc` e o
+# `oapi-codegen` escrevem LF; sem isto o ficheiro gerado sai do `make gerar`
+# diferente do que está no índice, e o portão acusa geração desactualizada.
+* text=auto eol=lf
