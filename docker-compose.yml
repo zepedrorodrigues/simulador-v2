@@ -75,10 +75,10 @@ services:
     #
     #   save  3600 1 300 100 60 10000      (dir=/data)
     #
-    # Aqui só vive cache e o *gate* por banco (ARQUITETURA.md §7): perder o
-    # conteúdo é inconsequente por construção — mas **recuperá-lo** não é. Um
-    # `stop`/`start` do mesmo contentor recarregaria um `dump.rdb` com taxas de
-    # ontem, e a §7 diz que a validade nunca atravessa a viragem do dia.
+    # Aqui só vive cache e o *gate* por banco: perder o conteúdo é inconsequente
+    # por construção — mas **recuperá-lo** não é. Um `stop`/`start` do mesmo
+    # contentor recarregaria um `dump.rdb` com taxas de ontem, e a validade da
+    # cache nunca pode atravessar a viragem do dia (a Euribor fixa diariamente).
     #
     # O `--appendonly no` fica de fora de propósito: já é o default medido, e uma
     # linha que finge fazer alguma coisa é pior do que não a ter.

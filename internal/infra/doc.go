@@ -3,5 +3,5 @@
 //
 // É a única camada que pode importar todas as outras. Os tipos que saem em JSON
 // vivem aqui e são distintos dos tipos de dominio: são a fronteira publicada e
-// versionada (docs/ARQUITETURA.md §3).
+// versionada, que não pode mudar só porque o domínio mudou.
 package infra
