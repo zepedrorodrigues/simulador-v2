@@ -28,6 +28,38 @@ técnica sobre os bancos — o que se apurou sobre cada um está preservado em
 | [`PLAN.md`](PLAN.md) | as fases e a ordem |
 | [`RESUME.md`](RESUME.md) | estado da sessão e próximos passos |
 
+## Toolchain
+
+| ferramenta | versão | onde está fixada |
+|---|---|---|
+| Go | 1.26.5 | `go.mod` (`go 1.26.5`) |
+| Node | 24.18.0 LTS | aqui — o `openapi-typescript` ainda não entrou |
+| `sqlc` | 1.31.1 | `go.mod`, bloco `tool` |
+| `goose` | 3.27.3 | `go.mod`, bloco `tool` |
+| `golangci-lint` | 2.12.2 | `go.mod`, bloco `tool` |
+| `oapi-codegen` | 2.8.0 | `go.mod`, bloco `tool` |
+
+As quatro ferramentas de geração e lint correm-se **pelo módulo**, não pelo
+`PATH`:
+
+```
+go tool sqlc generate
+go tool goose ...
+go tool golangci-lint run ./...
+go tool oapi-codegen ...
+```
+
+É o que garante que a geração dá o mesmo resultado em qualquer máquina: a
+versão vem do `go.mod` e o `go.sum` verifica-a. Um binário do `PATH` não dá essa
+garantia — nesta máquina, por exemplo, o `golangci-lint` instalado por
+`go install` era o **v1.64.8**, porque o caminho do módulo sem `/v2` só resolve
+para o último v1. Correr o lint pelo `PATH` linta com outra ferramenta que não a
+do repositório.
+
+O `golangci-lint` v2 tem esquema de configuração próprio (`version: "2"` no
+`.golangci.yml`). Ainda não há configuração — entra com o [issue #3](../../issues/3),
+que traz o `Makefile` e os alvos do portão.
+
 ## Bancos
 
 Nenhum implementado ainda. A ordem está na [fase 1 do plano](PLAN.md#fase-1--a-fatia-vertical):
