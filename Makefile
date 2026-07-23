@@ -4,15 +4,26 @@
 # depende. Um alvo nasce quando se pode ver a funcionar. O sqlc entra agora (#5);
 # o oapi-codegen junta-se com o api/openapi.yaml (#6).
 
-.PHONY: verificar lint teste gerar dev parar limpar
+.PHONY: verificar gerado lint teste gerar dev parar limpar
 
-verificar: lint teste
+verificar: gerado lint teste
 
 # `go tool` e não os binários do PATH: as versões estão fixadas no bloco `tool`
 # do go.mod. O sqlc lê db/sqlc.yaml e escreve internal/infra/bd/ — código
 # gerado, nunca editado à mão.
 gerar:
 	go tool sqlc generate -f db/sqlc.yaml
+
+# O gerado é versionado e tem de estar em dia: regenera e reprova se sobrar
+# qualquer diferença face ao que está committado. É o portão que apanha quem
+# altera uma query e se esquece de gerar — sem ele, a fonte .sql e o código
+# gerado divergem em silêncio. `--porcelain` apanha tanto o ficheiro alterado
+# (rastreado) como um .sql.go novo por acrescentar (não rastreado).
+gerado: gerar
+	@test -z "$$(git status --porcelain -- internal/infra/bd)" || { \
+		echo "código gerado desactualizado — corre 'make gerar' e committa internal/infra/bd/:"; \
+		git status --porcelain -- internal/infra/bd; \
+		exit 1; }
 
 # `go tool` e não `golangci-lint`: o binário do PATH pode ser um v1, que não lê
 # o .golangci.yml v2 deste repositório.
