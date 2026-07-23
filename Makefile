@@ -1,11 +1,18 @@
 # O portão. Corre-se inteiro — não um subconjunto.
 #
 # `gerar` (sqlc + oapi-codegen) entra aqui no issue que cria os ficheiros de que
-# depende. Um alvo nasce quando se pode ver a funcionar.
+# depende. Um alvo nasce quando se pode ver a funcionar. O sqlc entra agora (#5);
+# o oapi-codegen junta-se com o api/openapi.yaml (#6).
 
-.PHONY: verificar lint teste dev parar limpar
+.PHONY: verificar lint teste gerar dev parar limpar
 
 verificar: lint teste
+
+# `go tool` e não os binários do PATH: as versões estão fixadas no bloco `tool`
+# do go.mod. O sqlc lê db/sqlc.yaml e escreve internal/infra/bd/ — código
+# gerado, nunca editado à mão.
+gerar:
+	go tool sqlc generate -f db/sqlc.yaml
 
 # `go tool` e não `golangci-lint`: o binário do PATH pode ser um v1, que não lê
 # o .golangci.yml v2 deste repositório.
