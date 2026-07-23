@@ -1,0 +1,20 @@
+# sqlc — gera o acesso a dados a partir do esquema (as migrações goose) e das
+# queries em queries/. Corre-se por `make gerar` (go tool sqlc), nunca à mão:
+# o código gerado é reconstruído e edições manuais desaparecem.
+#
+# O output vive em internal/infra/bd/ — é infra, a camada que sabe que existe
+# base de dados (ARQUITETURA.md §3). numeric fica pgtype.Numeric na fronteira
+# (§4), convertido para shopspring/decimal já no domínio.
+version: "2"
+
+sql:
+  - engine: "postgresql"
+    schema: "migracoes"
+    queries: "queries"
+    gen:
+      go:
+        package: "bd"
+        out: "../internal/infra/bd"
+        sql_package: "pgx/v5"
+        emit_interface: true
+        emit_empty_slices: true
