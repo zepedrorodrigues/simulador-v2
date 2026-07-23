@@ -6,27 +6,37 @@ simuladores públicos ao vivo, e publica a série temporal do preçário de merc
 **Go · PostgreSQL · Redis · chi · pgx/sqlc · OpenAPI.** Serve **apenas JSON**: a
 interface é uma app React Native, em repositório à parte.
 
-> **Estado: em planeamento.** Ainda não há código. O desenho está fechado e o
-> trabalho está nas issues. Ver [`PLAN.md`](PLAN.md).
+> **Estado: em planeamento.** Ainda não há código de negócio — só as fundações.
 
 Reescrita do [`simulador-credito-habitacao`](../simulador-credito-habitacao)
 (Python/FastAPI, 10 bancos, a funcionar). O v1 continua a ser a referência
-técnica sobre os bancos — o que se apurou sobre cada um está preservado em
-[`docs/DOSSIE-BANCOS.md`](docs/DOSSIE-BANCOS.md).
+técnica sobre os bancos.
 
 ## Documentos
 
+⚠️ **O desenho não é versionado neste repositório.** Vive num espaço Confluence
+privado. É decisão, não esquecimento: o código é aberto de propósito, o
+planeamento não.
+
 | documento | o que decide |
 |---|---|
-| [`docs/ARQUITETURA.md`](docs/ARQUITETURA.md) | camadas, modelo de dados, cache, portões. **Vinculativo.** |
-| [`docs/CONTRATO-BANCO.md`](docs/CONTRATO-BANCO.md) | como se acrescenta um banco, e a disciplina de captura primeiro |
-| [`docs/DOSSIE-BANCOS.md`](docs/DOSSIE-BANCOS.md) | o que o v1 apurou sobre cada um dos 10 bancos |
-| [`docs/API.md`](docs/API.md) | as duas fronteiras HTTP |
-| [`docs/ECRAS.md`](docs/ECRAS.md) | os ecrãs da app |
-| [`docs/APP.md`](docs/APP.md) | a stack da app e o que ela impõe ao backend |
-| [`docs/USO-RESPONSAVEL.md`](docs/USO-RESPONSAVEL.md) | carga nos bancos, dados pessoais, e o que exige parecer |
-| [`PLAN.md`](PLAN.md) | as fases e a ordem |
-| [`RESUME.md`](RESUME.md) | estado da sessão e próximos passos |
+| `ARQUITETURA` | as quatro camadas, o modelo de dados, a política de cache e os portões. **Vinculativo** — quando o código diverge dele, um dos dois está errado |
+| `CONTRATO-BANCO` | como se acrescenta um banco, e a disciplina de captura antes de código |
+| `DOSSIE-BANCOS` | o que se apurou sobre cada um dos dez bancos |
+| `API` | as duas fronteiras HTTP e os seus estatutos diferentes |
+| `ECRAS` | os ecrãs da app React Native |
+| `APP` | a stack da app e o que ela impõe ao servidor |
+| `USO-RESPONSAVEL` | carga nos bancos, dados pessoais, e o que exige parecer jurídico |
+| `PLAN` | as seis fases e a ordem entre elas |
+| `RESUME` | estado actual e próximos passos |
+
+**Pedir acesso:** abre uma [issue](../../issues) a dizer quem és e para que
+precisas, ou fala com o dono do repositório
+([@zepedrorodrigues](https://github.com/zepedrorodrigues)). É dado caso a caso.
+
+Não precisas de acesso nenhum para duas coisas. **Pôr isto a correr localmente:**
+está tudo abaixo. **Perceber porque é que o portão te reprovou:** as mensagens do
+`depguard` enunciam a regra violada, sem remeter para documento nenhum.
 
 ## Toolchain
 
@@ -101,10 +111,10 @@ que só escuta no socket unix e é desligado a seguir. A razão está comentada 
 
 ## Bancos
 
-Nenhum implementado ainda. A ordem está na [fase 1 do plano](PLAN.md#fase-1--a-fatia-vertical):
-CGD, Novo Banco, Montepio e Banco CTT primeiro — todos de HTTP puro, sem browser.
-Depois Santander e Crédito Agrícola. Por último os quatro que exigem browser
-(ActivoBank, Millennium BCP, Bankinter, BPI).
+Nenhum implementado ainda. A ordem é: CGD, Novo Banco, Montepio e Banco CTT
+primeiro — todos de HTTP puro, sem browser. Depois Santander e Crédito Agrícola.
+Por último os quatro que exigem browser (ActivoBank, Millennium BCP, Bankinter,
+BPI).
 
 ## Fronteiras
 
@@ -115,6 +125,26 @@ Depois Santander e Crédito Agrícola. Por último os quatro que exigem browser
 
 ## Uso responsável
 
-Corre simuladores **públicos** dos bancos, com frequência baixa e cache, e nunca
-endpoints de registo de contactos. Os valores são **indicativos** — não são
-propostas nem aconselhamento financeiro.
+O documento completo é interno; esta parte fica pública de propósito, porque uma
+postura escondida não é postura.
+
+- **Só simuladores públicos.** O servidor interroga os simuladores de crédito que
+  os bancos publicam nos seus sites. **Nunca** endpoints de registo de contactos,
+  de marcação ou de envio de propostas — não se geram *leads* nem se entrega o
+  que quer que seja a um banco em nome de ninguém.
+- **Frequência baixa, e cache a sério.** Cada comparação custa dezenas de
+  segundos de trabalho aos servidores dos bancos, e parte do nosso IP. Por isso
+  há cache com validade ajustada ao custo de cada banco, um *gate* que impede o
+  mesmo banco de ser interrogado em paralelo, e um tecto de pedidos por IP. Não é
+  só protecção nossa — é não ser um peso para quem não pediu nada.
+- **Sem dados pessoais.** As simulações de utilizador **não são guardadas**: são
+  corridas e devolvidas. A única coisa persistida a longo prazo é a série de
+  mercado, varrida sobre cenários fixos com um titular neutro e fictício. Não há
+  contas, sessões, emails nem histórico por pessoa, e não vai haver.
+- **Os valores são indicativos.** São o que o simulador público de cada banco
+  devolveu, na data registada. **Não são propostas, não vinculam o banco e não
+  são aconselhamento financeiro.** Uma proposta a sério vem do banco, por escrito,
+  depois de avaliar quem a pede.
+- **Há perguntas em aberto, e estão assumidas como tal** — nomeadamente as que
+  exigem parecer jurídico antes de isto ser publicado numa loja de aplicações.
+  Não estão resolvidas por omissão.

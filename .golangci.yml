@@ -15,7 +15,8 @@ linters:
     - depguard
 
   settings:
-    # A regra de dependência de docs/ARQUITETURA.md §3, imposta e não prometida:
+    # A regra de dependência do projecto, imposta e não prometida. As camadas
+    # dependem só para dentro:
     #
     #   dominio    → (nada, além da stdlib)
     #   bancos     → dominio
@@ -32,51 +33,51 @@ linters:
             - "**/internal/dominio/**"
           deny:
             - pkg: github.com/zepedrorodrigues/simulador-v2/internal/bancos
-              desc: o dominio não depende de ninguém no projecto (ARQUITETURA.md §3)
+              desc: o dominio não depende de ninguém no projecto
             - pkg: github.com/zepedrorodrigues/simulador-v2/internal/aplicacao
-              desc: o dominio não depende de ninguém no projecto (ARQUITETURA.md §3)
+              desc: o dominio não depende de ninguém no projecto
             - pkg: github.com/zepedrorodrigues/simulador-v2/internal/infra
-              desc: o dominio não sabe que existe HTTP nem base de dados (ARQUITETURA.md §3)
+              desc: o dominio não sabe que existe HTTP nem base de dados
             - pkg: github.com/zepedrorodrigues/simulador-v2/cmd
-              desc: nenhuma camada importa o binário (ARQUITETURA.md §3)
+              desc: nenhuma camada importa o binário
 
         bancos:
           files:
             - "**/internal/bancos/**"
           deny:
             - pkg: github.com/zepedrorodrigues/simulador-v2/internal/aplicacao
-              desc: um banco é chamado pelo caso de uso, não o contrário (ARQUITETURA.md §3)
+              desc: um banco é chamado pelo caso de uso, não o contrário
             - pkg: github.com/zepedrorodrigues/simulador-v2/internal/infra
-              desc: um banco não sabe que existe base de dados nem cache (ARQUITETURA.md §3)
+              desc: um banco não sabe que existe base de dados nem cache
             - pkg: github.com/zepedrorodrigues/simulador-v2/cmd
-              desc: nenhuma camada importa o binário (ARQUITETURA.md §3)
+              desc: nenhuma camada importa o binário
 
         aplicacao:
           files:
             - "**/internal/aplicacao/**"
           deny:
             - pkg: github.com/zepedrorodrigues/simulador-v2/internal/infra
-              desc: o caso de uso não sabe se foi chamado por HTTP ou pela linha de comandos (ARQUITETURA.md §3)
+              desc: o caso de uso não sabe se foi chamado por HTTP ou pela linha de comandos
             - pkg: github.com/zepedrorodrigues/simulador-v2/cmd
-              desc: nenhuma camada importa o binário (ARQUITETURA.md §3)
+              desc: nenhuma camada importa o binário
 
         infra:
           files:
             - "**/internal/infra/**"
           deny:
             - pkg: github.com/zepedrorodrigues/simulador-v2/cmd
-              desc: nenhuma camada importa o binário (ARQUITETURA.md §3)
+              desc: nenhuma camada importa o binário
 
         cmd:
           files:
             - "**/cmd/**"
           deny:
             - pkg: github.com/zepedrorodrigues/simulador-v2/internal/dominio
-              desc: o binário monta o que a infra construir; o resto chega por lá (ARQUITETURA.md §3)
+              desc: o binário monta o que a infra construir; o resto chega por lá
             - pkg: github.com/zepedrorodrigues/simulador-v2/internal/bancos
-              desc: o binário monta o que a infra construir; o resto chega por lá (ARQUITETURA.md §3)
+              desc: o binário monta o que a infra construir; o resto chega por lá
             - pkg: github.com/zepedrorodrigues/simulador-v2/internal/aplicacao
-              desc: o binário monta o que a infra construir; o resto chega por lá (ARQUITETURA.md §3)
+              desc: o binário monta o que a infra construir; o resto chega por lá
 
 formatters:
   # No esquema v2 o gofumpt é formatador, não linter — `run` reporta o que

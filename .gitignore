@@ -11,3 +11,20 @@
 # Ferramentas
 /tmp/
 .DS_Store
+
+# Documentação interna — vive no Confluence privado, não neste repositório.
+# Ver a secção "Documentos" do README. Continuam no disco de quem tem acesso.
+#
+# ⚠️ `git clean -xdf` APAGA-OS: o `-x` remove precisamente o que está ignorado.
+# `git clean -df`, sem o `-x`, não lhes toca. Se acontecer, repõem-se do
+# Confluence — não há outra cópia.
+/CLAUDE.md
+/PLAN.md
+/RESUME.md
+/docs/ARQUITETURA.md
+/docs/CONTRATO-BANCO.md
+/docs/DOSSIE-BANCOS.md
+/docs/API.md
+/docs/ECRAS.md
+/docs/APP.md
+/docs/USO-RESPONSAVEL.md
