@@ -5,7 +5,7 @@
 # pode ver a funcionar: o sqlc entrou no KAN-2, os dois do contrato entram agora
 # (KAN-3), com o api/openapi.yaml.
 
-.PHONY: verificar gerado lint teste gerar dev parar limpar
+.PHONY: verificar gerado lint teste teste-rede gerar dev parar limpar
 
 verificar: gerado lint teste
 
@@ -54,6 +54,17 @@ lint:
 # O -race não é opcional: o modelo é fan-out concorrente.
 teste:
 	go test -race ./...
+
+# Os testes que tocam a rede dos bancos, por trás de `//go:build rede`. NÃO
+# entram no portão: dependem de servidores de terceiros estarem de pé, e um
+# portão que amarela por causa disso deixa de ser lido. Correm-se à mão — é
+# assim que se confirma que um parser ainda corresponde ao que o banco devolve.
+#
+# A tag é a forma escolhida de propósito, e não `testing.Short()`: assim o
+# comando do portão não muda uma vírgula — continua a ser `go test -race ./...`
+# — e não há caminho por onde estes testes corram sem se pedirem.
+teste-rede:
+	go test -race -tags rede ./...
 
 # PostgreSQL e Redis locais. O `--wait` espera pelos healthchecks do
 # `docker-compose.yml`, e esses são literalmente o `pg_isready` e o `redis-cli
