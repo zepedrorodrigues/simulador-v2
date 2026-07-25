@@ -10,6 +10,25 @@
 #   /api/rate-catalog  ⚠️ CONGELADA. Inglês e snake_case, ao contrário de todo o
 #                    resto — o viabilidade-imobiliaria lê-a em produção e mudá-la
 #                    parte-o sem aviso. Não "arrumar" os nomes.
+#
+# O que atravessa a fronteira para o repositório da app é ESTE ficheiro, não o
+# api/tipos-app.d.ts. A app corre o openapi-typescript dela sobre este yaml e
+# põe do lado dela o mesmo portão que o `gerado` faz aqui. Não se publica pacote
+# npm, e a decisão tem fundamento e não é preguiça:
+#
+#   - a regra do TypeScript («bundle os tipos se são gerados a partir da tua
+#     fonte») decide onde os tipos viajam relativamente a um pacote. Aqui não há
+#     pacote nenhum: o simulador-v2 serve JSON e não publica runtime JavaScript;
+#   - publicar em npm justifica-se com consumidores públicos e desconhecidos a
+#     quem é preciso prometer semver — o @octokit/openapi-types é esse caso.
+#     Aqui há um consumidor, conhecido;
+#   - um pacote publicado seria uma segunda cópia do contrato, versionada à
+#     parte e capaz de ficar para trás. O portão `gerado` não alcança o que está
+#     fora do repositório, e é essa divergência em silêncio que ele existe para
+#     impedir.
+#
+# O api/tipos-app.d.ts fica como conveniência interna e prova de que o yaml
+# gera; o package.json continua "private": true.
 openapi: 3.0.3
 info:
   title: simulador-v2

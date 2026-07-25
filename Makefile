@@ -11,7 +11,7 @@ verificar: gerado lint teste
 
 # Tudo o que é gerado e versionado. O `gerado` compara estes caminhos face ao
 # committado; se `gerar` os mexer, o portão apanha-o.
-GERADOS := internal/infra/bd api/api.gen.go api/tipos-app.ts
+GERADOS := internal/infra/bd api/api.gen.go api/tipos-app.d.ts
 
 # node_modules reposto quando o lock muda — é só o openapi-typescript fixado no
 # package-lock.json. `npm ci` instala exactamente o lock, sem o mexer.
@@ -23,12 +23,17 @@ node_modules: package-lock.json
 # do go.mod. Cada gerador lê a sua fonte e escreve código gerado, nunca editado
 # à mão:
 #   sqlc              db/sqlc.yaml         → internal/infra/bd/
-#   oapi-codegen      api/openapi.yaml     → api/api.gen.go   (package api)
-#   openapi-typescript api/openapi.yaml    → api/tipos-app.ts (tipos da app)
+#   oapi-codegen      api/openapi.yaml     → api/api.gen.go     (package api)
+#   openapi-typescript api/openapi.yaml    → api/tipos-app.d.ts (tipos da app)
+#
+# A saída do openapi-typescript é `.d.ts` e não `.ts` porque não tem uma única
+# linha de runtime — só `interface` e `type`. É a convenção de ficheiro de
+# declarações do TypeScript, e é a extensão que a documentação do próprio
+# openapi-typescript usa nos exemplos.
 gerar: node_modules
 	go tool sqlc generate -f db/sqlc.yaml
 	go tool oapi-codegen -config api/oapi-codegen.yaml api/openapi.yaml
-	npx openapi-typescript api/openapi.yaml -o api/tipos-app.ts
+	npx openapi-typescript api/openapi.yaml -o api/tipos-app.d.ts
 
 # O gerado é versionado e tem de estar em dia: regenera e reprova se sobrar
 # qualquer diferença face ao que está committado. É o portão que apanha quem
