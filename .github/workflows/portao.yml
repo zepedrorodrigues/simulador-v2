@@ -1,0 +1,77 @@
+# O portão, no CI. É o mesmo portão da máquina: os passos abaixo invocam os
+# alvos do Makefile, não uma reimplementação deles. Se um dia divergirem, o que
+# mente é sempre o que passa.
+#
+# Não há `services:` de propósito. O teste de integração sobe o seu próprio
+# Postgres por testcontainers-go (um contentor por teste, postgres:18.4-alpine,
+# a mesma imagem do docker-compose). O que o runner tem de ter é Docker, e o
+# ubuntu-24.04 traz o Server 28.0.4. Uma base declarada aqui não seria aberta
+# por teste nenhum.
+name: portao
+
+on:
+  push:
+    branches: [development, main]
+  pull_request:
+    branches: [development, main]
+
+# Um push novo cancela a corrida velha do mesmo ref. O push em `development`
+# não é redundante com o do PR: é ele que popula a cache do ramo base, e um PR
+# só restaura cache do ramo de onde saiu.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# O portão lê e mais nada: não escreve no repositório, não publica, e não
+# precisa de segredo nenhum.
+permissions:
+  contents: read
+
+jobs:
+  verificar:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    env:
+      # A toolchain é a que o setup-go instalou, e mais nenhuma. Sem isto, uma
+      # divergência futura entre o `go 1.26.5` do go.mod e a versão instalada
+      # descarregava outra toolchain em silêncio; com `local`, falha alto.
+      GOTOOLCHAIN: local
+
+    steps:
+      # ⚠️ Acções pinadas por SHA, não por tag: uma tag move-se, um SHA não.
+      # O comentário ao lado diz a versão legível — actualizam-se os dois juntos.
+      - name: obter a árvore
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # Instala o Go que o `go 1.26.5` do go.mod pede, e restaura GOMODCACHE e
+      # GOCACHE — medido no código da acção, guarda os dois. É por isso que as
+      # ferramentas do bloco `tool` só se compilam quando o go.sum muda: a frio
+      # custam 4m26s, das quais 1m54s só o golangci-lint.
+      #
+      # ⚠️ `cache-dependency-path: go.sum` não é o default. Desde a v6 a chave
+      # sai do go.mod; é o go.sum que determina o que se compila.
+      - name: instalar o Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+
+      # O `make gerado` corre `npm ci` para o openapi-typescript.
+      - name: instalar o Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      # Os três alvos do `make verificar`, pela mesma ordem. Em passos separados
+      # só para a falha dizer qual dos três foi — não custa nada e lê-se melhor.
+      - name: o gerado em dia
+        run: make gerado
+
+      - name: lint do repositório todo
+        run: make lint
+
+      - name: testes com -race
+        run: make teste

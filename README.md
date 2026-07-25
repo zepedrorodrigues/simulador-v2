@@ -52,6 +52,7 @@ está tudo abaixo. **Perceber porque é que o portão te reprovou:** as mensagen
 | PostgreSQL | 18.4 (`postgres:18.4-alpine`) | `docker-compose.yml` |
 | Redis | 8.8 (`redis:8.8-alpine`) | `docker-compose.yml` |
 | Docker Compose | v2+ | não fixado — o `make dev` usa `--wait`, que existe desde a v2 |
+| Node | 24.18.0 LTS | `.nvmrc` |
 
 As quatro ferramentas de geração e lint correm-se **pelo módulo**, não pelo
 `PATH`:
@@ -74,10 +75,17 @@ O `golangci-lint` v2 tem esquema de configuração próprio, e o `.golangci.yml`
 deste repositório está nele (`version: "2"` no topo). Uma configuração v1 seria
 ignorada em silêncio.
 
-O portão corre-se por `make verificar` — `go tool golangci-lint run ./...` e
-`go test -race ./...`, o repositório todo e não um subconjunto. O alvo `gerar`
-entra com o issue que cria os ficheiros de que depende
-([#5](../../issues/5), o `sqlc`).
+O portão corre-se por `make verificar` — `make gerado`, `make lint` e
+`make teste`, o repositório todo e não um subconjunto.
+
+O CI corre exactamente esses três alvos, em `push` e em `pull_request` contra
+`development` e `main` (`.github/workflows/portao.yml`). Não é uma segunda
+definição do portão: é o mesmo Makefile. O runner precisa de **Docker** — o
+teste de integração sobe o seu próprio Postgres — e não de serviços declarados.
+
+Os testes que tocam a rede dos bancos ficam de fora, por trás de
+`//go:build rede`, e correm-se à mão com `make teste-rede`.
+
 
 ## Ambiente de desenvolvimento
 

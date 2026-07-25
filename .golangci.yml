@@ -6,6 +6,18 @@
 # não lê este ficheiro.
 version: "2"
 
+# ⚠️ O `rede` está aqui de propósito. Os testes que batem nos simuladores dos
+# bancos vivem por trás de `//go:build rede` e ficam fora do `go test ./...` do
+# portão — mas um ficheiro que não é compilado é um ficheiro onde um erro passa
+# despercebido. Declarar a tag aqui faz o linter type-checkar esses ficheiros na
+# mesma, ainda que o portão não os corra.
+#
+# Medido: com um erro de compilação num ficheiro `//go:build rede`, sem esta
+# linha o lint diz «0 issues» e sai 0; com ela, dá o erro de typecheck e sai 7.
+run:
+  build-tags:
+    - rede
+
 linters:
   # standard = errcheck, govet, staticcheck, ineffassign, unused.
   default: standard
