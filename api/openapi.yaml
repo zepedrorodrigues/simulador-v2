@@ -1,0 +1,770 @@
+# Contrato do simulador-v2 — a fonte da verdade.
+#
+# Daqui geram-se os tipos Go (oapi-codegen, package api) e os tipos TypeScript
+# da app (openapi-typescript). Ver docs/API.md para o porquê de cada decisão;
+# este ficheiro manda nos detalhes. Correr `make gerar` depois de qualquer
+# alteração — o portão reprova se o gerado ficar para trás.
+#
+# Duas fronteiras com estatutos diferentes:
+#   /api/v1/*        nossa, versionada, evolui com a app. Nomes em português.
+#   /api/rate-catalog  ⚠️ CONGELADA. Inglês e snake_case, ao contrário de todo o
+#                    resto — o viabilidade-imobiliaria lê-a em produção e mudá-la
+#                    parte-o sem aviso. Não "arrumar" os nomes.
+#
+# O que atravessa a fronteira para o repositório da app é ESTE ficheiro, não o
+# api/tipos-app.d.ts. A app corre o openapi-typescript dela sobre este yaml e
+# põe do lado dela o mesmo portão que o `gerado` faz aqui. Não se publica pacote
+# npm, e a decisão tem fundamento e não é preguiça:
+#
+#   - a regra do TypeScript («bundle os tipos se são gerados a partir da tua
+#     fonte») decide onde os tipos viajam relativamente a um pacote. Aqui não há
+#     pacote nenhum: o simulador-v2 serve JSON e não publica runtime JavaScript;
+#   - publicar em npm justifica-se com consumidores públicos e desconhecidos a
+#     quem é preciso prometer semver — o @octokit/openapi-types é esse caso.
+#     Aqui há um consumidor, conhecido;
+#   - um pacote publicado seria uma segunda cópia do contrato, versionada à
+#     parte e capaz de ficar para trás. O portão `gerado` não alcança o que está
+#     fora do repositório, e é essa divergência em silêncio que ele existe para
+#     impedir.
+#
+# O api/tipos-app.d.ts fica como conveniência interna e prova de que o yaml
+# gera; o package.json continua "private": true.
+openapi: 3.0.3
+info:
+  title: simulador-v2
+  version: 1.0.0
+  description: >-
+    Comparação de ofertas de crédito à habitação ao vivo, e a série temporal de
+    mercado. Serve JSON e mais nada. A interface é uma app React Native noutro
+    repositório.
+
+servers:
+  - url: /
+    description: O próprio serviço; os caminhos são absolutos a partir da raiz.
+
+tags:
+  - name: v1
+    description: A API da app. Versionada, evolui por acrescento.
+  - name: rate-catalog
+    description: ⚠️ Congelada e compatível ao byte com o v1. Inglês, snake_case.
+  - name: plataforma
+    description: Sondagem de saúde para a plataforma de alojamento.
+
+paths:
+  /api/v1/bancos:
+    get:
+      operationId: listarBancos
+      tags: [v1]
+      summary: Tudo o que a app precisa para montar o formulário adaptativo.
+      description: >-
+        É a única fonte desta informação — a app não tem listas de bancos
+        escritas à mão.
+      responses:
+        "200":
+          description: A lista de bancos e os inputs canónicos.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BancosResposta"
+
+  /api/v1/simulacoes:
+    post:
+      operationId: criarSimulacao
+      tags: [v1]
+      summary: Abre uma comparação e devolve o identificador para sondar.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SimulacaoPedido"
+      responses:
+        "202":
+          description: Aceite; a comparação corre em segundo plano.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SimulacaoCriada"
+        "400":
+          $ref: "#/components/responses/PedidoInvalido"
+        "429":
+          $ref: "#/components/responses/TectoExcedido"
+        "503":
+          $ref: "#/components/responses/DemasiadasEmCurso"
+
+  /api/v1/simulacoes/{id}:
+    get:
+      operationId: obterSimulacao
+      tags: [v1]
+      summary: O estado e as ofertas até agora. Sondagem, não streaming.
+      description: >-
+        A app faz GET a cada ~1 s enquanto `estado` for `em_curso`. A escolha da
+        sondagem sobre SSE é deliberada (ver docs/API.md): sobrevive a suspensão
+        da app, mudança de rede e reentrada no ecrã.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: O estado corrente da simulação.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Simulacao"
+        "404":
+          $ref: "#/components/responses/NaoEncontrado"
+
+  /api/rate-catalog:
+    get:
+      operationId: obterRateCatalog
+      tags: [rate-catalog]
+      summary: ⚠️ CONGELADA — a série de mercado, compatível ao byte com o v1.
+      description: >-
+        Consumida em produção pelo viabilidade-imobiliaria
+        (src/viabilidade/taxas.py). Nomes em inglês e snake_case, ao contrário
+        do resto do repositório. Três armadilhas de compatibilidade, todas
+        cobertas pelo teste de contrato contra uma amostra real do v1:
+        (1) números, não strings — a serialização de decimais em Go põe aspas
+        por omissão, e aqui a saída é `number`;
+        (2) `captured_at` sem fuso — o v1 serializava instantes ingénuos
+        (`2026-07-22T05:00:11`, sem Z); este endpoint replica o formato antigo,
+        por isso é `string` e não `date-time`;
+        (3) `products` é sempre lista, nunca null.
+        Sem `X-API-Key` configurada o endpoint fica aberto — comportamento de
+        desenvolvimento, com aviso alto no arranque.
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: scenario
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: bank
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: rate_type
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: since
+          in: query
+          required: false
+          description: Instante ISO 8601; devolve pontos capturados a partir daqui.
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Cenários de referência e os pontos de mercado.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RateCatalog"
+
+  /api/rate-catalog/snapshots:
+    get:
+      operationId: listarSnapshots
+      tags: [rate-catalog]
+      summary: ⚠️ CONGELADA — os varrimentos disponíveis, com contagem de linhas.
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: A lista de snapshots.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SnapshotsResposta"
+
+  /healthz:
+    get:
+      operationId: saude
+      tags: [plataforma]
+      summary: Sondagem de saúde trivial para a plataforma.
+      responses:
+        "200":
+          description: O serviço está de pé.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Saude"
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+
+  responses:
+    PedidoInvalido:
+      description: Pedido inválido, com o campo nomeado.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/RespostaErro"
+    NaoEncontrado:
+      description: Não existe simulação com este identificador.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/RespostaErro"
+    TectoExcedido:
+      description: Tecto de pedidos por IP excedido.
+      headers:
+        Retry-After:
+          description: Segundos a esperar antes de repetir.
+          schema:
+            type: integer
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/RespostaErro"
+    DemasiadasEmCurso:
+      description: Demasiadas simulações em curso; tentar mais tarde.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/RespostaErro"
+
+  schemas:
+    # --- /api/v1 — a app. Português, snake_case. ---
+
+    BancosResposta:
+      type: object
+      required: [bancos, inputs_canonicos]
+      properties:
+        bancos:
+          type: array
+          items:
+            $ref: "#/components/schemas/Banco"
+        inputs_canonicos:
+          type: array
+          items:
+            $ref: "#/components/schemas/InputCanonico"
+
+    Banco:
+      type: object
+      required:
+        [
+          id,
+          nome,
+          custo,
+          inputs,
+          periodos_fixos,
+          periodos_fixos_modo,
+          euribor_opcoes,
+          euribor_imposto,
+          prazo_min,
+          prazo_max,
+          idade_maxima_fim,
+          produtos,
+          notas,
+        ]
+      properties:
+        id:
+          type: string
+          example: novobanco
+        nome:
+          type: string
+          example: Novo Banco
+        custo:
+          type: string
+          enum: [barato, caro]
+          description: >-
+            Dá à app uma expectativa honesta de tempo. Com bancos caros a
+            comparação demora dezenas de segundos; esconder isso parece avaria.
+        inputs:
+          type: array
+          items:
+            $ref: "#/components/schemas/BancoInput"
+        periodos_fixos:
+          type: array
+          items:
+            type: integer
+        periodos_fixos_modo:
+          type: string
+          enum: [lista, da-api, do-html]
+        euribor_opcoes:
+          type: array
+          description: Vazio não é «não sei» — é «o banco impõe o seu e ignora a escolha».
+          items:
+            type: string
+          example: ["3m", "6m", "12m"]
+        euribor_imposto:
+          type: string
+          nullable: true
+          description: Quando não-nulo, o banco impõe este indexante.
+        prazo_min:
+          type: integer
+        prazo_max:
+          type: integer
+        idade_maxima_fim:
+          type: integer
+        produtos:
+          type: array
+          items:
+            $ref: "#/components/schemas/Produto"
+        notas:
+          type: array
+          items:
+            type: string
+
+    BancoInput:
+      type: object
+      required: [chave, usa]
+      properties:
+        chave:
+          type: string
+          example: valor_imovel
+        usa:
+          type: boolean
+        nota:
+          type: string
+          description: Presente quando ajuda a explicar porque o banco não usa o campo.
+
+    Produto:
+      type: object
+      required: [id, rotulo, descricao, por_omissao]
+      properties:
+        id:
+          type: string
+          example: novobanco:primeiro_banco
+        rotulo:
+          type: string
+        descricao:
+          type: string
+        por_omissao:
+          type: boolean
+
+    InputCanonico:
+      type: object
+      required: [chave, rotulo, tipo]
+      properties:
+        chave:
+          type: string
+          example: valor_imovel
+        rotulo:
+          type: string
+          example: Valor do imóvel
+        tipo:
+          type: string
+          example: dinheiro
+
+    SimulacaoPedido:
+      type: object
+      required: [bancos, pedido]
+      properties:
+        bancos:
+          type: array
+          items:
+            type: string
+          example: ["cgd", "novobanco", "montepio", "bancoctt"]
+        pedido:
+          $ref: "#/components/schemas/Pedido"
+        produtos:
+          type: object
+          description: Produtos escolhidos por banco. Chave = id do banco.
+          additionalProperties:
+            type: array
+            items:
+              type: string
+
+    Pedido:
+      type: object
+      required:
+        [
+          valor_imovel,
+          montante,
+          prazo_anos,
+          rate_type,
+          titulares,
+          finalidade,
+          localizacao,
+        ]
+      properties:
+        valor_imovel:
+          type: number
+          format: double
+        montante:
+          type: number
+          format: double
+        prazo_anos:
+          type: integer
+        rate_type:
+          type: string
+          enum: [variavel, fixa, mista]
+        fixed_period_years:
+          type: integer
+          description: Anos de período fixo; aplica-se a `fixa` e `mista`.
+        euribor_indexante:
+          type: string
+          enum: ["3m", "6m", "12m"]
+        titulares:
+          type: array
+          items:
+            $ref: "#/components/schemas/Titular"
+        finalidade:
+          type: string
+          enum: [propria, secundaria, arrendamento]
+        localizacao:
+          type: string
+          example: continente
+        garantia_publica:
+          type: boolean
+        ja_cliente:
+          type: boolean
+
+    Titular:
+      type: object
+      required: [data_nascimento, rendimento_mensal]
+      properties:
+        data_nascimento:
+          type: string
+          format: date
+          example: "1990-04-12"
+        rendimento_mensal:
+          type: number
+          format: double
+
+    SimulacaoCriada:
+      type: object
+      required: [id, estado, bancos, duracao_estimada_s]
+      properties:
+        id:
+          type: string
+          example: 01J8...
+        estado:
+          $ref: "#/components/schemas/EstadoSimulacao"
+        bancos:
+          type: array
+          items:
+            type: string
+        duracao_estimada_s:
+          type: integer
+
+    Simulacao:
+      type: object
+      required: [id, estado, pedido_efectivo, progresso, ofertas]
+      properties:
+        id:
+          type: string
+        estado:
+          $ref: "#/components/schemas/EstadoSimulacao"
+        pedido_efectivo:
+          $ref: "#/components/schemas/PedidoEfectivo"
+        progresso:
+          $ref: "#/components/schemas/Progresso"
+        ofertas:
+          type: array
+          items:
+            $ref: "#/components/schemas/Oferta"
+
+    EstadoSimulacao:
+      type: string
+      enum: [em_curso, terminado]
+
+    PedidoEfectivo:
+      type: object
+      description: >-
+        ⚠️ O que foi mesmo simulado. Se a quantização alterou o montante para
+        aproveitar a cache, a app mostra o valor efectivo, não o pedido.
+      required: [montante, valor_imovel, quantizado]
+      properties:
+        montante:
+          type: number
+          format: double
+        valor_imovel:
+          type: number
+          format: double
+        quantizado:
+          type: boolean
+
+    Progresso:
+      type: object
+      required: [prontos, total]
+      properties:
+        prontos:
+          type: integer
+        total:
+          type: integer
+
+    Oferta:
+      type: object
+      description: >-
+        ⚠️ Quando `aplicado` não está vazio, os números não correspondem ao
+        pedido — a app é obrigada a mostrar a nota junto do valor. `erro` só
+        aparece quando `sucesso` é falso.
+      required: [banco_id, banco_nome, sucesso]
+      properties:
+        banco_id:
+          type: string
+        banco_nome:
+          type: string
+        sucesso:
+          type: boolean
+        tan:
+          type: number
+          format: double
+        taeg:
+          type: number
+          format: double
+        spread:
+          type: number
+          format: double
+        prestacao_mensal:
+          type: number
+          format: double
+        mtic:
+          type: number
+          format: double
+        euribor_indexante:
+          type: string
+        euribor_valor:
+          type: number
+          format: double
+        fases:
+          type: array
+          items:
+            $ref: "#/components/schemas/Fase"
+        produtos_aplicados:
+          type: array
+          items:
+            type: string
+        aplicado:
+          type: object
+          description: O que o banco usou de facto, quando difere do pedido. Vazio = igual ao pedido.
+          additionalProperties: true
+        notas:
+          type: array
+          items:
+            type: string
+        em_cache:
+          type: boolean
+        capturado_em:
+          type: string
+          format: date-time
+        erro:
+          $ref: "#/components/schemas/OfertaErro"
+
+    Fase:
+      type: object
+      required: [ate_mes, taxa, prestacao]
+      properties:
+        ate_mes:
+          type: integer
+        taxa:
+          type: number
+          format: double
+        prestacao:
+          type: number
+          format: double
+
+    OfertaErro:
+      type: object
+      description: >-
+        Estruturado de propósito: `codigo` é para a app decidir, `mensagem` é
+        para a pessoa ler, em português.
+      required: [codigo, mensagem]
+      properties:
+        codigo:
+          type: string
+          example: prazo_impossivel
+        mensagem:
+          type: string
+
+    # --- Transversal ---
+
+    RespostaErro:
+      type: object
+      required: [erro]
+      properties:
+        erro:
+          $ref: "#/components/schemas/DetalheErro"
+        request_id:
+          type: string
+
+    DetalheErro:
+      type: object
+      required: [codigo, mensagem]
+      properties:
+        codigo:
+          type: string
+          example: pedido_invalido
+        mensagem:
+          type: string
+        campo:
+          type: string
+          description: O campo que falhou, quando aplicável.
+
+    Saude:
+      type: object
+      required: [estado]
+      properties:
+        estado:
+          type: string
+          example: ok
+
+    # --- /api/rate-catalog — ⚠️ CONGELADA. Inglês, snake_case. ---
+    # Não traduzir estes nomes para português: o viabilidade-imobiliaria lê-os
+    # em produção. Ver a descrição do path e docs/API.md §2.
+
+    RateCatalog:
+      type: object
+      required: [scenarios, count, points]
+      properties:
+        scenarios:
+          type: array
+          items:
+            $ref: "#/components/schemas/Scenario"
+        count:
+          type: integer
+        points:
+          type: array
+          items:
+            $ref: "#/components/schemas/Point"
+
+    Scenario:
+      type: object
+      required:
+        [
+          key,
+          label,
+          ltv,
+          valor_imovel,
+          montante,
+          prazo_anos,
+          rate_type,
+          fixed_period_years,
+        ]
+      properties:
+        key:
+          type: string
+          example: ltv80_mista_30a
+        label:
+          type: string
+          example: "LTV 80% · mista · 30 anos"
+        ltv:
+          type: number
+          format: double
+        valor_imovel:
+          type: number
+          format: double
+        montante:
+          type: number
+          format: double
+        prazo_anos:
+          type: integer
+        rate_type:
+          type: string
+        fixed_period_years:
+          type: integer
+
+    Point:
+      type: object
+      description: >-
+        ⚠️ `captured_at` é `string` (sem fuso, formato v1) de propósito.
+        `products` é sempre lista, nunca null. Os números são `number`, não
+        string.
+      required:
+        [
+          snapshot_id,
+          captured_at,
+          scenario_key,
+          bank_id,
+          bank_name,
+          rate_type,
+          valor_imovel,
+          montante,
+          prazo_anos,
+          fixed_period_years,
+          tan,
+          taeg,
+          spread,
+          prestacao_mensal,
+          mtic,
+          euribor_indexante,
+          euribor_valor,
+          products,
+        ]
+      properties:
+        snapshot_id:
+          type: string
+        captured_at:
+          type: string
+          description: "⚠️ Sem fuso, formato v1 (ex.: 2026-07-22T05:00:11). NÃO é date-time."
+          example: "2026-07-22T05:00:11"
+        scenario_key:
+          type: string
+        bank_id:
+          type: string
+        bank_name:
+          type: string
+        rate_type:
+          type: string
+        valor_imovel:
+          type: number
+          format: double
+        montante:
+          type: number
+          format: double
+        prazo_anos:
+          type: integer
+        fixed_period_years:
+          type: integer
+        tan:
+          type: number
+          format: double
+        taeg:
+          type: number
+          format: double
+        spread:
+          type: number
+          format: double
+        prestacao_mensal:
+          type: number
+          format: double
+        mtic:
+          type: number
+          format: double
+        euribor_indexante:
+          type: string
+        euribor_valor:
+          type: number
+          format: double
+        products:
+          type: array
+          items:
+            type: string
+
+    SnapshotsResposta:
+      type: object
+      required: [snapshots]
+      properties:
+        snapshots:
+          type: array
+          items:
+            $ref: "#/components/schemas/Snapshot"
+
+    Snapshot:
+      type: object
+      required: [snapshot_id, captured_at, rows]
+      properties:
+        snapshot_id:
+          type: string
+        captured_at:
+          type: string
+          description: ⚠️ Sem fuso, formato v1.
+        rows:
+          type: integer
