@@ -12,6 +12,10 @@
 /tmp/
 .DS_Store
 
+# Node — só o toolchain do openapi-typescript. O package-lock.json fica
+# versionado (é o que torna o `npm ci` reprodutível); o node_modules não.
+/node_modules/
+
 # Documentação interna — vive no Confluence privado, não neste repositório.
 # Ver a secção "Documentos" do README. Continuam no disco de quem tem acesso.
 #

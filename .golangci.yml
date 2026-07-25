@@ -28,6 +28,25 @@ linters:
     # sai como «import '...' is not allowed from list '<camada>'».
     depguard:
       rules:
+        # api/ é a folha do contrato: os tipos gerados descrevem-se a si mesmos
+        # e não conhecem a máquina que os serve. Importar qualquer camada interna
+        # inverteria a dependência — é o internal/infra/http que implementa a
+        # ServerInterface, nunca o contrário. Ver ARQUITETURA.md §3.
+        api:
+          files:
+            - "**/api/**"
+          deny:
+            - pkg: github.com/zepedrorodrigues/simulador-v2/internal/dominio
+              desc: o contrato descreve-se a si mesmo; não importa o domínio
+            - pkg: github.com/zepedrorodrigues/simulador-v2/internal/bancos
+              desc: o contrato não conhece os bancos
+            - pkg: github.com/zepedrorodrigues/simulador-v2/internal/aplicacao
+              desc: o contrato não conhece os casos de uso
+            - pkg: github.com/zepedrorodrigues/simulador-v2/internal/infra
+              desc: é a infra que implementa o contrato, não o contrário
+            - pkg: github.com/zepedrorodrigues/simulador-v2/cmd
+              desc: nenhuma camada importa o binário
+
         dominio:
           files:
             - "**/internal/dominio/**"

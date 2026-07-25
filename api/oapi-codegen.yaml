@@ -1,0 +1,17 @@
+# Config do oapi-codegen — gera os tipos Go e as interfaces dos handlers a
+# partir de openapi.yaml. Corre-se por `make gerar` (go tool oapi-codegen),
+# nunca à mão: o api.gen.go é reconstruído e edições manuais desaparecem.
+#
+# O output vive em api/ (package api), a folha do contrato: não importa nenhum
+# pacote interno, e o depguard reprova quem lá meta um. É o internal/infra/http
+# que implementa a ServerInterface, nunca o contrário. Ver ARQUITETURA.md §3.
+package: api
+output: api/api.gen.go
+generate:
+  models: true
+  chi-server: true
+  embedded-spec: false
+output-options:
+  # O cabeçalho de código gerado que o cmd/go e o golangci-lint reconhecem para
+  # saltar o ficheiro — é a norma formal, não o sufixo .gen.go.
+  skip-prune: false

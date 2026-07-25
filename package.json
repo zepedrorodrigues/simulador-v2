@@ -1,0 +1,12 @@
+{
+  "name": "simulador-v2-contrato",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Geração dos tipos TypeScript da app a partir de api/openapi.yaml. Não é um pacote publicável — só o toolchain do openapi-typescript, fixado para o portão ser reprodutível.",
+  "scripts": {
+    "gerar-tipos": "openapi-typescript api/openapi.yaml -o api/tipos-app.ts"
+  },
+  "devDependencies": {
+    "openapi-typescript": "7.13.0"
+  }
+}
