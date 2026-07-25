@@ -49,7 +49,9 @@ func NovoRegisto() *Registo {
 //
 // Recusa o id vazio, o construtor nulo e o id repetido. O repetido não é
 // preciosismo: um banco registado duas vezes calaria o primeiro em silêncio, e o
-// que desapareceria da comparação era uma oferta, não uma linha de log.
+// que desapareceria do varrimento era um banco inteiro — logo, uma coluna a
+// faltar na grelha de preço e um banco sem resposta para dar. Não uma linha de
+// log.
 func (r *Registo) Registar(id string, c Construtor) error {
 	if id == "" {
 		return errors.New("banco sem id")

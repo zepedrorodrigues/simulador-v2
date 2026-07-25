@@ -22,13 +22,17 @@ type Banco interface {
 	//
 	// Devolve erro apenas quando o banco não conseguiu responder de todo; um
 	// pedido que o banco ajustou devolve uma dominio.Oferta com os ajustes e as
-	// notas preenchidos, e erro nulo. Quem transforma o erro numa oferta de
-	// falha é o orquestrador — dentro de um banco, os erros devolvem-se, não se
-	// engolem (ARQUITETURA.md §5).
+	// notas preenchidos, e erro nulo. Quem transforma o erro numa observação de
+	// falha é o orquestrador do varrimento — dentro de um banco, os erros
+	// devolvem-se, não se engolem (ARQUITETURA.md §5).
 	//
-	// ⚠️ Respeita o ctx. O orquestrador impõe um prazo por banco, e um banco que
-	// ignore o cancelamento segura a comparação inteira: no v1 o BPI consumia
+	// ⚠️ Respeita o ctx. O orquestrador impõe um prazo por pedido, e um banco que
+	// ignore o cancelamento segura o varrimento inteiro: no v1 o BPI consumia
 	// 52 s de um pedido de 52 s. Não é recomendação — é afirmável, e afirma-se
 	// com prova.RespeitaPrazo no teste de cada banco.
+	//
+	// ⚠️ Quem chama isto é o varrimento, em hora morta, e não um pedido de
+	// cliente: desde a inversão da §1 do ARQUITETURA.md (2026-07-25) uma
+	// comparação responde-se por cálculo local e nunca chega aqui.
 	Simular(ctx context.Context, p dominio.Pedido) (dominio.Oferta, error)
 }
