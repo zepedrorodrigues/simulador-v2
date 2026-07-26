@@ -131,13 +131,18 @@ const (
 // PorBancoOmissao é quantos pontos da grelha se pedem ao mesmo banco ao mesmo
 // tempo.
 //
-// ⚠️ É 1 porque não há número medido. O varrimento não é um pedido de cliente:
-// são dezenas de pontos contra o mesmo simulador público, a partir do nosso IP,
-// e quantos aguenta em paralelo mede-se contra o banco, não se escolhe por
-// instinto. Um de cada vez não precisa de justificação; qualquer valor acima
-// precisa, e é para isso que o campo existe. O primeiro sítio onde a medição é
-// possível é a CGD (KAN-9).
-const PorBancoOmissao = 1
+// ⚠️ Era 1 enquanto não havia número medido. Há: contra a CGD a sério
+// (2026-07-26, 8 pontos), o tempo por ponto foi de 1,086 s com um pedido de
+// cada vez, 603 ms com dois e 367 ms com quatro, **sem uma única falha em
+// nenhum dos três**. Está no TestE2ETectoDeConcorrenciaDaCGD.
+//
+// É 2 e não 4, e a diferença entre os dois não é técnica. O varrimento corre em
+// hora morta e ninguém está à espera dele: comprar mais 40 % de velocidade ao
+// preço de quadruplicar a carga que pomos num simulador público alheio não é
+// uma troca que se faça por poder fazer. Dois está medido, chega, e deixa
+// margem para o banco. Quem tiver razão para subir sobe o campo — e mede o que
+// isso lhe faz.
+const PorBancoOmissao = 2
 
 // prazo devolve o tecto do custo. O custo inválido não chega aqui — Novo
 // recusa-o à construção —, e se chegasse valia o de browser: cortar um banco
