@@ -35,6 +35,12 @@ const (
 type catalogo struct {
 	fixa  codigos
 	mista codigos
+
+	// deRecurso diz que estes períodos não são os que a CGD publica hoje: são
+	// os últimos conhecidos, porque o HTML não se deixou ler. ⚠️ Muda o que se
+	// pode afirmar a quem lê a oferta — sem isto, um prazo encolhido por
+	// ignorância nossa saía com a justificação de ser o banco a não o praticar.
+	deRecurso bool
 }
 
 // construirPayload monta o formulário do /calculate e diz o que teve de ajustar.
@@ -53,7 +59,7 @@ func construirPayload(
 	if err != nil {
 		return nil, nil, err
 	}
-	ajustes := junta(nil, ajustePrazo)
+	var ajustes []*dominio.Ajuste
 
 	valores := url.Values{
 		"SimulationSubOriginID": {"1"},
@@ -83,13 +89,23 @@ func construirPayload(
 
 	case dominio.TaxaFixa:
 		valores.Set("tax", taxFixa)
-		anos, ajustesFixa, fixaErr := periodoDaFixa(p, prazo, cat.fixa)
+		anos, ajustePeriodo, fixaErr := periodoDaFixa(p, prazo, cat)
 		if fixaErr != nil {
 			return nil, nil, fixaErr
 		}
 		valores.Set("IndexFixedRate", cat.fixa[anos])
 		valores.Set("Years", fmt.Sprint(anos))
-		ajustes = append(ajustes, ajustesFixa...)
+		ajustes = junta(ajustes, ajustePeriodo)
+
+		// ⚠️ Se a fixa mexeu no prazo outra vez, o ajuste dos limites é
+		// deitado fora e faz-se **um só**, do que a pessoa pediu para o que
+		// se simulou. Encadear dois dava uma segunda nota a dizer «Pediu 32
+		// anos» a quem tinha pedido 35 — um número que ninguém pediu, numa
+		// frase que se apresenta como sendo o pedido dela. Medido na corrida
+		// de fidelidade de 2026-07-26, 5 vezes em 2889.
+		if anos != prazo {
+			ajustePrazo = dominio.AjustePrazo(p.PrazoAnos, anos, motivoDoPrazoDaFixa(cat, prazo != p.PrazoAnos))
+		}
 
 	default:
 		return nil, nil, &dominio.ErroOferta{
@@ -98,7 +114,46 @@ func construirPayload(
 		}
 	}
 
-	return valores, ajustes, nil
+	return valores, junta(ajustes, ajustePrazo), nil
+}
+
+// motivoDoPrazoDaFixa nomeia a razão verdadeira de o prazo ter mudado.
+//
+// ⚠️ Antes dizia sempre «a taxa fixa da CGD só existe entre 5 e 40 anos», e
+// isso era falso quando o prazo estava lá dentro: 32 anos está entre 5 e 40 e a
+// CGD vende-os — o que faltava era a lista, que não se conseguiu ler. Dar a
+// nossa ignorância como recusa do banco é pôr na boca dele uma coisa que ele
+// não disse.
+func motivoDoPrazoDaFixa(cat catalogo, tambemPorLimites bool) string {
+	motivo := fmt.Sprintf("a taxa fixa da CGD é ao prazo todo e só existe entre %d e %d anos",
+		minimoDe(cat.fixa), maximoDe(cat.fixa))
+	if cat.deRecurso {
+		motivo = "a taxa fixa da CGD é ao prazo todo e não se conseguiu ler a lista de prazos que ela pratica hoje"
+	}
+	if tambemPorLimites {
+		motivo = "os limites da CGD para este caso, e " + motivo
+	}
+	return motivo
+}
+
+func minimoDe(c codigos) int {
+	menor := 0
+	for ano := range c {
+		if menor == 0 || ano < menor {
+			menor = ano
+		}
+	}
+	return menor
+}
+
+func maximoDe(c codigos) int {
+	maior := 0
+	for ano := range c {
+		if ano > maior {
+			maior = ano
+		}
+	}
+	return maior
 }
 
 // periodoDaFixa escolhe o código da taxa fixa e explica o que muda com isso.
@@ -112,21 +167,15 @@ func construirPayload(
 // O v1 mandava os dois campos como se fossem independentes e depois reportava o
 // prazo pedido. Um pedido de fixa a 10 anos num prazo de 30 dava-lhe uma
 // prestação de 10 anos rotulada de 30.
-func periodoDaFixa(p dominio.Pedido, prazo int, cat codigos) (int, []*dominio.Ajuste, error) {
-	anos, _, err := dominio.EncaixarPeriodoFixo(cat.anos(), &prazo, nil)
+func periodoDaFixa(p dominio.Pedido, prazo int, cat catalogo) (int, *dominio.Ajuste, error) {
+	anos, _, err := dominio.EncaixarPeriodoFixo(cat.fixa.anos(), &prazo, nil)
 	if err != nil {
 		return 0, nil, semPeriodos(err)
 	}
-
-	var ajustes []*dominio.Ajuste
 	if p.PeriodoFixoAnos != nil && *p.PeriodoFixoAnos != anos {
-		ajustes = junta(ajustes, dominio.AjustePeriodoFixo(*p.PeriodoFixoAnos, anos))
+		return anos, dominio.AjustePeriodoFixo(*p.PeriodoFixoAnos, anos), nil
 	}
-	if anos != prazo {
-		ajustes = junta(ajustes, dominio.AjustePrazo(prazo, anos,
-			"a taxa fixa da CGD só existe entre 5 e 40 anos"))
-	}
-	return anos, ajustes, nil
+	return anos, nil, nil
 }
 
 // dentroDosLimites recusa o que a CGD não vende.
@@ -154,20 +203,31 @@ func dentroDosLimites(p dominio.Pedido, lim limites) error {
 	if err != nil {
 		return recusa("Sem valor do imóvel não há LTV, e a CGD decide por LTV.")
 	}
+	// ⚠️ As duas recusas seguintes falam em euros e não só em percentagens, e
+	// isso é correcção de um defeito medido: com um LTV de 80,004 %, a
+	// mensagem antiga saía «O financiamento é de 80.0 % do valor do imóvel e a
+	// CGD vai até 80 %» — as duas percentagens arredondavam para o mesmo
+	// número e a frase lia-se como disparate. Em euros não há arredondamento
+	// que a torne contraditória.
 	if lim.LTVMaximo > 0 && maior(ltv.Decimal(), lim.LTVMaximo) {
 		return recusa(fmt.Sprintf(
-			"O financiamento é de %s %% do valor do imóvel e a CGD vai até %.0f %% neste caso.",
-			percentagem(ltv), lim.LTVMaximo*100))
+			"A CGD financia no máximo %.0f %% do valor do imóvel: com um imóvel de %s €, são %s €. O pedido é de %s €.",
+			lim.LTVMaximo*100, euros(p.ValorImovel), tectoEmEuros(p.ValorImovel, lim.LTVMaximo), euros(p.Montante)))
 	}
 	// ⚠️ A Medida Jovem tem LTV **mínimo**, e não só máximo: a Garantia do
 	// Estado cobre a fatia dos 85 % aos 100 %, e abaixo disso não há o que
 	// garantir. Medido: com IsMedidaJovem, o /limits devolve ltvMinimum 0,85.
 	if lim.LTVMinimo > 0 && menor(ltv.Decimal(), lim.LTVMinimo) {
 		return recusa(fmt.Sprintf(
-			"Com a Garantia Pública Jovens a CGD exige financiar pelo menos %.0f %% do imóvel, e este pedido fica-se por %s %%. Sem a garantia, este LTV é simulável.",
-			lim.LTVMinimo*100, percentagem(ltv)))
+			"Com a Garantia Pública Jovens a CGD exige financiar pelo menos %.0f %% do imóvel: com um imóvel de %s €, são %s €. O pedido é de %s €. Sem a garantia, este montante é simulável.",
+			lim.LTVMinimo*100, euros(p.ValorImovel), tectoEmEuros(p.ValorImovel, lim.LTVMinimo), euros(p.Montante)))
 	}
 	return nil
+}
+
+// tectoEmEuros é a fatia do valor do imóvel que uma percentagem representa.
+func tectoEmEuros(valorImovel dominio.Dinheiro, fraccao float64) string {
+	return valorImovel.Decimal().Mul(decimal.NewFromFloat(fraccao)).Truncate(0).String()
 }
 
 // requisitosVivos monta uns Requisitos a partir dos limites que a CGD acabou de
@@ -204,10 +264,6 @@ func booleano(b bool) string {
 		return "true"
 	}
 	return "false"
-}
-
-func percentagem(r dominio.Racio) string {
-	return r.Decimal().Mul(decimal.NewFromInt(100)).StringFixed(1)
 }
 
 func menor(d decimal.Decimal, limite float64) bool {

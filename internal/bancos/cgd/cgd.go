@@ -199,7 +199,11 @@ func (b *Banco) periodos(ctx context.Context, p dominio.Pedido) (catalogo, strin
 		return catalogo{}, "", nil
 	}
 
-	recurso := catalogo{fixa: codigosDe(periodosFixosConhecidos), mista: codigosDe(periodosFixosConhecidos)}
+	recurso := catalogo{
+		fixa:      codigosDe(periodosFixosConhecidos),
+		mista:     codigosDe(periodosFixosConhecidos),
+		deRecurso: true,
+	}
 
 	html, err := b.obter(ctx, "/")
 	if err != nil {

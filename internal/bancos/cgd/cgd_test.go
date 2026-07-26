@@ -226,8 +226,15 @@ func TestLTVAcimaDoQueACGDVendeERecusadoAntesDeCalcular(t *testing.T) {
 	if erro.Codigo != dominio.ErroProdutoIndisponivel {
 		t.Errorf("esperava produto_indisponivel, veio %q", erro.Codigo)
 	}
-	if !strings.Contains(erro.Mensagem, "96.0") {
-		t.Errorf("a mensagem devia nomear o LTV pedido, veio %q", erro.Mensagem)
+	// ⚠️ Em euros, e não em percentagens. Com um LTV de 80,004 % contra um
+	// limite de 80 %, as duas percentagens arredondavam para o mesmo número e
+	// a recusa lia-se «é de 80.0 % e a CGD vai até 80 %». Medido na corrida de
+	// fidelidade de 2026-07-26, 25 vezes em 2900.
+	if !strings.Contains(erro.Mensagem, "225000") {
+		t.Errorf("a mensagem devia dizer quanto a CGD financia neste imóvel, veio %q", erro.Mensagem)
+	}
+	if !strings.Contains(erro.Mensagem, "240000") {
+		t.Errorf("a mensagem devia dizer quanto se pediu, veio %q", erro.Mensagem)
 	}
 	if pedidos := caminhos(falso); contem(pedidos, "/calculate") {
 		t.Errorf("o /calculate não devia ter sido chamado — ele responde a isto com um preço. Pedidos: %v", pedidos)
@@ -548,5 +555,58 @@ func verDinheiroValor(t *testing.T, nome string, veio dominio.Dinheiro, esperado
 	}
 	if !veio.Equal(quero) {
 		t.Errorf("%s: esperava %s, veio %s", nome, esperado, veio)
+	}
+}
+
+// ⚠️ Reprodução do que a corrida de fidelidade de 2026-07-26 apanhou, 5 vezes
+// em 2889: com o HTML ilegível, a fixa cai na lista de recurso e um prazo de 32
+// anos vira 30. Isso é aceitável — o que não era aceitável era a justificação.
+//
+// A oferta saía com a nota «este banco não os aceita (a taxa fixa da CGD só
+// existe entre 5 e 40 anos)», e 32 está entre 5 e 40: a CGD vende-os. O que
+// faltou foi a lista, do nosso lado. E ao vivo, quando a idade já tinha
+// encolhido o prazo antes, saíam dois ajustes em cadeia e o segundo dizia
+// «Pediu 32 anos» a quem tinha pedido 35.
+func TestFixaComRecursoDizAVerdadeSobrePorqueEncolheuOPrazo(t *testing.T) {
+	banco, falso := montar(t, cenario{calculo: "fixa_10a", home: "<html>sem widget</html>"})
+
+	oferta, err := banco.Simular(t.Context(), comFixa(pedidoBase(), 32))
+	if err != nil {
+		t.Fatalf("Simular: %v", err)
+	}
+
+	if enviado := corpoDe(t, falso, "/calculate").Get("Years"); enviado != "30" {
+		t.Errorf("com a lista de recurso, 32 anos encaixam em 30; enviou-se %q", enviado)
+	}
+
+	ajustes := oferta.Ajustes()
+	if len(ajustes) != 1 {
+		t.Fatalf("esperava um ajuste ao prazo e vieram %d: %+v", len(ajustes), ajustes)
+	}
+	if ajustes[0].De() != 32 || ajustes[0].Para() != 30 {
+		t.Errorf("esperava 32 → 30, veio %v → %v", ajustes[0].De(), ajustes[0].Para())
+	}
+	if strings.Contains(ajustes[0].Nota(), "entre 5 e 40") {
+		t.Errorf("32 anos está entre 5 e 40 e a CGD vende-os: a razão dada é falsa — %q", ajustes[0].Nota())
+	}
+	if !strings.Contains(ajustes[0].Nota(), "não se conseguiu ler") {
+		t.Errorf("a razão verdadeira é não termos lido a lista, e a nota devia dizê-lo — %q", ajustes[0].Nota())
+	}
+}
+
+// Com a lista verdadeira, um prazo que a CGD pratica não se mexe — e é isso que
+// mostra que o teste acima está a medir a ignorância, e não o banco.
+func TestFixaComAListaVerdadeiraNaoMexeNoPrazo(t *testing.T) {
+	banco, falso := montar(t, cenario{calculo: "fixa_10a"})
+
+	oferta, err := banco.Simular(t.Context(), comFixa(pedidoBase(), 32))
+	if err != nil {
+		t.Fatalf("Simular: %v", err)
+	}
+	if enviado := corpoDe(t, falso, "/calculate").Get("Years"); enviado != "32" {
+		t.Errorf("a CGD pratica 32 anos de taxa fixa; enviou-se %q", enviado)
+	}
+	if len(oferta.Ajustes()) != 0 {
+		t.Errorf("não havia nada a ajustar, vieram %+v", oferta.Ajustes())
 	}
 }
