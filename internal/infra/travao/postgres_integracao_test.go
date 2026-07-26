@@ -71,13 +71,19 @@ func TestBancosDiferentesNaoSeTravamUmAoOutro(t *testing.T) {
 	largarNB()
 }
 
-// ⚠️ Largar depois de o varrimento ser cancelado ainda larga. É o segundo
-// medido de 2026-07-25: um ctx derivado de um pai que termina fica `context
-// canceled` no mesmo instante, e sem o context.WithoutCancel o UNLOCK nunca
-// chegava à base — o banco ficava travado até a sessão morrer.
-func TestLargarFuncionaComOCtxDoVarrimentoJaCancelado(t *testing.T) {
+// Largar depois de o varrimento ser cancelado larga o banco e devolve a ligação
+// ao pool.
+//
+// ⚠️ São duas afirmações e não uma, e a segunda é que mede o
+// context.WithoutCancel. Medido aqui a 2026-07-26: com o ctx do varrimento em
+// vez do destacado, o banco fica livre na mesma — o UNLOCK não chega à base, o
+// código mata a ligação, e o Postgres larga o lock com a sessão. O que muda é o
+// preço: cada varrimento cancelado deita fora uma ligação. É por isso que a
+// primeira asserção sozinha passava com o defeito reposto, e a segunda não.
+func TestLargarComOCtxCanceladoLargaOBancoEDevolveALigacao(t *testing.T) {
 	url := subirBase(t)
-	tr := travao.NovoPostgres(abrirPool(t, url))
+	pool := abrirPool(t, url)
+	tr := travao.NovoPostgres(pool)
 
 	ctx, cancelar := context.WithCancel(context.Background())
 	largar, err := tr.Tomar(ctx, "cgd")
@@ -87,6 +93,12 @@ func TestLargarFuncionaComOCtxDoVarrimentoJaCancelado(t *testing.T) {
 
 	cancelar()
 	largar()
+
+	if total := pool.Stat().TotalConns(); total != 1 {
+		t.Errorf(
+			"esperava a ligação de volta ao pool, há %d: o UNLOCK não chegou à base e a ligação foi morta",
+			total)
+	}
 
 	segundo, err := tr.Tomar(context.Background(), "cgd")
 	if err != nil {

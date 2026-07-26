@@ -73,8 +73,10 @@ func TestPrazoDerivaDoCustoENaoEUniforme(t *testing.T) {
 	r := v.Varrer(t.Context(), pontos("ltv80/variavel/propria"))
 
 	obs := porBanco(t, r)
+	// Fatal e não Error: sem erro preenchido, a asserção seguinte rebentava em
+	// nil e a falha aparecia como um pânico em vez do número que a explica.
 	if obs["barato"].Sucesso() {
-		t.Error("o banco barato demorou 1 s com um prazo de 200 ms: devia ter falhado")
+		t.Fatal("o banco barato demorou 1 s com um prazo de 200 ms: devia ter falhado")
 	}
 	if codigo := obs["barato"].Oferta.Erro.Codigo; codigo != dominio.ErroBancoIndisponivel {
 		t.Errorf("prazo expirado: esperava banco_indisponivel, veio %q", codigo)
@@ -251,6 +253,9 @@ func TestErroEstruturadoDoBancoNaoESobreposto(t *testing.T) {
 
 	r := v.Varrer(t.Context(), pontos("ltv80/fixa35/propria"))
 
+	if r.Observacoes[0].Sucesso() {
+		t.Fatal("o banco recusou o produto: a observação devia ser de falha")
+	}
 	erro := r.Observacoes[0].Oferta.Erro
 	if erro.Codigo != dominio.ErroProdutoIndisponivel {
 		t.Errorf("esperava produto_indisponivel, veio %q — o erro do banco foi sobreposto", erro.Codigo)
