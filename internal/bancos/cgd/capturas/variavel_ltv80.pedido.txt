@@ -1,0 +1,1 @@
+SimulationSubOriginID=1&Code=&IsMedidaJovem=false&Purpose=1&ProductPurpose=1&PropertyValue=250000&Loan=200000&tax=2&Years=30&IndexFixedRate=&IndexRateMixedFixed=

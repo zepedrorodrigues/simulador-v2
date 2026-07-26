@@ -176,18 +176,25 @@ func TestTectoDeConcorrenciaPorBanco(t *testing.T) {
 	}
 }
 
-// Por omissão é um pedido de cada vez contra o mesmo banco. Não é um número
-// medido — é o único que não precisa de justificação.
-func TestPorOmissaoEUmPedidoDeCadaVezPorBanco(t *testing.T) {
+// Por omissão são dois pedidos de cada vez contra o mesmo banco.
+//
+// ⚠️ O número é medido, não escolhido: contra a CGD a sério (2026-07-26), oito
+// pontos custaram 1,086 s cada com um pedido de cada vez e 603 ms com dois, sem
+// falhas. Com quatro custavam 367 ms e também não falhavam — e mesmo assim ficou
+// em dois, porque o varrimento corre em hora morta e não vale quadruplicar a
+// carga num simulador alheio para ganhar tempo que ninguém está à espera. A
+// medição está no TestE2ETectoDeConcorrenciaDaCGD, atrás de `//go:build rede`.
+func TestPorOmissaoSaoDoisPedidosDeCadaVezPorBanco(t *testing.T) {
 	semFugas(t)
 
-	b := &bancoFalso{id: "cgd", atraso: 20 * time.Millisecond}
+	b := &bancoFalso{id: "cgd", atraso: 50 * time.Millisecond}
 	v := varredor(t, varrimento.Config{Bancos: []bancos.Banco{b}})
 
-	v.Varrer(t.Context(), pontos("p1", "p2", "p3"))
+	v.Varrer(t.Context(), pontos("p1", "p2", "p3", "p4"))
 
-	if maximo := b.maximo.Load(); maximo != 1 {
-		t.Errorf("sem PorBanco definido, o máximo de pedidos simultâneos foi %d", maximo)
+	if maximo := b.maximo.Load(); maximo != varrimento.PorBancoOmissao {
+		t.Errorf("sem PorBanco definido, o máximo de pedidos simultâneos foi %d e o de omissão é %d",
+			maximo, varrimento.PorBancoOmissao)
 	}
 }
 
