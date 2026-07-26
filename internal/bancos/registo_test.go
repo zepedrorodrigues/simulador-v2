@@ -128,13 +128,22 @@ func TestRegistoRecusaConstrutorQueDevolveNada(t *testing.T) {
 	}
 }
 
-// O registo do projecto. Hoje está vazio — não há bancos —, e este teste é o que
-// passa a valer por cada um que entrar: o id que o registo anuncia é o id que o
-// banco diz ter, e os requisitos que ele declara são servíveis pelo contrato.
+// O registo do projecto: por cada banco que entra, o id que o registo anuncia é
+// o id que o banco diz ter, e os requisitos que ele declara são servíveis pelo
+// contrato.
+//
+// ⚠️ A contagem à cabeça não é decoração. Enquanto o registo esteve vazio, este
+// ciclo não afirmava nada e passava a verde — um teste que percorre uma lista
+// vazia é um teste que ninguém viu falhar. Com a CGD lá dentro (KAN-9) passa a
+// haver mínimo, e apagar um banco do Predefinido reprova aqui.
 func TestPredefinidoConstroiTodosOsBancosQueAnuncia(t *testing.T) {
 	t.Parallel()
 
 	r := bancos.Predefinido()
+	if len(r.IDs()) == 0 {
+		t.Fatal("o registo do projecto está vazio — não há banco nenhum para o varrimento correr")
+	}
+
 	for _, id := range r.IDs() {
 		b, err := r.Construir(id, transportesDeTeste())
 		if err != nil {

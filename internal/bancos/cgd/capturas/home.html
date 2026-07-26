@@ -1,0 +1,1336 @@
+<!DOCTYPE html>
+<html lang="pt-pt">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <title>Simulador de Cr&#233;dito Habita&#231;&#227;o | CGD</title>
+    <meta name="description" content="Na Caixa, encontra vantagens que lhe d&#227;o a confian&#231;a necess&#225;ria para avan&#231;ar para a casa dos seus sonhos." />
+
+    <link rel="shortcut icon" href="/Content/images/favicon/favicon.ico" type="image/x-icon">
+    <link rel="icon" href="/Content/images/favicon/favicon.png" sizes="32x32" type="image/png">
+
+        <meta name="robots" content="index, follow">
+        <meta name="googlebot" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1">
+        <meta name="bingbot" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1">
+
+    <meta property="og:locale" content="pt_PT">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Simulador de Cr&#233;dito Habita&#231;&#227;o | CGD">
+    <meta property="og:description" content="Na Caixa, encontra vantagens que lhe d&#227;o a confian&#231;a necess&#225;ria para avan&#231;ar para a casa dos seus sonhos.">
+    <meta property="og:url" content="https://simuladorch.cgd.pt/">
+    <meta property="og:site_name" content="Simulador de Cr&#233;dito Habita&#231;&#227;o">
+    <meta property="article:publisher" content="https://www.facebook.com/caixageraldedepositos/">
+    <meta property="og:image" content="/Content/images/social-cover.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+
+    <meta name="msapplication-TileColor" content="#ffffff">
+    <meta name="msapplication-TileImage" content="/Content/images/favicon/apple-touch-icon-144x144.png">
+    <meta name="theme-color" content="#ffffff">
+
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="msapplication-TileImage" content="/Content/images/favicon/ms-icon-310x310.png">
+
+    <link rel="apple-touch-icon" href="/Content/images/favicon/apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="57x57" href="/Content/images/favicon/apple-touch-icon-57x57.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="/Content/images/favicon/apple-touch-icon-72x72.png">
+    <link rel="apple-touch-icon" sizes="76x76" href="/Content/images/favicon/apple-touch-icon-76x76.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="/Content/images/favicon/apple-touch-icon-114x114.png">
+    <link rel="apple-touch-icon" sizes="120x120" href="/Content/images/favicon/apple-touch-icon-120x120.png">
+    <link rel="apple-touch-icon" sizes="144x144" href="/Content/images/favicon/apple-touch-icon-144x144.png">
+    <link rel="apple-touch-icon" sizes="152x152" href="/Content/images/favicon/apple-touch-icon-152x152.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/Content/images/favicon/apple-touch-icon-180x180.png">
+
+<script type="text/javascript">
+    function loadTrackings() {
+        (function (w, d, s, l, i) {
+            w[l] = w[l] || []; w[l].push({
+                'gtm.start':
+                    new Date().getTime(), event: 'gtm.js'
+            }); var f = d.getElementsByTagName(s)[0],
+                j = d.createElement(s), dl = l != 'dataLayer' ? '&l=' + l : ''; j.async = true; j.src =
+                    'https://www.googletagmanager.com/gtm.js?id=' + i + dl; f.parentNode.insertBefore(j, f);
+        })(window, document, 'script', 'dataLayer', 'GTM-KGMG7W6');
+
+        (function (c, l, a, r, i, t, y) {
+            c[a] = c[a] || function () { (c[a].q = c[a].q || []).push(arguments) };
+            t = l.createElement(r); t.async = 1; t.src = "https://www.clarity.ms/tag/" + i;
+            y = l.getElementsByTagName(r)[0]; y.parentNode.insertBefore(t, y);
+        })(window, document, "clarity", "script", "gz9kp30zyt");
+    }
+</script>
+<script type="text/javascript">
+    if (window.localStorage.getItem('cgd-cookie-gdpr-policy') === 'true') {
+        loadTrackings();
+    }
+</script>
+    <link href="/Content/css/kendo?v=S6chuQEmNuWjiw785dvw-MF8Xx3RVau8Y9Nc70Cw0241" rel="stylesheet"/>
+
+    <link href="/Content/css/styles?v=vd_G0Z7JEV7VvgjEpFPYCrD4YglxCg8Lb9V5sgzANsY1" rel="stylesheet"/>
+
+
+    
+
+</head>
+<body>
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-KGMG7W6" height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+    
+<header class="cgd-topbar">
+    <div class="cgd-topbar-blue">
+        <div class="container-fluid container-xl">
+            <div class="cgd-topbar-container">
+                <div class="cgd-topbar-logo">
+                    <img src="/Content/images/logo-branco.svg" width="48" height="39" alt="Caixa Geral de Depositos" />
+                </div>
+                
+                <div class="cgd-fill"></div>
+                <div class="cgd-topbar-actions">
+                    
+                    <a href="https://www.cgd.pt" class="cgd-link cgd-white" title="Regressar ao CGD.pt">CGD.pt</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+    
+
+
+<section class="cgd-notifications cgd-position-fixed">
+    <span id="CgdNotification"></span>
+
+    <script id="CgdNotificationInfo" type="text/x-kendo-template">
+        <div class="cgd-notification">
+            <div class="cgd-notification-icon">
+                <div class="cgd-icon cgd-icon-info-filled"></div>
+            </div>
+            <div class="cgd-notification-content">
+                <div class="cgd-notification-title">#= title #</div>
+                <div class="cgd-notification-description">#= message #</div>
+            </div>
+        </div>
+    </script>
+    <script id="CgdNotificationWarning" type="text/x-kendo-template">
+        <div class="cgd-notification">
+            <div class="cgd-notification-icon">
+                <div class="cgd-icon cgd-icon-warning-filled"></div>
+            </div>
+            <div class="cgd-notification-content">
+                <div class="cgd-notification-title">#= title #</div>
+                <div class="cgd-notification-description">#= message #</div>
+            </div>
+        </div>
+    </script>
+    <script id="CgdNotificationSuccess" type="text/x-kendo-template">
+        <div class="cgd-notification">
+            <div class="cgd-notification-icon">
+                <div class="cgd-icon cgd-icon-check-filled"></div>
+            </div>
+            <div class="cgd-notification-content">
+                <div class="cgd-notification-title">#= title #</div>
+                <div class="cgd-notification-description">#= message #</div>
+            </div>
+        </div>
+    </script>
+    <script id="CgdNotificationError" type="text/x-kendo-template">
+        <div class="cgd-notification">
+            <div class="cgd-notification-icon">
+                <div class="cgd-icon cgd-icon-error-filled"></div>
+            </div>
+            <div class="cgd-notification-content">
+                <div class="cgd-notification-title">#= title #</div>
+                <div class="cgd-notification-description">#= message #</div>
+            </div>
+        </div>
+    </script>
+</section>
+
+
+
+    
+
+
+
+
+<style>
+    .cgd-tax .cgd-tax-container {
+        background-color: #ffffff;
+        border-color: #9DB1C9;
+        border-radius: 9px;
+    }
+</style>
+
+<form method="post" id="CgdForm">
+    <input id="SimulationSubOriginID" name="SimulationSubOriginID" type="hidden" value="1" />
+    <input id="Code" name="Code" type="hidden" value="" />
+    <section class="cgd-section-header">
+        <div class="container-fluid container-xl">
+            <div class="row justify-content-center">
+                <div class="col-12 col-lg-9">
+                    <p>Soluções de Crédito Habitação</p>
+                    <h1>Vamos simular o seu Crédito Habitação?</h1>
+                    <ul>
+                        <li>
+                            <a href="/" class="is-disabled" target="_self" data-layer="click_new_simulation" id="CgdCreateBlankSimulation" title="Criar nova simulação de Crédito Habitação">Nova simulação</a>
+                        </li>
+                        <li>
+                            <a data-modal="#CgdRecoveryModal" href="javascript:;" data-layer="click_recover_simulation" title="Recupere a sua simulação de Crédito Habitação">Recuperar simulação</a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+    <section class="cgd-wizard" id="CgdWizard">
+        <div class="cgd-section-fill">
+            <div class="cgd-wizard-body">
+                
+
+<div class="cgd-wizard-section is-centered" data-valid="stepPurpose">
+    <div class="cgd-section-campaign mb-4 mt-2">
+        <div class="d-flex align-items-center">
+            <h3 class="mb-0 font-bold" style="font-size: 17px;">Tenho menos de 36 anos e quero simular um Crédito Habitação com Garantia do Estado</h3>
+            <div class="cgd-input cgd-checkbox ml-auto mb-0 mt-0">
+                <input type="checkbox" class="pack-input" id="IsMedidaJovemCheckBox" name="IsMedidaJovemCheckBox"   />
+                <label for="IsMedidaJovemCheckBox" class="cgd-product-label"></label>
+            </div>
+        </div>
+        <hr class="my-3" style="border-color: #C9D5E7;" />
+    </div>
+    <input data-val="true" data-val-required="The IsMedidaJovem field is required." id="IsMedidaJovem" name="IsMedidaJovem" type="hidden" value="False" />
+    <div class="row">
+        <div class="col-12 col-lg-4">
+            <div class="cgd-input">
+                <label for="Purpose">Finalidade</label>
+                <input id="Purpose" name="Purpose" type="text" value="1" />
+            </div>
+        </div>
+        <div class="col-12 col-lg-8">
+            <div class="cgd-input">
+                <label for="ProductPurpose">Destino</label>
+                <input id="ProductPurpose" name="ProductPurpose" type="text" value="1" />
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12 col-lg-6">
+            <div class="cgd-input">
+                <label for="PropertyValue">Valor de Aquisição do imóvel</label>
+                <input class="k-large" id="PropertyValue" name="PropertyValue" type="tel" />
+            </div>
+        </div>
+        <div class="col-12 col-lg-6">
+            <div class="cgd-input">
+                <label for="Loan">Valor do empréstimo</label>
+                <input class="k-large" id="Loan" name="Loan" type="text" />
+            </div>
+        </div>
+    </div>
+
+
+    <div class="row">
+        <div class="col-12 col-lg-6">
+            <div class="cgd-input cgd-checkbox">
+                <input type="checkbox" class="pack-input" id="IsTransfer" name="IsTransfer"  value="False" onchange="cgd.simulator.events.onChangeIsTransfer()" />
+                <label for="IsTransfer" class="cgd-product-label">&nbsp;Transferência de outro banco</label>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+                
+
+<div class="cgd-wizard-section" data-valid="stepTaxes">
+    <h4 class="mb-0">Tipo de Taxa</h4>
+    <div class="row">
+        <div class="col-12 col-lg-4">
+            <div class="cgd-box ">
+                <input type="radio" id="CgdIndexVariableRate" name="tax" value="2"  />
+                <label class="cgd-box-container" for="CgdIndexVariableRate">
+                    <h5>Taxa Variável</h5>
+                    <p>
+                        Taxa Euribor acrescida de spread durante todo o prazo do empréstimo
+                    </p>
+                </label>
+            </div>
+        </div>
+        <div class="col-12 col-lg-4">
+            <div class="cgd-box ">
+                <input type="radio" id="CgdIndexFixedRate" name="tax" value="1"  />
+                <label class="cgd-box-container" for="CgdIndexFixedRate">
+                    <h5>Taxa Fixa</h5>
+                    <p>
+                        Taxa fixa acrescida de spread durante todo o prazo do empréstimo
+                    </p>
+                </label>
+            </div>
+        </div>
+        <div class="col-12 col-lg-4">
+            <div class="cgd-box ">
+                <input type="radio" id="CgdIndexMixedRate" name="tax" value="3"  />
+                <label class="cgd-box-container" for="CgdIndexMixedRate">
+                    <h5>Taxa Mista</h5>
+                    <p>Taxa fixa nos primeiros anos e variável no restante período, acrescidas de spread.</p>
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12 col-lg-6">
+            <div class="cgd-input">
+                <label for="Years">Prazo Total</label>
+                <input id="Years" maxlength="2" name="Years" type="text" />
+            </div>
+        </div>
+        <div class="col-12 col-lg-6">
+            <div class="cgd-input cgd-index-type" id="VariableInput" style="display:none;">
+                <label for="IndexRate">Indexante</label>
+                <input class="cgd-index-type-label" id="IndexRate" name="IndexRate" type="text" />
+            </div>
+            <div class="cgd-input cgd-index-type" id="FixedInput" style="display:none;">
+                <label for="IndexFixedRate">Indexante</label>
+                <input class="cgd-index-type-label" id="IndexFixedRateView" name="IndexFixedRateView" type="text" />
+            </div>
+            <input id="IndexFixedRate" name="IndexFixedRate" type="hidden" value="" />
+            <div class="cgd-input cgd-index-type" id="MixedInput" style="display:none;">
+                <label for="IndexRateMixedFixed">Indexante</label>
+                <input class="cgd-index-type-label" id="IndexRateMixedFixed" name="IndexRateMixedFixed" type="text" />
+            </div>
+            <div class="cgd-input cgd-index-type is-disabled" id="DefaultInput">
+                <label for="DefaultRate">Indexante</label>
+                <input class="cgd-index-type-label" disabled="disabled" id="DefaultRate" name="DefaultRate" type="text" />
+            </div>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-12">
+            <div class="cgd-info no-border text-center" id="PeriodUtilBasicControl" style="display: none;">
+                <div class="cgd-info-label mr-2">Prazo de Utilização Capital</div>
+                <p id="utilizationPeriod">24 meses</p>
+                <span data-tooltip="Prazo que dura as suas obras/construção no qual irá utilizar o capital do empréstimo. Durante este prazo serão cobradas prestações de apenas juros." class="cgd-icon cgd-icon-info-outline cgd-text-color ml-1"></span>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+                
+
+<div class="cgd-wizard-section">
+    <h4 class="mb-0">Opções disponíveis</h4>
+    <div class="cgd-cards cgd-vertical">
+        <ul>
+            <li>
+                <input type="radio" name="cards" id="CgdBaseCard" value="0" />
+                <div class="cgd-card BaseResult">
+                    <label for="CgdBaseCard" class="cgd-card-header">
+                        <div class="cgd-card-field">
+                            <div class="cgd-card-field-label">
+                                <p>Prestação base</p>
+                                <div class="cgd-card-field-description">sem produtos de venda associada</div>
+                            </div>
+                            <div class="cgd-card-field-value">
+                                <p class="CardInstalment font-bold"></p>
+                                <i class="cgd-card-field-symbol">€</i>
+                                <span class="cgd-icon cgd-icon-info-outline ml-2 InfoAboutMixed d-none" style="top: -1px; font-size:100%;" data-tooltip="Prestação do período da taxa fixa"></span>
+                            </div>
+                        </div>
+                        <span class="cgd-card-radio ml-auto"></span>
+                    </label>
+                    <div class="cgd-card-body">
+                        <ul>
+                            <li class="cgd-card-field">
+                                <div class="cgd-card-field-label">
+                                    <p>Tipo taxa</p>
+                                </div>
+                                <div class="cgd-card-field-value">
+                                    <p class="IndexType"></p>
+                                </div>
+                            </li>
+                            <li class="cgd-card-field">
+                                <div class="cgd-card-field-label flex-row align-items-center">
+                                    <p class="IndexTypeLabel">Euribor 6 meses</p>
+                                </div>
+                                <div class="cgd-card-field-value">
+                                    <p class="CardIndexRate"></p>
+                                    <i class="cgd-card-field-symbol">%</i>
+                                </div>
+                            </li>
+                            <li class="cgd-card-field">
+                                <div class="cgd-card-field-label">
+                                    <p>Spread Base</p>
+                                </div>
+                                <div class="cgd-card-field-value">
+                                    <p class="CardSpread"></p>
+                                    <i class="cgd-card-field-symbol">%</i>
+                                </div>
+                            </li>
+                            <li class="cgd-card-field">
+                                <div class="cgd-card-field-label">
+                                    <p>TAN</p>
+                                </div>
+                                <div class="cgd-card-field-value">
+                                    <p class="CardAnualNominalRate"></p>
+                                    <i class="cgd-card-field-symbol">%</i>
+                                </div>
+                            </li>
+                        </ul>
+                        <ul>
+                            <li class="cgd-card-field">
+                                <div class="cgd-card-field-label">
+                                    <p>TAEG</p>
+                                </div>
+                                <div class="cgd-card-field-value">
+                                    <p class="APR font-bold"></p>
+                                    <i class="cgd-card-field-symbol">%</i>
+                                </div>
+                            </li>
+                            <li class="cgd-card-field">
+                                <div class="cgd-card-field-label">
+                                    <p>MTIC</p>
+                                </div>
+                                <div class="cgd-card-field-value">
+                                    <p class="TotalPayableAmount font-bold"></p>
+                                    <i class="cgd-card-field-symbol">€</i>
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="cgd-card-footer d-flex justify-content-center dropdown dropup">
+                        <button type="button" class="cgd-button" data-toggle="dropdown" aria-expanded="false" data-layer="click_documentation" data-layer-type="wizard" data-layer-variant="fine">
+                            <span class="cgd-icon cgd-icon-download"></span>
+                            Obter FINE
+                        </button>
+                        <div class="dropdown-menu">
+                            <p>Escolha o idioma</p>
+                            <button type="button" class="cgd-fine-base-pt" data-layer="click_documentation" data-layer-type="wizard" data-layer-variant="language" data-language="PT">
+                                <img src="/Content/images/flags/pt.svg" height="15" alt="Portugal" />
+                                Português
+                            </button>
+                            <button type="button" class="cgd-fine-base-en" data-layer="click_documentation" data-layer-type="wizard" data-layer-variant="language" data-language="EN">
+                                <img src="/Content/images/flags/gb.svg" height="15" alt="Grã-Bretanha" />
+                                Inglês
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </li>
+            <li>
+                <input type="radio" class="dirty-ignore" name="cards" id="CgdCustomCard" value="1" />
+                <div class="cgd-card DiscountedResult">
+                    <label for="CgdCustomCard" class="cgd-card-header">
+                        <div class="cgd-card-field">
+                            <div class="cgd-card-field-label">
+                                <p>Prestação reduzida</p>
+                                <span class="cgd-card-field-description">com produtos de venda associada</span>
+                            </div>
+                            <div class="cgd-card-field-value">
+                                <p class="CardInstalment font-bold"></p>
+                                <i class="cgd-card-field-symbol">€</i>
+                                <span class="cgd-icon cgd-icon-info-outline ml-2 InfoAboutMixed d-none" style="top: -1px; font-size:100%;" data-tooltip="Prestação do período da taxa fixa"></span>
+                            </div>
+                        </div>
+                        <span class="cgd-card-radio ml-auto"></span>
+                    </label>
+                    <div class="cgd-card-body">
+                        <ul>
+                            <li class="cgd-card-field">
+                                <div class="cgd-card-field-label">
+                                    <p>Tipo taxa</p>
+                                </div>
+                                <div class="cgd-card-field-value">
+                                    <p class="IndexType"></p>
+                                </div>
+                            </li>
+                            <li class="cgd-card-field">
+                                <div class="cgd-card-field-label flex-row align-items-center">
+                                    <p class="IndexTypeLabel">Euribor 6 meses</p>
+                                </div>
+                                <div class="cgd-card-field-value">
+                                    <p class="CardIndexRate"></p>
+                                    <i class="cgd-card-field-symbol">%</i>
+                                </div>
+                            </li>
+                            <li class="cgd-card-field">
+                                <div class="cgd-card-field-label">
+                                    <p>Spread</p>
+                                </div>
+                                <div class="cgd-card-field-value">
+                                    <p class="CardSpread"></p>
+                                    <i class="cgd-card-field-symbol">%</i>
+                                </div>
+                            </li>
+                            <li class="cgd-card-field">
+                                <div class="cgd-card-field-label">
+                                    <p>TAN</p>
+                                </div>
+                                <div class="cgd-card-field-value">
+                                    <p class="CardAnualNominalRate"></p>
+                                    <i class="cgd-card-field-symbol">%</i>
+                                </div>
+                            </li>
+                            <li class="cgd-card-field">
+                                <div class="cgd-card-field-label">
+                                    <p>TAEG</p>
+                                </div>
+                                <div class="cgd-card-field-value">
+                                    <p class="APR font-bold"></p>
+                                    <i class="cgd-card-field-symbol">%</i>
+                                </div>
+                            </li>
+                            <li class="cgd-card-field">
+                                <div class="cgd-card-field-label">
+                                    <p>MTIC</p>
+                                </div>
+                                <div class="cgd-card-field-value">
+                                    <p class="TotalPayableAmount font-bold"></p>
+                                    <i class="cgd-card-field-symbol">€</i>
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="cgd-card-footer d-flex justify-content-center dropdown dropup">
+                        <button type="button" class="cgd-button" data-toggle="dropdown" aria-expanded="false" data-layer="click_documentation" data-layer-type="wizard" data-layer-variant="fine">
+                            <span class="cgd-icon cgd-icon-download"></span>
+                            Obter FINE
+                        </button>
+                        <div class="dropdown-menu">
+                            <p>Escolha o idioma</p>
+                            <button type="button" class="cgd-fine-pt" data-layer="click_documentation" data-layer-type="wizard" data-layer-variant="language" data-language="PT">
+                                <img src="/Content/images/flags/pt.svg" height="15" alt="Portugal" />
+                                Português
+                            </button>
+                            <button type="button" class="cgd-fine-en" data-layer="click_documentation" data-layer-type="wizard" data-layer-variant="language" data-language="EN">
+                                <img src="/Content/images/flags/gb.svg" height="15" alt="Grã-Bretanha" />
+                                Inglês
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </li>
+        </ul>
+    </div>
+</div>
+
+
+
+            </div>
+        </div>
+        <div class="cgd-wizard-footer">
+            <button type="button" class="cgd-button cgd-button-secondary d-none ev-back" >Voltar</button>
+            <button type="button" class="cgd-button cgd-button-primary ev-next">Avançar</button>
+            <button type="submit" class="cgd-button cgd-button-primary d-none ev-submit">Avançar</button>
+        </div>
+    </section>
+    <section class="cgd-section-compliance">
+        <div class="container-fluid container-xl">
+            <div class="row justify-content-center">
+                <div class="col-12 col-lg-9">
+                    <hr class="mb-5" />
+                    <div id="sectionConditions">
+                        
+
+<h3>Condições do Crédito Habitação</h3>
+
+<h5 class="mt-2">Financiamento</h5>
+<div class="medida-jovem-true d-none">
+    <p>
+        Para Crédito Habitação Própria Permanente com Garantia do Estado a Caixa financia um mínimo de 85% e um máximo de 100% do valor da transação, o qual corresponde ao menor montante entre o valor de investimento e o valor de avaliação.
+    </p>
+</div>
+<div class="medida-jovem-false ">
+    <p>
+        Para Crédito Habitação Própria Permanente a Caixa financia o menor valor entre 80 a 85% do valor da avaliação (dependente da análise da proposta) e 90% do valor de investimento; Habitação Própria Secundária: o menor valor entre 80% do valor de avaliação e 80% do valor de investimento; Habitação para Arrendamento: o menor valor entre 75% do valor de avaliação e 80% do valor de investimento.
+    </p>
+</div>
+
+<h5 class="mt-2">Prazo</h5>
+<p>
+    Conforme recomendação macroprudencial, o prazo máximo atual para Habitação Própria Permanente e Secundária, até 40 anos, desde que a idade máxima dos proponentes, no termo do empréstimo, não exceda os 75 anos. No caso de Crédito Habitação para Arrendamento, o prazo máximo é de 30 anos.
+</p>
+
+<h5 class="mt-2">Condições para redução de spread</h5>
+<p>
+    Os clientes que detenham os produtos ou serviços que compõem os seguintes Packs, beneficiam de uma redução de spread atribuído ao empréstimo.
+</p>
+<p class="ml-4">
+    Pack Vinculação: Cartão de débito e de crédito com utilização nos últimos 3 meses, Conta Caixa M, Azul ou Platinum e Domiciliação de rendimentos, na conta da CGD afeta ao empréstimo.
+</p>
+<p class="ml-4">
+    A detenção de todos os produtos deste Pack confere uma redução no spread de 0,25 p.p.
+</p>
+<p class="ml-4">
+    Pack Ligação: Caixa Seguro Vida e Seguro Casa, com pagamento na conta da CGD afeta ao empréstimo.
+</p>
+<p class="ml-4">
+    A detenção de todos os produtos deste Pack confere uma redução no spread de 0,25 p.p.
+</p>
+<p class="ml-4">
+    Pack Proteção: Carteira de depósitos, ativos e seguros financeiros, domiciliada na CGD, com garantia de capital a todo o tempo, superior a €10.000, Planos de Saúde Multicare, Seguro de Desemprego e Baixa Médica e PPR, com garantia de capital a todo o tempo, com entregas programadas ou com saldo mínimo de €2.500
+</p>
+<p class="ml-4">
+    A detenção de produtos deste Pack confere uma redução no spread até 0,20 p.p.
+</p>
+
+<h5 class="mt-2">Seguros</h5>
+<p>
+    O consumidor pode optar pela contratação dos seguros junto de segurador da sua preferência, desde que a apólice contemple as coberturas e os requisitos mínimos definidos pela CGD, não usufruindo, no entanto, da redução no spread atribuída pelo Pack Ligação.
+</p>
+
+<h5 class="mt-2">Resolução</h5>
+<p>
+    A cessação, durante a vigência do empréstimo, de pelo menos um dos produtos que compõem os packs apresentados, confere à Caixa o direito de fazer cessar a redução de spread atribuída pela detenção do respetivo pack.
+</p>
+
+                    </div>
+                    <div id="sectionAssumption" style="display: none;">
+                        
+
+<h3>Pressupostos da simulação</h3>
+
+
+<h5 class="mt-2">Financiamento</h5>
+<div data-purpose="1" class="">
+    <div class="medida-jovem-true d-none">
+        <p>
+            Para Crédito Habitação Própria Permanente com Garantia do Estado a Caixa financia um mínimo de 85% e um máximo de 100% do valor da transação, o qual corresponde ao menor montantes entre o valor de investimento e o valor de avaliação.
+        </p>
+    </div>
+    <div class="medida-jovem-false ">
+        <p>
+            Financiamento correspondente a 80% do valor de avaliação do imóvel, sem Intermediário de Crédito. Um Proponente com 30 anos, detentor de conta à ordem domiciliada na CGD afeta ao financiamento (<span id="AquisicaoBaseResultAccountMonthlyFee"></span>€ /mês inclui imposto de selo).
+        </p>
+        <p>
+            Na simulação da prestação reduzida, considera-se a detenção dos seguintes produtos de venda associada facultativa:
+        </p>
+        <p class="ml-4">
+            Pack Vinculação: Conta Caixa M (<span id="DiscountedResultAccountMonthlyFee"></span>€/mês inclui imposto de selo) afeta ao empréstimo, com Cartão de Crédito com uma utilização nos últimos 3 meses e Caixadirecta; Domiciliação de rendimentos na conta da CGD afeta ao financiamento;
+        </p>
+        <p class="ml-4">
+            Pack Ligação: Seguro de vida e Multirriscos na Fidelidade Companhia de Seguros, S.A com pagamento na conta da CGD afeta ao empréstimo;
+        </p>
+        <p class="ml-4">
+            Pack Proteção: Carteira de depósitos, ativos e seguros financeiros, superior a €10.000, domiciliada na CGD, com garantia a todo o tempo; e PPR com entregas programadas ou saldo mínimo de €2.500, domiciliado na CGD.
+        </p>
+    </div>
+</div>
+<div data-purpose="2" class="d-none">
+    <p>
+        Financiamento correspondente a 80% do valor de avaliação do imóvel (incluindo todos os empréstimos com hipoteca do mesmo imóvel adquirido há mais de 2 anos), com capital libertado em tranches durante um período de <span class="PeriodUtilAssumption">12 meses</span>. 1 Proponente, com 30 anos, com conta à ordem associada ao financiamento domiciliada na CGD (<span id="ObrasBaseResultAccountMonthlyFee"></span>€ /mês inclui imposto de selo) e sem Intermediário de Crédito.
+    </p>
+    <p>
+        Na simulação da prestação reduzida, considera-se a detenção dos seguintes produtos de venda associada facultativa:
+    </p>
+    <p class="ml-4">
+        Pack Vinculação: Conta Caixa M (<span id="DiscountedResultAccountMonthlyFee"></span>€/mês inclui imposto de selo) afeta ao empréstimo, com Cartão de Crédito com uma utilização nos últimos 3 meses e Caixadirecta; Domiciliação de rendimentos na conta da CGD afeta ao financiamento;
+    </p>
+    <p class="ml-4">
+        Pack Ligação: Seguro de vida e Multirriscos na Fidelidade Companhia de Seguros, S.A com pagamento na conta da CGD afeta ao empréstimo;
+    </p>
+    <p class="ml-4">
+        Pack Proteção: Carteira de depósitos, ativos e seguros financeiros, superior a €10.000, domiciliada na CGD, com garantia a todo o tempo; e PPR com entregas programadas ou saldo mínimo de €2.500, domiciliado na CGD.
+    </p>
+</div>
+<div data-purpose="3" class="d-none">
+    <p>
+        Financiamento correspondente a 80% do valor de avaliação do imóvel, com capital libertado em tranches durante um período de 24 meses. 1 Proponente, com 30 anos, com conta à ordem associada ao financiamento domiciliada na CGD (<span id="ConstrucaoBaseResultAccountMonthlyFee"></span>€ /mês inclui imposto de selo) e sem Intermediário de Crédito.
+    </p>
+    <p>
+        Na simulação da prestação reduzida, considera-se a detenção dos seguintes produtos de venda associada facultativa:
+    </p>
+    <p class="ml-4">
+        Pack Vinculação: Conta Caixa M (<span id="DiscountedResultAccountMonthlyFee"></span>€/mês inclui imposto de selo) afeta ao empréstimo, com Cartão de Crédito com uma utilização nos últimos 3 meses e Caixadirecta; Domiciliação de rendimentos na conta da CGD afeta ao financiamento;
+    </p>
+    <p class="ml-4">
+        Pack Ligação: Seguro de vida e Multirriscos na Fidelidade Companhia de Seguros, S.A com pagamento na conta da CGD afeta ao empréstimo;
+    </p>
+    <p class="ml-4">
+        Pack Proteção: Carteira de depósitos, ativos e seguros financeiros, superior a €10.000, domiciliada na CGD, com garantia a todo o tempo; e PPR com entregas programadas ou saldo mínimo de €2.500, domiciliado na CGD.
+    </p>
+</div>
+<div data-purpose="4" class="d-none">
+    <p>
+        Financiamento correspondente a 80%  do valor de avaliação do imóvel, incluindo todos os empréstimos com hipoteca do mesmo imóvel adquirido há mais de 2 anos. 1 Proponente, com 30 anos, com conta à ordem associada ao financiamento domiciliada na CGD  (<span id="OutrasFinalidadesBaseResultAccountMonthlyFee"></span>€ /mês inclui imposto do selo) e sem Intermediário de Crédito.
+    </p>
+    <p>
+        Na simulação da prestação reduzida, considera-se a detenção dos seguintes produtos de venda associada facultativa:
+    </p>
+    <p class="ml-4">
+        Pack Vinculação: Conta Caixa M (<span id="DiscountedResultAccountMonthlyFee"></span>€/mês inclui imposto de selo) afeta ao empréstimo, com Cartão de Crédito com uma utilização nos últimos 3 meses e Caixadirecta; Domiciliação de rendimentos na conta da CGD afeta ao financiamento;
+    </p>
+    <p class="ml-4">
+        Pack Ligação: Seguro de vida e Multirriscos na Fidelidade Companhia de Seguros, S.A com pagamento na conta da CGD afeta ao empréstimo;
+    </p>
+    <p class="ml-4">
+        Pack Proteção: Carteira de depósitos, ativos e seguros financeiros, superior a €10.000, domiciliada na CGD, com garantia a todo o tempo; e PPR com entregas programadas ou saldo mínimo de €2.500, domiciliado na CGD.
+    </p>
+</div>
+
+<h5 class="mt-2">Seguros</h5>
+<p>
+    O consumidor pode optar pela contratação dos seguros junto de segurador da sua preferência, desde que a apólice contemple as coberturas e os requisitos mínimos definidos pela Caixa, não usufruindo, no entanto, da redução no spread atribuída pelo Pack Ligação.
+</p>
+
+<h5 class="mt-2">Resolução</h5>
+<p>
+    A cessação, durante a vigência do empréstimo, de pelo menos um dos produtos que compõem os packs apresentados, confere à Caixa o direito de fazer cessar a redução de spread atribuída pela detenção do respetivo pack.
+</p>
+
+                    </div>
+                    <a href="/Informacao-Pre-Contratual-Caracter-Geral_Credito-Hipotecario.pdf" data-layer="click_documentation" data-layer-type="wizard" download class="cgd-button cgd-button-fill">
+                        <span class="cgd-icon cgd-icon-download"></span>
+                        Informação pré-contratual de carácter geral
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+</form>
+
+
+
+
+
+    
+
+<div class="cgd-modal on-top DiscountedResult" id="CgdCodeSimulationModal" tabindex="-1">
+    <div class="cgd-modal-container">
+        <div class="cgd-modal-header">
+            <span class="cgd-modal-title">Gravar Simulação</span>
+            <span class="cgd-modal-close" data-modal-close></span>
+        </div>
+        <div class="cgd-modal-body">
+            <p>
+                Recupere a sua Simulação através do código indicado abaixo.
+                Poderá apresentar este código na Agência da sua preferência para dar continuidade ao seu processo de crédito.
+            </p>
+            <h5 class="cgd-text-color mt-3">Código de Simulação</h5>
+            <div class="cgd-alert cgd-code">
+                <span class="cgd-code-output Code"></span>
+                <button type="button" class="cgd-code-clipboard" data-tooltip="Copiar codigo" data-copy="Copiado" data-time="3000"  data-layer="share_code" data-layer-type="form">
+                    <span class="cgd-icon cgd-icon-audit-thin"></span>
+                </button>
+            </div>
+            <hr class="my-4" />
+            <p>
+                <b>Próximos passos?</b>
+            </p>
+            <p>
+                Obtenha a sua FINE e dirija-se a uma das <a href="https://www.cgd.pt/Corporativo/Rede-CGD/Pages/Agencias.aspx" target="_blank" title="Encontre-nos perto de si. Pesquise aqui a rede nacional da CGD">nossas agências</a> para saber mais.
+                Consulte os <a href="javascript:;" data-modal="#CgdChecklistDocumentModal" target="_self" title="Consulte aqui os documentos necessários para o crédito habitação">documentos</a> necessários para a proposta.
+            </p>
+            <div class="d-flex mt-3 dropdown dropup">
+                <button type="button" class="cgd-button cgd-button-secondary" data-toggle="dropdown" aria-expanded="false" data-layer="click_documentation" data-layer-type="form" data-layer-variant="fine">
+                    <span class="cgd-icon cgd-icon-download"></span>
+                    Obter FINE
+                </button>
+                <div class="dropdown-menu">
+                    <p>Escolha o idioma</p>
+                    <button type="button" class="cgd-fine-pt" data-layer="click_documentation" data-layer-type="wizard" data-layer-variant="language" data-language="PT">
+                        <img src="/Content/images/flags/pt.svg" height="15" alt="Portugal" />
+                        Português
+                    </button>
+                    <button type="button" class="cgd-fine-en" data-layer="click_documentation" data-layer-type="wizard" data-layer-variant="language" data-language="EN">
+                        <img src="/Content/images/flags/gb.svg" height="15" alt="Grã-Bretanha" />
+                        Inglês
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="cgd-modal on-top" id="CgdChecklistDocumentModal" tabindex="-1">
+    <div class="cgd-modal-container">
+        <div class="cgd-modal-header">
+            <span class="cgd-modal-title">Documentação do Crédito Habitação</span>
+            <span class="cgd-modal-close" data-modal-close></span>
+        </div>
+        <div class="cgd-modal-body">
+            <p>
+                Saiba qual a documentação que precisa de se fazer acompanhar:
+            </p>
+
+            <ul class="cgd-checklist">
+                <li>Bilhete de identidade ou Cartão de Cidadão</li>
+                <li>Cartão de Contribuinte</li>
+                <li>3 últimos recibos de vencimento</li>
+                <li>Declaração da Entidade Patronal com vinculo laboral</li>
+                <li>Declaração de IRS do último ano</li>
+                <li>Nota de liquidação do último ano</li>
+                <li>Extratos bancários dos 3 últimos meses (do banco ou bancos com que trabalha)</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<div class="cgd-modal on-top" id="CgdRecoveryModal" tabindex="-1">
+    <div class="cgd-modal-container">
+        <div class="cgd-modal-header">
+            <span class="cgd-modal-title">Recuperar simulação</span>
+            <span class="cgd-modal-close" data-modal-close></span>
+        </div>
+        <div class="cgd-modal-body">
+            <p>Introduza o código para recuperar a sua simulação.</p>
+            <div class="cgd-input mt-3">
+                <input id="CodeSave" name="CodeSave" />
+            </div>
+
+            <div class="d-flex w-100 mt-3">
+                <button type="button" data-modal-close class="cgd-button cgd-button-secondary ml-auto mr-2">
+                    Cancelar
+                </button>
+                <button type="button" class="cgd-button cgd-button-primary" onclick="cgd.simulator.requests.recovery(this)">
+                    Recuperar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="cgd-modal on-top" id="CgdRecoveryAgencyModal" tabindex="-1">
+    <div class="cgd-modal-container">
+        <div class="cgd-modal-header">
+            <span class="cgd-modal-title">Recuperar simulação</span>
+            <span class="cgd-modal-close" data-modal-close></span>
+        </div>
+        <div class="cgd-modal-body">
+            <div class="cgd-icon cgd-icon-agency-outline cgd-text-color mb-4 text-center" style="font-size:400%"></div>
+            <div class="text-center">
+                <h3 class="mb-1 cgd-text-color">A sua simulação já está em boas mãos.</h3>
+                <small class="d-block mb-4" style="margin:0 auto; max-width:75%;"><small>A agencia <b>Alvalade</b> já está a tratar da sua simulação, carregue em "obter fine" para obter a versão mais recente</small></small>
+            </div>
+
+            <div class="d-flex mt-1" style="padding: 16px; border-radius: 8px; background: rgba(108, 117, 125, .05);max-width:85%; margin:0 auto">
+                <div class="flex-grow-1">
+                    <p class="mb-0">Alvalade</p>
+                    <small class="d-block mb-0">
+                        Praça de Alvalade 6, Centro Comercial Lojas 7 e 28A, 1700 - 036 LISBOA.
+                    </small>
+                </div>
+                <div class="flex-shrink-0 ml-3 mt-3">
+                    <small class="d-block mb-0">Telefone: 217913100</small>
+                    <small class="d-block mb-0">Horário: 08h30 - 15h00</small>
+                    <div class="my-1 d-none">
+                        <a href="#" target="_blank">
+                            <small>ver no mapa</small>
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex align-items-center mt-3 justify-content-center">
+                <a href="/Content/docs/Informacao-Pre-Contratual-Caracter-Geral_Credito-Hipotecario.pdf" download class="cgd-download-fine mr-2" data-layer="click_documentation" data-layer-type="form">
+                    <p>Obter FINE #1</p>
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="cgd-modal on-top" id="CgdChJovem2024Modal" tabindex="-1">
+    <div class="cgd-modal-container">
+        <div class="cgd-modal-header">
+            <span class="cgd-modal-title">Condições para o Credito Jovem</span>
+            <span class="cgd-modal-close" data-modal-close></span>
+        </div>
+
+        <div class="cgd-modal-body">
+            <p>Ao selecionar esta oferta declaro que todos os proponentes:</p>
+            <ul class="cgd-checklist">
+                <li>Estão a simular aquisição de 1ª Habitação Própria Permanente</li>
+                <li>Têm domiciliação fiscal em Portugal</li>
+                <li>Têm idade igual ou inferior a 35 anos</li>
+                <li>Têm rendimentos até ao 8 escalão (inclusive) do imposto sobre o rendimento das pessoas singulares (IRS)</li>
+                <li>Têm a situação tributária e contributiva regularizadas</li>
+                <li>Não são proprietários de prédio urbano ou de fração autónoma de prédio urbano habitacional</li>
+                <li>Nunca usufruiu(iram) da garantia pessoal do estado ao abrigo do Decreto de Lei nº 44/2024, de 10 de julho</li>
+                <li>Todos os adquirentes do imóvel serão mutuários do empréstimo.</li>
+            </ul>
+            <p>Para efeitos de simulação com garantia do estado considera-se como pressuposto o valor estimado de avaliação igual ao valor de aquisição do imóvel.</p>
+
+            <div class="d-flex w-100 mt-3">
+                <button type="button" class="cgd-button cgd-button-secondary ml-auto mr-2" data-modal-close>Cancelar</button>
+                <button type="button" class="cgd-button cgd-button-primary" id="CgdChJovem2024ModalConfirm">Confirmo</button>
+            </div>
+        </div>
+    </div>
+</div>
+    
+<footer class="cgd-footer">
+    <div class="cgd-footer-container py-5">
+        <div class="container-fluid container-xl">
+            <div class="cgd-footer-slogan">
+                <img src="/Content/images/logo.svg" width="48" height="40" alt="Caixa Geral de Depositos" />
+                <h3>Caixa. Para todos e para cada um.</h3>
+                <ul>
+                    <li>
+                        <a href="https://www.facebook.com/caixageraldedepositos/" title="Facebook" target="_blank" class="cgd-button cgd-button-primary cgd-button-small">
+                            <span class="cgd-icon cgd-icon-facebook p-0"></span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="http://www.youtube.com/user/mediacgd" target="_blank" title="Youtube" class="cgd-button cgd-button-primary cgd-button-small">
+                            <span class="cgd-icon cgd-icon-youtube p-0"></span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="https://www.linkedin.com/company/caixageraldedepositos/" title="Linkedin" target="_blank" class="cgd-button cgd-button-primary cgd-button-small">
+                            <span class="cgd-icon cgd-icon-linkedin p-0"></span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="https://www.instagram.com/caixageraldedepositos/" title="Instagram" target="_blank" class="cgd-button cgd-button-primary cgd-button-small">
+                            <span class="cgd-icon cgd-icon-instagram p-0"></span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+            <hr class="my-5" />
+            <div class="row">
+                <div class="col-12 col-sm-6 col-md-3">
+                    <div class="cgd-footer-links">
+                        <h6>Link Úteis</h6>
+                        <ul>
+                            <li><a href="https://www.cgd.pt/Ajuda/Pages/Ajuda.aspx" target="_blank">Espaço Cliente</a></li>
+                            <li><a href="https://www.cgd.pt/Saldo-Positivo/Pages/Saldo-Positivo.aspx" target="_blank">Saldo Positivo</a></li>
+                            <li><a href="https://recrutamento.cgd.pt/" target="_blank">Recrutamento</a></li>
+                            <li><a href="https://www.cgd.pt/ajuda/Seguranca/Pages/Seguranca-e-Fraude.aspx" target="_blank">Segurança</a></li>
+                            <li><a href="https://www.cgd.pt/Ajuda/Pages/Privacidade-e-cookies.aspx" target="_blank">Privacidade e Cookies</a></li>
+                            <li class="divider"></li>
+                            <li><a href="https://www.cgd.pt/">CGD.pt</a></li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="col-12 col-sm-6 col-md-3">
+                    <div class="cgd-footer-links">
+                        <h6>Rede CGD</h6>
+                        <ul>
+                            <li><a href="https://www.cgd.pt/Corporativo/Rede-CGD/Pages/Agencias.aspx" target="_blank">Agências</a></li>
+                            <li><a href="https://www.cgd.pt/Corporativo/Rede-CGD/Pages/Gabinetes.aspx" target="_blank">Gabinetes Caixa Empresas</a></li>
+                            <li><a href="https://www.cgd.pt/ajuda/Rede-Internacional-CGD/Pages/Europa.aspx" target="_blank">Europa</a></li>
+                            <li><a href="https://www.cgd.pt/ajuda/Rede-Internacional-CGD/Pages/Africa.aspx" target="_blank">África</a></li>
+                            <li><a href="https://www.cgd.pt/ajuda/Rede-Internacional-CGD/Pages/America.aspx" target="_blank">América</a></li>
+                            <li><a href="https://www.cgd.pt/ajuda/Rede-Internacional-CGD/Pages/Asia.aspx" target="_blank">Ásia</a></li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="col-12 col-sm-6 col-md-3">
+                    <div class="cgd-footer-links">
+                        <h6>Contactos</h6>
+                        <ul>
+                            <li><span class="cgd-icon cgd-icon-call-outline mr-2"></span>217 900 790* (Particulares)<sup>1</sup></li>
+                            <li><span class="cgd-icon cgd-icon-call-outline mr-2"></span>217 900 791* (Empresas)<sup> 2</sup></li>
+                            <li class="mt-3"><a href="https://www.cgd.pt/Ajuda/Contactos/Pages/Contactos.aspx" target="_blank"><span class="cgd-icon cgd-icon-contacts-outline mr-2"></span>Outros contactos</a></li>
+                            <li>___________________<br>* Chamada para Rede Fixa Nacional</li>
+                            <li><sup>1</sup> 24h/dia, 7 dias por semana</li>
+                            <li><sup>2</sup> 8h-22h, 7 dias por semana</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="col-12 col-sm-6 col-md-3">
+                    <div class="cgd-footer-links">
+                        <h6>
+                            Informação relevante
+                        </h6>
+                        <ul>
+                            <li><a href="https://www.cgd.pt/Precario/Pages/Precario.aspx" target="_blank">Preçário</a></li>
+                            <li><a href="https://www.cgd.pt/Particulares/Apoio-Incumprimento/Pages/Apoio-ao-incumprimento.aspx" target="_blank">Apoio ao incumprimento</a></li>
+                            <li><a href="https://www.livroreclamacoes.pt/" target="_blank">Livro de Reclamações</a></li>
+                            <li><a href="https://www.cgd.pt/Particulares/Contas/Contas-a-Ordem/Documents/Glossario-Servicos-de-Pagamento.pdf" target="_blank">Glossário</a></li>
+                            <li><a href="https://www.cgd.pt/Ajuda/Pages/Aviso-legal.aspx" target="_blank">Aviso Legal</a></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="cgd-footer-container cgd-dark py-4">
+        <div class="container-fluid container-xl">
+            <div class="cgd-footer-copyright">
+                <p>A CGD está registada junto do Banco de Portugal sob o n.º 35, da CMVM sob o n.º 125 e da ASF sob o nº 419501357.</p>
+                <p>2026 © Caixa Geral de Depósitos, SA. Todos os direitos reservados. Condições de utilização</p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+    <script src="/Content/js/bundle?v=t8TTkRxqHKkXGC2UF4BZHf_Sv539qnCPoo-pDOufYqs1"></script>
+
+    <script src="/Content/js/kendo?v=PpoEF8cBVx7HCTcMkyDy35nb39oAVx5Oj7P17QAFCGQ1"></script>
+
+
+    <script>kendo.culture("pt-PT");</script>
+    
+    <iframe id="CgdDownloader" class="d-none" frameborder="0" tabindex="-1"></iframe>
+
+    <script type="text/javascript">
+        var cgd = cgd || {};
+        cgd.simulator = cgd.simulator || {};
+
+        cgd.urls = cgd.urls || {};
+        cgd.urls.calculate = "/calculate";
+        cgd.urls.limits = "/limits";
+        cgd.urls.finePT = "/0000000000/FINE";
+        cgd.urls.fineBasePT = "/0000000000/FINE/base";
+        cgd.urls.fineEN = "/0000000000/FINE-EN";
+        cgd.urls.fineBaseEN = "/0000000000/FINE-EN/base";
+        cgd.urls.details = "/0000000000";
+        cgd.urls.save = "/0000000000/save";
+
+        cgd.urls.placeholders = cgd.urls.placeholders || {};
+        cgd.urls.placeholders.code = '0000000000';
+
+        cgd.constants = cgd.constants || {};
+        cgd.constants.rates = {
+            variable: 2,
+            fixed: 1,
+            mixed: 3
+        };
+        cgd.constants.loanPurposes = {
+            acquisition: 1,
+            construction: 3,
+            works: 2,
+            other: 4
+        };
+        cgd.constants.loanProductPurposes = {
+            permanentHousing: 1,
+            secondaryHousing: 2,
+            rentalHousing: 3
+        };
+
+    </script>
+
+    <script>kendo.syncReady(function(){jQuery("#Purpose").kendoDropDownList({"change":cgd.simulator.wizard.setupTaxes,"dataSource":{"transport":{"read":{"url":"/lov/purposes","data":cgd.simulator.events.onBeforeSendPurpose,"type":"POST"},"prefix":""},"serverFiltering":true,"filter":[],"schema":{"errors":"Errors"}},"dataTextField":"Text","noDataTemplate":"Sem dados","dataValueField":"Value"});});kendo.syncReady(function(){jQuery("#ProductPurpose").kendoDropDownList({"dataSource":{"transport":{"read":{"url":"/lov/product-purposes","data":cgd.simulator.events.onBeforeSendProduct,"type":"POST"},"prefix":""},"serverFiltering":true,"filter":[],"schema":{"errors":"Errors"}},"dataTextField":"Text","noDataTemplate":"Sem dados","dataValueField":"Value","cascadeFrom":"Purpose"});});kendo.syncReady(function(){jQuery("#PropertyValue").kendoNumericTextBox({"enable":true,"min":0,"format":"c","placeholder":"0,00 €","spinners":false});});kendo.syncReady(function(){jQuery("#Loan").kendoNumericTextBox({"enable":true,"min":0,"format":"c","placeholder":"0,00 €","spinners":false});});kendo.syncReady(function(){jQuery("#Years").kendoNumericTextBox({"change":onYearsChange,"enable":true,"min":1,"format":"## anos","placeholder":"Indicar o prazo do empréstimo","spinners":false});});kendo.syncReady(function(){jQuery("#IndexRate").kendoDropDownList({"dataSource":[{"Text":"Euribor 6 meses","Value":"1"}],"dataTextField":"Text","autoWidth":true,"dataValueField":"Value"});});kendo.syncReady(function(){jQuery("#IndexFixedRateView").kendoDropDownList({"dataSource":[{"Text":"Taxa base 5 anos","Value":"4","Months":60},{"Text":"Taxa base 6 anos","Value":"19","Months":72},{"Text":"Taxa base 7 anos","Value":"20","Months":84},{"Text":"Taxa base 8 anos","Value":"21","Months":96},{"Text":"Taxa base 9 anos","Value":"22","Months":108},{"Text":"Taxa base 10 anos","Value":"5","Months":120},{"Text":"Taxa base 11 anos","Value":"23","Months":132},{"Text":"Taxa base 12 anos","Value":"24","Months":144},{"Text":"Taxa base 13 anos","Value":"25","Months":156},{"Text":"Taxa base 14 anos","Value":"26","Months":168},{"Text":"Taxa base 15 anos","Value":"6","Months":180},{"Text":"Taxa base 16 anos","Value":"27","Months":192},{"Text":"Taxa base 17 anos","Value":"28","Months":204},{"Text":"Taxa base 18 anos","Value":"29","Months":216},{"Text":"Taxa base 19 anos","Value":"30","Months":228},{"Text":"Taxa base 20 anos","Value":"7","Months":240},{"Text":"Taxa base 21 anos","Value":"31","Months":252},{"Text":"Taxa base 22 anos","Value":"32","Months":264},{"Text":"Taxa base 23 anos","Value":"33","Months":276},{"Text":"Taxa base 24 anos","Value":"34","Months":288},{"Text":"Taxa base 25 anos","Value":"8","Months":300},{"Text":"Taxa base 26 anos","Value":"35","Months":312},{"Text":"Taxa base 27 anos","Value":"36","Months":324},{"Text":"Taxa base 28 anos","Value":"37","Months":336},{"Text":"Taxa base 29 anos","Value":"38","Months":348},{"Text":"Taxa base 30 anos","Value":"9","Months":360},{"Text":"Taxa base 31 anos","Value":"14","Months":372},{"Text":"Taxa base 32 anos","Value":"15","Months":384},{"Text":"Taxa base 33 anos","Value":"16","Months":396},{"Text":"Taxa base 34 anos","Value":"17","Months":408},{"Text":"Taxa base 35 anos","Value":"18","Months":420},{"Text":"Taxa base 36 anos","Value":"75","Months":432},{"Text":"Taxa base 37 anos","Value":"76","Months":444},{"Text":"Taxa base 38 anos","Value":"77","Months":456},{"Text":"Taxa base 39 anos","Value":"78","Months":468},{"Text":"Taxa base 40 anos","Value":"73","Months":480}],"dataTextField":"Text","autoWidth":true,"dataValueField":"Value","optionLabel":"Selecionar o indexante do empréstimo"});});kendo.syncReady(function(){jQuery("#IndexRateMixedFixed").kendoDropDownList({"dataSource":[{"Text":"Taxa base 5 anos","Value":"4","Months":60},{"Text":"Taxa base 10 anos","Value":"5","Months":120},{"Text":"Taxa base 15 anos","Value":"6","Months":180},{"Text":"Taxa base 20 anos","Value":"7","Months":240},{"Text":"Taxa base 25 anos","Value":"8","Months":300},{"Text":"Taxa base 30 anos","Value":"9","Months":360},{"Text":"Taxa base 35 anos","Value":"18","Months":420}],"dataTextField":"Text","autoWidth":true,"dataValueField":"Value","optionLabel":"Selecionar o indexante do empréstimo"});});kendo.syncReady(function(){jQuery("#DefaultRate").kendoDropDownList({"dataSource":[{"Text":"Taxa base 5 anos","Value":"4","Months":60},{"Text":"Taxa base 6 anos","Value":"19","Months":72},{"Text":"Taxa base 7 anos","Value":"20","Months":84},{"Text":"Taxa base 8 anos","Value":"21","Months":96},{"Text":"Taxa base 9 anos","Value":"22","Months":108},{"Text":"Taxa base 10 anos","Value":"5","Months":120},{"Text":"Taxa base 11 anos","Value":"23","Months":132},{"Text":"Taxa base 12 anos","Value":"24","Months":144},{"Text":"Taxa base 13 anos","Value":"25","Months":156},{"Text":"Taxa base 14 anos","Value":"26","Months":168},{"Text":"Taxa base 15 anos","Value":"6","Months":180},{"Text":"Taxa base 16 anos","Value":"27","Months":192},{"Text":"Taxa base 17 anos","Value":"28","Months":204},{"Text":"Taxa base 18 anos","Value":"29","Months":216},{"Text":"Taxa base 19 anos","Value":"30","Months":228},{"Text":"Taxa base 20 anos","Value":"7","Months":240},{"Text":"Taxa base 21 anos","Value":"31","Months":252},{"Text":"Taxa base 22 anos","Value":"32","Months":264},{"Text":"Taxa base 23 anos","Value":"33","Months":276},{"Text":"Taxa base 24 anos","Value":"34","Months":288},{"Text":"Taxa base 25 anos","Value":"8","Months":300},{"Text":"Taxa base 26 anos","Value":"35","Months":312},{"Text":"Taxa base 27 anos","Value":"36","Months":324},{"Text":"Taxa base 28 anos","Value":"37","Months":336},{"Text":"Taxa base 29 anos","Value":"38","Months":348},{"Text":"Taxa base 30 anos","Value":"9","Months":360},{"Text":"Taxa base 31 anos","Value":"14","Months":372},{"Text":"Taxa base 32 anos","Value":"15","Months":384},{"Text":"Taxa base 33 anos","Value":"16","Months":396},{"Text":"Taxa base 34 anos","Value":"17","Months":408},{"Text":"Taxa base 35 anos","Value":"18","Months":420},{"Text":"Taxa base 36 anos","Value":"75","Months":432},{"Text":"Taxa base 37 anos","Value":"76","Months":444},{"Text":"Taxa base 38 anos","Value":"77","Months":456},{"Text":"Taxa base 39 anos","Value":"78","Months":468},{"Text":"Taxa base 40 anos","Value":"73","Months":480}],"autoWidth":true,"optionLabel":"Selecionar o indexante do empréstimo"});});kendo.syncReady(function(){jQuery("#CgdNotification").kendoNotification({"stacking":"down","autoHideAfter":2000,"appendTo":".cgd-notifications","animation":false,"templates":[{"type":"cgd-info","templateId":"CgdNotificationInfo"},{"type":"cgd-warning","templateId":"CgdNotificationWarning"},{"type":"cgd-success","templateId":"CgdNotificationSuccess"},{"type":"cgd-error","templateId":"CgdNotificationError"}]});});kendo.syncReady(function(){jQuery("#CodeSave").kendoTextBox({"label":{"content":"Código"}});});</script>
+    <script src="/Content/js/scripts?v=025joDfMww9lMjRkbKi7mpc9zQvBeqOwi4XUqczwaIA1"></script>
+
+    
+    <script src="/Content/js/wizard?v=nlacMN8F8mOiUS7SfSOOAIdItoUFTKN6YRimX6P7IHk1"></script>
+
+    <script type="text/javascript">
+
+        // Validation Functions
+        function stepPurpose() {
+            if (cgd.simulator.wizard.stepPurpose.validate()) {
+                return true;
+            }
+            return false;
+        }
+
+        function stepTaxes() {
+            if (!cgd.simulator.wizard.stepTaxes.validate()) {
+                return false;
+            }
+
+            return new Promise((resolve, reject) => {
+                cgd.simulator.requests.calculate(function (data) {
+
+                    if (!data || data.error) {
+                        cgd.simulator.notification.error("Erro", data?.message || "Ocorreu um erro inesperado. <br>Tente novamente.", 10000);
+                        reject(false);  // Prevents advancing
+                    } else {
+                        resolve(true);  // Allows advancing
+                    }
+                });
+            });
+        }
+
+        $("form").on("submit", function () {
+            var nextButton = $('.ev-next');
+            if (nextButton.is(':visible')) {
+                nextButton.trigger('click');
+                return false;
+            }
+
+            if (cgd.simulator.wizard.stepPurpose.validate() && cgd.simulator.wizard.stepTaxes.validate() && cgd.simulator.wizard.stepResults.validate()) {
+                cgd.simulator.helpers.loader(true);
+                cgd.simulator.dataLayer.fire("click_continue", "wizard", "step" + (cgd.simulator.wizard.getSectionVisible().index() + 1), $(".ev-submit").first().text());
+                return true;
+            } else {
+                return false
+            }
+        })
+
+        // Events Steps
+        $("#CgdWizard").on("stepChange", function (event) {
+            $("#sectionConditions").show();
+            $("#sectionAssumption").hide();
+
+            // IF LAST STEP, SHOW ASSUMPTIONS
+            if (event.step == event.total) { 
+                $("#sectionConditions").hide();
+                $("#sectionAssumption").show();
+            }
+
+            cgd.simulator.notification.hide();
+            $("#CgdCreateBlankSimulation").toggleClass("is-disabled", event.step === 0);
+        });
+    </script>
+
+    
+    <script type="text/javascript">
+        var cgd = cgd || {};
+        cgd.simulator = cgd.simulator || {};
+        cgd.simulator.wizard = cgd.simulator.wizard || {};
+        cgd.simulator.wizard.stepPurpose = cgd.simulator.wizard.stepPurpose || {};
+
+        cgd.simulator.wizard.setupTaxes = function () {
+            // Reset to all inputs if Purpose change
+            $('.cgd-box input').removeAttr('checked');
+            $('#VariableInput').hide();
+            $('#FixedInput').hide();
+            $('#MixedInput').hide();
+            $('#DefaultInput').show();
+            $('#Years').data('kendoNumericTextBox').value("");
+            $('#IndexFixedRateView').data('kendoDropDownList').value("");
+            $('#IndexRateMixedFixed').data('kendoDropDownList').value("");
+
+            var purpose = $("#Purpose").val();
+
+            // Check if Purpose is 'Construção' or 'Obras'
+            if (+purpose === cgd.constants.loanPurposes.construction || +purpose === cgd.constants.loanPurposes.works) {
+                // Disable 'Taxa Fixa' & 'Taxa Mista'
+                $('#CgdIndexFixedRate').prop('disabled', true);
+                $('input#CgdIndexFixedRate').closest('.cgd-box').addClass('is-disabled');
+
+                $('#CgdIndexMixedRate').prop('disabled', true);
+                $('input#CgdIndexMixedRate').closest('.cgd-box').addClass('is-disabled');
+
+                // Show
+                $('#PeriodUtilBasicControl').show();
+            } else if (+purpose === cgd.constants.loanPurposes.other) {
+                $('.cgd-box').removeClass('is-disabled');
+                $('.cgd-box input').removeAttr('disabled');
+
+                // Show
+                $('#PeriodUtilBasicControl').hide();
+            } else {
+                $('.cgd-box').removeClass('is-disabled');
+                $('.cgd-box input').removeAttr('disabled');
+                // Show
+                $('#PeriodUtilBasicControl').hide();
+            }
+        };
+
+        cgd.simulator.wizard.stepPurpose.validate = function () {
+            var propertyValue = $("#PropertyValue").data("kendoNumericTextBox").value();
+            var propertyValueLabel = $("#PropertyValue").closest('.cgd-input').find('label').text();
+
+            if (propertyValue == null || propertyValue === "0") {
+                cgd.simulator.notification.info(propertyValueLabel, 'Campo obrigatório.', false);
+                return false
+            } else if (propertyValue > cgd.simulator.limits.propertyValueMaximum) {
+                var maximumPropertyValueString = kendo.toString(cgd.simulator.limits.propertyValueMaximum, "n2") + ' €';
+                cgd.simulator.notification.info(propertyValueLabel, 'Valor não pode ser superior a ' + maximumPropertyValueString, false);
+                return false;
+            } else if (propertyValue < cgd.simulator.limits.propertyValueMinimum) {
+                var minimumPropertyValueString = kendo.toString(cgd.simulator.limits.propertyValueMinimum, "n2") + ' €';
+                cgd.simulator.notification.info(propertyValueLabel, 'Valor não pode ser inferior a ' + minimumPropertyValueString, false);
+                return false;
+            }
+
+            var loan = $("#Loan").data("kendoNumericTextBox").value();
+
+            if (loan == null || loan === "0") {
+                cgd.simulator.notification.info('Valor do empréstimo', 'Campo obrigatório.', false);
+                return false;
+            } else if (loan > cgd.simulator.limits.loanAmountMaximum) {
+                var maximumLoanValueString = kendo.toString(cgd.simulator.limits.loanAmountMaximum, "n2") + ' €';
+                cgd.simulator.notification.info('Valor do empréstimo', 'O valor do empréstimo não pode ser superior a ' + maximumLoanValueString, false);
+                return false;
+            } else if (loan < cgd.simulator.limits.loanAmountMinimum) {
+                var minimumLoanValueString = kendo.toString(cgd.simulator.limits.loanAmountMinimum, "n2") + ' €';
+                cgd.simulator.notification.info('Valor do empréstimo', 'O valor do empréstimo não pode ser inferior a ' + minimumLoanValueString, false);
+                return false;
+            }
+
+            var limits = cgd.simulator.helpers.getCurrentLimits();
+
+            var minimumPropertyValue = Math.ceil(loan / limits.fiMaximum);
+            if (propertyValue < minimumPropertyValue) {
+                cgd.simulator.notification.maximumAquisitionAmountValidation();
+                return false;
+            }
+
+            var minimumLoanValue = Math.ceil(propertyValue * limits.fiMinimum);
+            if (loan < minimumLoanValue) {
+                cgd.simulator.notification.minimumAquisitionAmountValidation();
+                return false;
+            }
+
+            return true;
+        }
+
+    </script>
+
+    <script type="text/javascript">
+        var cgd = cgd || {};
+        cgd.simulator = cgd.simulator || {};
+        cgd.simulator.wizard = cgd.simulator.wizard || {};
+        cgd.simulator.wizard.stepTaxes = cgd.simulator.wizard.stepTaxes || {};
+        cgd.simulator.wizard.stepTaxes.validate = function () {
+            var sectionVisible = $('#CgdIndexVariableRate').closest('.cgd-wizard-section');
+            var selected = sectionVisible.find('input:checked');
+
+            var years = parseInt($("#Years").val());
+            var index = parseInt(selected.val()) || 0;
+
+            switch (index) {
+                case cgd.constants.rates.variable:
+                    var dropdownValue = $('#IndexRate').val();
+                    if (dropdownValue === "" || dropdownValue === undefined) {
+                        cgd.simulator.notification.info('Indexante', 'Selecionar o indexante do empréstimo.', false);
+                        return false;
+                    }
+
+                    break;
+
+                case cgd.constants.rates.fixed:
+
+                    let minValue = Math.max(cgd.simulator.indexRatesLimits().FixedRate.Minimum, cgd.simulator.limits.loanDurationMinimum)
+                    let maxValue = Math.min(cgd.simulator.indexRatesLimits().FixedRate.Maximum, cgd.simulator.limits.loanDurationMaximum)
+
+                    if (years < minValue) {
+                        cgd.simulator.notification.info('Taxa Fixa', 'Apenas disponível para prazos a partir de ' + minValue + ' anos.', false);
+                        return false;
+                    }
+                    else if (years > maxValue) {
+                        cgd.simulator.notification.info('Taxa Fixa', 'Apenas disponível para prazos até ' + maxValue + ' anos.', false);
+                        return false;
+                    }
+           
+                    break;
+
+                case cgd.constants.rates.mixed:
+                    var dropdownValue = $('#IndexRateMixedFixed').val();
+                    if (dropdownValue === "" || dropdownValue === undefined) {
+                        cgd.simulator.notification.info('Indexante', 'Selecionar o indexante do empréstimo.', false);
+                        return false;
+                    }
+
+                    var indexMixedRates = $('#IndexRateMixedFixed').data('kendoDropDownList').dataSource.data();
+
+                    var indexMixedRateYears;
+
+                    $.each(indexMixedRates, function (_, item) {
+                        if (item.Value === dropdownValue) {
+                            indexMixedRateYears = item.Months / 12;
+                            return false;
+                        }
+                    });
+
+                    if (years <= indexMixedRateYears) {
+                        cgd.simulator.notification.info('Taxa Mista', 'O Prazo total deve ser superior ao Indexante.', false);
+                        return false;
+                    }
+
+                    break;
+
+                default:
+                    cgd.simulator.notification.info('Tipos de Taxa', 'Selecione um Tipo de Taxa.', false);
+                    return false;
+            }
+
+            if (years == null || isNaN(years)) {
+                cgd.simulator.notification.info('Prazo Total', 'Indique o Prazo Total do empréstimo.', false);
+                return false;
+            } else if (years > cgd.simulator.limits.loanDurationMaximum) {
+                cgd.simulator.notification.info('Prazo Total', 'O Prazo Total máximo é de ' + cgd.simulator.limits.loanDurationMaximum + ' anos.', false);
+                return false;
+            } else if (years < cgd.simulator.limits.loanDurationMinimum) {
+                cgd.simulator.notification.info('Prazo Total', 'O Prazo Total mínimo é de ' + cgd.simulator.limits.loanDurationMinimum + ' anos.', false);
+                return false;
+            }
+
+            return true;
+        }
+
+
+
+        function onYearsChange() {
+            var yearsInput = $("#Years").val();
+            if (yearsInput === "")
+            {
+              
+                return;
+            }         
+            var maxMonths = yearsInput * 12;
+            var IndexRateMixedFixedDropdown = $("#IndexRateMixedFixed").data('kendoDropDownList');
+            IndexRateMixedFixedDropdown.dataSource.filter({
+                field: 'Months',
+                operator: 'lt',
+                value: maxMonths,
+            });
+            
+                      
+        }
+
+    </script>
+
+    <script type="text/javascript">
+        var cgd = cgd || {};
+        cgd.simulator = cgd.simulator || {};
+        cgd.simulator.wizard = cgd.simulator.wizard || {};
+        cgd.simulator.wizard.stepResults = cgd.simulator.wizard.stepResults || {};
+
+        cgd.simulator.wizard.stepResults.validate = function () {
+            var sectionVisible = cgd.simulator.wizard.getSectionVisible();
+            var selected = sectionVisible.find('input[type=radio]:checked').attr('id');
+            if (selected === undefined) {
+                cgd.simulator.notification.info('Opções disponíveis', 'Escolha uma das opções.', false);
+                return false;
+            }
+            return true;
+        }
+    </script>
+
+
+
+<div class="cgd-cookie-container" id="CgdCookieManager">
+    <div class="cgd-cookie-content">
+        <div class="cgd-cookie-info">
+            <h4>Utilização de Cookies.</h4>
+            <p>
+                A CGD utiliza cookies no website, plataformas ou aplicações, de forma a que funcionem corretamente, para melhorar a navegação, personalizar conteúdos, campanhas, anúncios e analisar a interação do utilizador com fim de apresentar uma melhor experiência ao cliente. Ao clicar em "Permitir todos os cookies", concorda com o armazenamento dos cookies pré-definidos pela CGD. Consulte aqui a <a class="cgd-link" href="https://www.cgd.pt/Ajuda/Pages/Cookies.aspx" aria-label="Mais informação sobre a sua politica de cookies" target="_blank">Política de Cookies</a>
+            </p>
+        </div>
+        <div class="cgd-cookie-action">
+            <button type="button" id="CgdCookieAccept" class="cgd-button cgd-button-primary">Permitir todos os cookies</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    if (typeof (Storage) !== "undefined") {
+        if (window.localStorage.getItem('cgd-cookie-gdpr-policy')) {
+            document.getElementById('CgdCookieManager').classList.add('d-none');
+            loadScriptsAfterLoad();
+        } else {
+            document.getElementById("CgdCookieAccept").addEventListener('click', function () {
+                window.localStorage.setItem('cgd-cookie-gdpr-policy', 'true');
+
+                loadTrackings();
+                loadScriptsAfterLoad();
+
+                document.getElementById('CgdCookieManager').classList.add('d-none');
+            }, false);
+        }
+    }
+
+    function loadScriptsAfterLoad() {
+        // Lazy Load iFrames
+        var iframes = document.getElementsByTagName("iframe");
+        for (var i = 0, f = iframes.length; i < f; ++i) {
+            if (iframes[i].hasAttribute("data-src") && !iframes[i].hasAttribute("src")) {
+                iframes[i].src = iframes[i].dataset.src;
+            }
+        }
+    }
+</script>
+</body>
+</html>

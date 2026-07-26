@@ -119,10 +119,27 @@ que só escuta no socket unix e é desligado a seguir. A razão está comentada 
 
 ## Bancos
 
-Nenhum implementado ainda. A ordem é: CGD, Novo Banco, Montepio e Banco CTT
-primeiro — todos de HTTP puro, sem browser. Depois Santander e Crédito Agrícola.
-Por último os quatro que exigem browser (ActivoBank, Millennium BCP, Bankinter,
-BPI).
+| banco | id | transporte | estado |
+|---|---|---|---|
+| CGD | `cgd` | HTTP simples | implementado, confrontado ao vivo a 2026-07-26 |
+| Novo Banco | `novobanco` | HTTP simples | por fazer |
+| Montepio | `montepio` | HTTP com sessão | por fazer |
+| Banco CTT | `bancoctt` | HTTP simples | por fazer |
+| Santander | `santander` | HTTP simples | por fazer |
+| Crédito Agrícola | `creditoagricola` | HTTP simples | por fazer |
+| ActivoBank, Millennium BCP | — | browser para credencial | fase 3 |
+| Bankinter, BPI | — | browser como cliente | fase 3 |
+
+A ordem é a da tabela: primeiro os de HTTP puro, sem browser, e por último os
+quatro que exigem browser.
+
+Cada banco corre offline nos testes, contra capturas reais versionadas em
+`internal/bancos/<banco>/capturas/`. O teste que bate no simulador a sério está
+por trás de `//go:build rede` e **não** corre no portão:
+
+```
+go test -race -tags rede ./internal/bancos/cgd/
+```
 
 ## Fronteiras
 
