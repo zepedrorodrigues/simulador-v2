@@ -6,6 +6,7 @@ import (
 	"slices"
 
 	"github.com/zepedrorodrigues/simulador-v2/internal/bancos/cgd"
+	"github.com/zepedrorodrigues/simulador-v2/internal/bancos/novobanco"
 	"github.com/zepedrorodrigues/simulador-v2/internal/bancos/transporte"
 )
 
@@ -113,7 +114,7 @@ func (r *Registo) Todos(ts Transportes) ([]Banco, error) {
 // A lista é explícita, e não montada por init() com imports cegos: quem lê este
 // ficheiro vê os bancos todos, e acrescentar um é uma linha que aparece no diff.
 //
-// Tem a CGD (KAN-9). O Novo Banco (KAN-10), o Montepio (KAN-11), o Banco CTT
+// Tem a CGD (KAN-9) e o Novo Banco (KAN-10). O Montepio (KAN-11), o Banco CTT
 // (KAN-12), o Santander (KAN-18) e o Crédito Agrícola (KAN-19) entram cada um
 // aqui, no passo 9 da lista de CONTRATO-BANCO.md §7.
 //
@@ -124,6 +125,7 @@ func (r *Registo) Todos(ts Transportes) ([]Banco, error) {
 func Predefinido() *Registo {
 	r := NovoRegisto()
 	registarOuExplodir(r, cgd.BancoID, func(ts Transportes) Banco { return cgd.Novo(ts.HTTP) })
+	registarOuExplodir(r, novobanco.BancoID, func(ts Transportes) Banco { return novobanco.Novo(ts.HTTP) })
 	return r
 }
 
