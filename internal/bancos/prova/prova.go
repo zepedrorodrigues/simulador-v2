@@ -19,7 +19,7 @@ import (
 // surdo ao ctx. Não é zero de propósito: o escalonador do Go não devolve ao
 // microssegundo, e um teste que reprove por causa disso é um teste que aborrece
 // em vez de apanhar. Meio segundo é folgado face aos prazos de dezenas de
-// segundos que o orquestrador impõe, e curto face ao atraso do transporte falso.
+// segundos que o varrimento impõe, e curto face ao atraso do transporte falso.
 const Folga = 500 * time.Millisecond
 
 // RespeitaPrazo afirma que b.Simular volta dentro do prazo do ctx.
@@ -50,7 +50,7 @@ func RespeitaPrazo(t *testing.T, b bancos.Banco, p dominio.Pedido, prazo time.Du
 		}
 	case <-time.After(prazo + Folga):
 		t.Fatalf(
-			"%s: Simular não voltou dentro do prazo de %s — ignora o ctx, e um banco assim segura a comparação inteira",
+			"%s: Simular não voltou dentro do prazo de %s — ignora o ctx, e um banco assim segura o varrimento inteiro",
 			b.ID(), prazo,
 		)
 	}
