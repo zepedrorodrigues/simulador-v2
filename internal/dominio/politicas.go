@@ -132,3 +132,16 @@ func LTV(montante, valorImovel Dinheiro) (Racio, error) {
 // constante dos 5 %, era a ideia de que existe uma banda de passo fixo. As
 // fronteiras são medidas banco a banco e nem sempre caem em LTV inteiro — ver
 // o escala_ltv.go, que os substitui, e a §4 do ARQUITETURA.md.
+
+// MontanteParaLTV é o inverso do LTV: devolve o montante que dá aquele rácio
+// sobre aquele valor de imóvel, arredondado ao cêntimo.
+//
+// ⚠️ O arredondamento não é detalhe, e é a razão de esta função existir aqui em
+// vez de em quem varre. Um crédito pede-se em euros e cêntimos, não em rácios:
+// pedir 66,5625 % de 400 000 € dá 266 250,00 € — exacto —, mas pedir 66,5624 %
+// de 333 333 € não dá um número redondo, e o rácio que o banco vê passa a ser o
+// do montante arredondado e não o que se pediu. Quem mede fronteiras de LTV tem
+// de construir a escala sobre o rácio que saiu daqui, e não sobre o que pediu.
+func MontanteParaLTV(valorImovel Dinheiro, ltv Racio) Dinheiro {
+	return Dinheiro{v: valorImovel.v.Mul(ltv.v).Round(2)}
+}
