@@ -71,6 +71,8 @@ linters:
               desc: o dominio não sabe que existe HTTP nem base de dados
             - pkg: github.com/zepedrorodrigues/simulador-v2/cmd
               desc: nenhuma camada importa o binário
+            - pkg: github.com/zepedrorodrigues/simulador-v2/api
+              desc: o dominio não conhece o contrato que o publica — foi por o modelo ser o contrato que o v1 não se conseguia mexer
 
         bancos:
           files:
@@ -82,6 +84,8 @@ linters:
               desc: um banco não sabe que existe base de dados nem cache
             - pkg: github.com/zepedrorodrigues/simulador-v2/cmd
               desc: nenhuma camada importa o binário
+            - pkg: github.com/zepedrorodrigues/simulador-v2/api
+              desc: um banco devolve dominio.Oferta; quem a traduz para o contrato é a infra
 
         aplicacao:
           files:
@@ -91,6 +95,11 @@ linters:
               desc: o caso de uso não sabe se foi chamado por HTTP ou pela linha de comandos
             - pkg: github.com/zepedrorodrigues/simulador-v2/cmd
               desc: nenhuma camada importa o binário
+            # ⚠️ É esta a aresta onde a tentação é concreta: montar api.Oferta
+            # dentro do caso de uso poupa uma tradução e passaria o portão. Era
+            # assim no v1, e é por isso que lá nenhum refactor era seguro.
+            - pkg: github.com/zepedrorodrigues/simulador-v2/api
+              desc: o caso de uso devolve dominio.Oferta; traduzir para o contrato é trabalho da infra
 
         infra:
           files:
@@ -108,6 +117,8 @@ linters:
             - pkg: github.com/zepedrorodrigues/simulador-v2/internal/bancos
               desc: o binário monta o que a infra construir; o resto chega por lá
             - pkg: github.com/zepedrorodrigues/simulador-v2/internal/aplicacao
+              desc: o binário monta o que a infra construir; o resto chega por lá
+            - pkg: github.com/zepedrorodrigues/simulador-v2/api
               desc: o binário monta o que a infra construir; o resto chega por lá
 
 formatters:
