@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/zepedrorodrigues/simulador-v2/internal/bancos"
 	"github.com/zepedrorodrigues/simulador-v2/internal/dominio"
@@ -38,9 +39,22 @@ var (
 //
 // hoje entra por parâmetro porque o domínio não tem relógio — é dele que sai a
 // data de nascimento do titular neutro.
-func AmostrarBanco(b bancos.Banco, ref Referencia, hoje dominio.Data) (Amostrar, error) {
+//
+// ⚠️ agora é o relógio que carimba a captura de cada oferta, e não é opcional
+// por capricho: um degrau grava-se como linha de catalogo_taxas, a coluna
+// capturado_em é NOT NULL, e o carimbo só existia no caminho dos PONTOS (é o
+// varrimento.simular que o põe). Sem ele, tudo o que a escala mede era recusado
+// na gravação. Nulo vale time.Now, como no varrimento.Config.
+//
+// ⚠️ Carimba-se por amostra, e não uma vez no fim: as ~86 amostras de um banco
+// levam perto de um minuto, e dizer que os quatro degraus foram capturados no
+// mesmo instante era escrever uma hora que não aconteceu.
+func AmostrarBanco(b bancos.Banco, ref Referencia, hoje dominio.Data, agora func() time.Time) (Amostrar, error) {
 	if b == nil {
 		return nil, errors.New("amostrar um banco nulo")
+	}
+	if agora == nil {
+		agora = time.Now
 	}
 	base, err := ref.comOmissoes().pedido(hoje)
 	if err != nil {
@@ -78,17 +92,22 @@ func AmostrarBanco(b bancos.Banco, ref Referencia, hoje dominio.Data) (Amostrar,
 		if oferta.Spread == nil {
 			return Medicao{}, fmt.Errorf("%w: %s em LTV %s", ErrBancoSemSpread, b.ID(), medido)
 		}
+		oferta.CapturadoEm = agora()
 
-		return Medicao{LTV: medido, Spread: *oferta.Spread}, nil
+		// ⚠️ O pedido e a oferta vão inteiros, e não só o spread. Um degrau
+		// grava-se como linha completa de catalogo_taxas — com TAN, TAEG,
+		// prestação e MTIC —, e nada disso se deriva de um spread (§4).
+		return Medicao{LTV: medido, Spread: *oferta.Spread, Pedido: p, Oferta: oferta}, nil
 	}, nil
 }
 
 // DescobrirBanco mede a escala de LTV de um banco. É o AmostrarBanco e o
 // Descobrir numa chamada, que é como quem varre os quer.
 func DescobrirBanco(
-	ctx context.Context, b bancos.Banco, ref Referencia, hoje dominio.Data, cfg Config,
+	ctx context.Context, b bancos.Banco, ref Referencia, hoje dominio.Data,
+	cfg Config, agora func() time.Time,
 ) (Descoberta, error) {
-	amostrar, err := AmostrarBanco(b, ref, hoje)
+	amostrar, err := AmostrarBanco(b, ref, hoje, agora)
 	if err != nil {
 		return Descoberta{}, err
 	}

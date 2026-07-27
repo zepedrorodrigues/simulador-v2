@@ -69,6 +69,10 @@ type Relatorio struct {
 	Falhas      int
 
 	BancosSaltados []BancoSaltado
+
+	// EscalasNaoMedidas são os bancos varridos a que faltou a escala de LTV.
+	// Distinto de BancosSaltados: aqui houve observações gravadas.
+	EscalasNaoMedidas []BancoSaltado
 }
 
 // Correr monta tudo e varre.
@@ -87,20 +91,25 @@ func Correr(ctx context.Context, url string, o Opcoes) (Relatorio, error) {
 		return Relatorio{}, err
 	}
 
-	v, err := varrimento.Novo(varrimento.Config{
-		Bancos: escolhidos,
-		Travao: travao.NovoPostgres(pool),
-	})
-	if err != nil {
-		return Relatorio{}, fmt.Errorf("montar o varredor: %w", err)
-	}
-
 	// ⚠️ O "hoje" sai do fuso de Lisboa e não de UTC. É dele que sai a data de
 	// nascimento do titular neutro, e entre a meia-noite e a uma da manhã no
 	// horário de Verão o "hoje" em UTC ainda é ontem — o que muda a idade de
 	// quem faz anos nesse dia, e com ela o prazo máximo. É a mesma razão que o
 	// dominio.Data já regista.
 	hoje := dominio.DataDeInstante(time.Now().In(lisboa()))
+
+	// ⚠️ A escala de LTV entra por aqui e corre dentro do travão de cada banco.
+	// São ~86 pedidos por banco além dos pontos — o orçamento da
+	// ANALISE-KAN-35.md §6 —, e é o que faz uma corrida passar de segundos a
+	// cerca de um minuto por banco. Em hora morta, que é quando isto corre.
+	v, err := varrimento.Novo(varrimento.Config{
+		Bancos:  escolhidos,
+		Travao:  travao.NovoPostgres(pool),
+		Degraus: grelha.DegrausPorBanco(grelha.Referencia{}, hoje, grelha.Config{}, time.Now),
+	})
+	if err != nil {
+		return Relatorio{}, fmt.Errorf("montar o varredor: %w", err)
+	}
 
 	pontos := grelhaPorBanco(hoje)
 	rel := Relatorio{Bancos: ids(escolhidos)}
@@ -127,6 +136,12 @@ func Correr(ctx context.Context, url string, o Opcoes) (Relatorio, error) {
 	}
 	for _, s := range lote.Resultado.Saltados {
 		rel.BancosSaltados = append(rel.BancosSaltados, BancoSaltado{ID: s.BancoID, Motivo: s.Motivo.Error()})
+	}
+	// ⚠️ Uma escala não medida sai no relatório, e não é o mesmo que um banco
+	// saltado: os pontos dele estão gravados. Sem esta linha, uma corrida em que
+	// nenhum banco deu escala nenhuma era indistinguível de uma corrida boa.
+	for _, s := range lote.Resultado.EscalasNaoMedidas {
+		rel.EscalasNaoMedidas = append(rel.EscalasNaoMedidas, BancoSaltado{ID: s.BancoID, Motivo: s.Motivo.Error()})
 	}
 	return rel, nil
 }

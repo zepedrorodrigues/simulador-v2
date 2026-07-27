@@ -20,7 +20,7 @@ func TestDescobrirBancoReconstroiAFormaMedidaDaCGD(t *testing.T) {
 	t.Parallel()
 
 	banco := &bancoEmDegraus{escada: escadariaCGD()}
-	d, err := grelha.DescobrirBanco(t.Context(), banco, grelha.Referencia{}, hoje, grelha.Config{})
+	d, err := grelha.DescobrirBanco(t.Context(), banco, grelha.Referencia{}, hoje, grelha.Config{}, relogioFixo())
 	if err != nil {
 		t.Fatalf("DescobrirBanco: %v", err)
 	}
@@ -49,7 +49,7 @@ func TestOAmostradorVariaOMontanteEDeixaORestoQuieto(t *testing.T) {
 	// finalidade ou nos produtos, a escala medida deixava de ser a do cenário
 	// de referência — e o argumento de que as dimensões se somam caía com ela.
 	banco := &bancoEmDegraus{escada: escadariaCGD()}
-	amostrar, err := grelha.AmostrarBanco(banco, grelha.Referencia{}, hoje)
+	amostrar, err := grelha.AmostrarBanco(banco, grelha.Referencia{}, hoje, relogioFixo())
 	if err != nil {
 		t.Fatalf("AmostrarBanco: %v", err)
 	}
@@ -89,7 +89,7 @@ func TestOAmostradorDevolveOLTVQueOBancoViuENaoOPedido(t *testing.T) {
 	amostrar, err := grelha.AmostrarBanco(banco, grelha.Referencia{
 		ValorImovel: dominio.DinheiroDeInteiro(333_333),
 		Montante:    dominio.DinheiroDeInteiro(200_000),
-	}, hoje)
+	}, hoje, relogioFixo())
 	if err != nil {
 		t.Fatalf("AmostrarBanco: %v", err)
 	}
@@ -120,7 +120,7 @@ func TestUmBancoQueRecusaOLTVNaoInventaPonto(t *testing.T) {
 	// Recusar acima do tecto que o banco financia é informação: é assim que a
 	// descoberta descobre onde a escala acaba. O que não pode é virar um ponto.
 	banco := &bancoEmDegraus{escada: escadaria{{ate: ltv("0.90"), spread: pp("1.350")}}}
-	amostrar, err := grelha.AmostrarBanco(banco, grelha.Referencia{}, hoje)
+	amostrar, err := grelha.AmostrarBanco(banco, grelha.Referencia{}, hoje, relogioFixo())
 	if err != nil {
 		t.Fatalf("AmostrarBanco: %v", err)
 	}
@@ -141,7 +141,7 @@ func TestUmaEscalaAcabaOndeOBancoDeixaDeFinanciar(t *testing.T) {
 		{ate: ltv("0.90"), spread: pp("1.500")},
 	}}
 
-	d, err := grelha.DescobrirBanco(t.Context(), banco, grelha.Referencia{}, hoje, grelha.Config{})
+	d, err := grelha.DescobrirBanco(t.Context(), banco, grelha.Referencia{}, hoje, grelha.Config{}, relogioFixo())
 	if err != nil {
 		t.Fatalf("DescobrirBanco: %v", err)
 	}
@@ -164,7 +164,7 @@ func TestUmBancoQueNaoDaSpreadNaoEntraNaEscala(t *testing.T) {
 	// Um banco que responde sem spread não dá ponto nenhum — e não se estima o
 	// spread a partir da TAN menos uma Euribor que não veio.
 	banco := &bancoEmDegraus{escada: escadariaCGD(), semSpread: true}
-	amostrar, err := grelha.AmostrarBanco(banco, grelha.Referencia{}, hoje)
+	amostrar, err := grelha.AmostrarBanco(banco, grelha.Referencia{}, hoje, relogioFixo())
 	if err != nil {
 		t.Fatalf("AmostrarBanco: %v", err)
 	}

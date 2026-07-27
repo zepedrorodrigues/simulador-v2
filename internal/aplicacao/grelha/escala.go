@@ -56,6 +56,37 @@ import (
 type Medicao struct {
 	LTV    dominio.Racio
 	Spread dominio.Taxa
+
+	// Pedido e Oferta são a observação inteira que produziu este spread.
+	//
+	// ⚠️ Não são decoração nem proveniência opcional: um degrau é uma linha de
+	// catalogo_taxas como as outras, e o CHECK da tabela exige TAN, TAEG,
+	// prestação e MTIC — nenhum dos quais se deriva de um spread (§4, «Um
+	// degrau é uma linha completa»). Sem isto, a escala media-se e não se podia
+	// gravar.
+	//
+	// Ficam vazios em quem construa uma Medicao à mão, como fazem os testes
+	// puros da descoberta. Quem grava recusa-os — ver ObservacoesDeEscala.
+	Pedido dominio.Pedido
+	Oferta dominio.Oferta
+}
+
+// Degrau é um degrau da escala com a observação que o mediu.
+//
+// ⚠️ Os dois vêm agarrados no mesmo tipo, e não em duas listas paralelas a
+// manter de acordo. Duas listas saem de acordo à primeira alteração, e um
+// degrau que ficasse com a observação do vizinho não daria erro nenhum — daria
+// um spread com o TAEG de outro preço, que é o defeito da §7.4 em ponto
+// pequeno.
+type Degrau struct {
+	dominio.DegrauLTV
+
+	// Representativa é a observação que traz o spread SERVIDO deste degrau.
+	//
+	// ⚠️ Num degrau por resolver é a do lado mais caro, que pode ser o de
+	// baixo — e aí o LTV dela é o próprio De, que o intervalo (De, Ate] exclui.
+	// Está decidido e explicado na §4; não se «corrige».
+	Representativa Medicao
 }
 
 // Amostrar pede a um banco o spread que ele pratica num LTV.
@@ -112,7 +143,12 @@ var (
 // não deram, e é por elas que se percebe uma escala com poucos degraus por o
 // banco ser simples ou por metade do varrimento ter falhado.
 type Descoberta struct {
-	Escala   dominio.EscalaDeLTV
+	Escala dominio.EscalaDeLTV
+
+	// Degraus são os mesmos degraus da Escala, cada um com a observação que o
+	// mediu. A Escala é o que responde a um cliente; isto é o que se grava.
+	Degraus []Degrau
+
 	Amostras int
 	Falhas   int
 }
@@ -149,11 +185,13 @@ func Descobrir(ctx context.Context, cfg Config, amostrar Amostrar) (Descoberta, 
 			fmt.Errorf("descoberta interrompida ao fim de %d amostras: %w", d.amostras, err)
 	}
 
-	escala, err := construir(medidas, cfg.Tolerancia)
+	escala, degraus, err := construir(medidas, cfg.Tolerancia)
 	if err != nil {
 		return Descoberta{Amostras: d.amostras, Falhas: d.falhas}, err
 	}
-	return Descoberta{Escala: escala, Amostras: d.amostras, Falhas: d.falhas}, nil
+	return Descoberta{
+		Escala: escala, Degraus: degraus, Amostras: d.amostras, Falhas: d.falhas,
+	}, nil
 }
 
 func (c Config) comOmissoes() Config {
@@ -326,12 +364,18 @@ func (d *descoberta) entre(ctx context.Context, a, b Medicao) []Medicao {
 // tolerância por construção — 0,05 p.p. de LTV, ou 200 € de montante num imóvel
 // de 400 000 € — e é o preço de nunca afirmar um spread num ponto onde se
 // mediu outro.
-func construir(medidas []Medicao, tolerancia dominio.Racio) (dominio.EscalaDeLTV, error) {
+// ⚠️ E cada degrau sai daqui com a observação que o mediu — a do spread que ele
+// SERVE, e não uma qualquer de lá de dentro (§4, «Um degrau é uma linha
+// completa»). Num degrau resolvido é a de Ate, o maior LTV onde esse spread foi
+// medido; num degrau por resolver é a do lado mais caro, que pode ser a de De.
+// Escolher a do lado barato dava uma linha com o spread de um preço e o TAEG de
+// outro, e nenhum CHECK apanha isso.
+func construir(medidas []Medicao, tolerancia dominio.Racio) (dominio.EscalaDeLTV, []Degrau, error) {
 	if len(medidas) < 2 {
-		return dominio.EscalaDeLTV{}, fmt.Errorf("%w: %d ponto(s)", ErrSemMedicoes, len(medidas))
+		return dominio.EscalaDeLTV{}, nil, fmt.Errorf("%w: %d ponto(s)", ErrSemMedicoes, len(medidas))
 	}
 
-	var degraus []dominio.DegrauLTV
+	var degraus []Degrau
 	inicio, spread := medidas[0].LTV, medidas[0].Spread
 
 	for i := 1; i < len(medidas); i++ {
@@ -345,17 +389,28 @@ func construir(medidas []Medicao, tolerancia dominio.Racio) (dominio.EscalaDeLTV
 		// primeira medição a discordar logo da segunda, por exemplo. Um degrau
 		// de largura zero não é um intervalo, e o dominio.NovaEscalaDeLTV
 		// recusa-o (com razão: seria um preço que vale em ponto nenhum).
+		//
+		// A representativa é `a`: o degrau fecha no LTV dela, e o spread dela é
+		// o do degrau — a corrida que vem desde `inicio` só chegou aqui por
+		// todas as medições pelo caminho concordarem.
 		if inicio.Cmp(a.LTV) < 0 {
-			degraus = append(degraus, dominio.DegrauLTV{De: inicio, Ate: a.LTV, Spread: spread})
+			degraus = append(degraus, Degrau{
+				DegrauLTV:      dominio.DegrauLTV{De: inicio, Ate: a.LTV, Spread: spread},
+				Representativa: a,
+			})
 		}
 
 		if b.LTV.Sub(a.LTV).Cmp(tolerancia) > 0 {
-			alto, baixo := a.Spread, b.Spread
-			if alto.Cmp(baixo) < 0 {
-				alto, baixo = baixo, alto
+			caro, barato := a, b
+			if caro.Spread.Cmp(barato.Spread) < 0 {
+				caro, barato = b, a
 			}
-			degraus = append(degraus, dominio.DegrauLTV{
-				De: a.LTV, Ate: b.LTV, Spread: alto, SpreadMinimo: &baixo,
+			minimo := barato.Spread
+			degraus = append(degraus, Degrau{
+				DegrauLTV: dominio.DegrauLTV{
+					De: a.LTV, Ate: b.LTV, Spread: caro.Spread, SpreadMinimo: &minimo,
+				},
+				Representativa: caro,
 			})
 			inicio = b.LTV
 		} else {
@@ -364,12 +419,29 @@ func construir(medidas []Medicao, tolerancia dominio.Racio) (dominio.EscalaDeLTV
 		spread = b.Spread
 	}
 
-	ultimo := medidas[len(medidas)-1].LTV
-	if inicio.Cmp(ultimo) < 0 {
-		degraus = append(degraus, dominio.DegrauLTV{De: inicio, Ate: ultimo, Spread: spread})
+	ultima := medidas[len(medidas)-1]
+	if inicio.Cmp(ultima.LTV) < 0 {
+		degraus = append(degraus, Degrau{
+			DegrauLTV:      dominio.DegrauLTV{De: inicio, Ate: ultima.LTV, Spread: spread},
+			Representativa: ultima,
+		})
 	}
 
-	return dominio.NovaEscalaDeLTV(degraus)
+	escala, err := dominio.NovaEscalaDeLTV(soIntervalos(degraus))
+	if err != nil {
+		return dominio.EscalaDeLTV{}, nil, err
+	}
+	return escala, degraus, nil
+}
+
+// soIntervalos deita fora as observações e fica com a função de preço, que é o
+// que o domínio valida e serve.
+func soIntervalos(degraus []Degrau) []dominio.DegrauLTV {
+	saida := make([]dominio.DegrauLTV, len(degraus))
+	for i, d := range degraus {
+		saida[i] = d.DegrauLTV
+	}
+	return saida
 }
 
 // racio lê um rácio constante deste ficheiro. Um erro aqui é um literal mal

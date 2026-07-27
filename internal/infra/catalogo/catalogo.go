@@ -128,10 +128,10 @@ func indexados(p dominio.Pedido, o dominio.Oferta) []string {
 
 // linha traduz uma observação para os parâmetros da inserção.
 //
-// ⚠️ ltv_min, ltv_max e spread_minimo ficam nulos: uma observação num ponto da
-// grelha não afirma intervalo de LTV nenhum, e o LTV dela continua derivável de
-// montante/valor_imovel, que vão na linha (§4). Os degraus da escala são linhas
-// de outra natureza e entram por outro caminho.
+// ⚠️ ltv_min, ltv_max e spread_minimo só se preenchem quando a observação é um
+// degrau da escala. Numa observação de ponto ficam nulos: ela não afirma
+// intervalo de LTV nenhum, e o LTV dela continua derivável de
+// montante/valor_imovel, que vão na linha (§4).
 func linha(id pgtype.UUID, o varrimento.Observacao) (bd.InserirTaxaParams, error) {
 	p, oferta := o.Ponto.Pedido, o.Oferta
 
@@ -158,6 +158,31 @@ func linha(id pgtype.UUID, o varrimento.Observacao) (bd.InserirTaxaParams, error
 				oferta.BancoNome, junta(falta))
 		}
 	}
+
+	// ⚠️ O spread da linha e o do degrau têm de ser o MESMO número.
+	//
+	// A §4 manda que a observação representativa de um degrau seja a do spread
+	// servido, e até aqui isso era promessa de quem constrói. Uma linha em que
+	// discordem é o defeito que esta issue existe para não deixar acontecer: o
+	// `spread` de um preço e a `tan`/`taeg`/`prestacao_mensal`/`mtic` de outro.
+	// Nenhum CHECK da tabela o apanha — cada coluna, sozinha, é válida.
+	//
+	// Sobe como erro e derruba o lote, e não desce a falha: uma resposta
+	// incompleta é do banco, isto é nosso. É a mesma escolha que a linha sem
+	// instante de captura já faz acima.
+	if sucesso && o.Degrau != nil && oferta.Spread != nil && !o.Degrau.Spread.Equal(*oferta.Spread) {
+		return bd.InserirTaxaParams{}, fmt.Errorf(
+			"degrau (%s; %s] serve o spread %s e a observação que o preenche mediu %s: "+
+				"a linha ficaria com o spread de um preço e o TAEG de outro (§4)",
+			o.Degrau.De, o.Degrau.Ate, o.Degrau.Spread, *oferta.Spread)
+	}
+
+	// ⚠️ Um degrau cuja observação desceu a falha perde o intervalo, e não o
+	// contrário. Os CHECK do intervalo exigem `spread` não nulo do lado caro, e
+	// uma linha de falha não tem spread — mas o que interessa não é o CHECK: um
+	// intervalo agarrado a uma resposta que não se leu afirmaria que o preço vale
+	// de ltv_min a ltv_max sem haver preço nenhum medido.
+	ltvMin, ltvMax, spreadMinimo := intervalo(o.Degrau, sucesso)
 
 	produtos, err := paraJSON(oferta.ProdutosAplicados, "produtos")
 	if err != nil {
@@ -190,9 +215,9 @@ func linha(id pgtype.UUID, o varrimento.Observacao) (bd.InserirTaxaParams, error
 		EuriborValor:     taxa(oferta.EuriborValor),
 		PrestacaoMensal:  dinheiro(oferta.Prestacao),
 		Mtic:             dinheiro(oferta.MTIC),
-		LtvMin:           pgtype.Numeric{},
-		LtvMax:           pgtype.Numeric{},
-		SpreadMinimo:     pgtype.Numeric{},
+		LtvMin:           ltvMin,
+		LtvMax:           ltvMax,
+		SpreadMinimo:     spreadMinimo,
 		Produtos:         produtos,
 		Aplicado:         aplicado,
 		Notas:            notas,
@@ -221,6 +246,22 @@ func paraJSON(v any, campo string) ([]byte, error) {
 		return nil, fmt.Errorf("serializar %s: %w", campo, err)
 	}
 	return b, nil
+}
+
+// intervalo devolve as três colunas do degrau, ou três nulos.
+//
+// O spread_minimo é nulo num degrau resolvido, e o `resolvido` deriva-se dele —
+// não se guarda a mesma verdade duas vezes (§4).
+func intervalo(d *dominio.DegrauLTV, sucesso bool) (min, max, minimo pgtype.Numeric) {
+	if d == nil || !sucesso {
+		return pgtype.Numeric{}, pgtype.Numeric{}, pgtype.Numeric{}
+	}
+	min = numero(d.De.Decimal())
+	max = numero(d.Ate.Decimal())
+	if d.SpreadMinimo != nil {
+		minimo = numero(d.SpreadMinimo.Decimal())
+	}
+	return min, max, minimo
 }
 
 func numero(d decimal.Decimal) pgtype.Numeric {
