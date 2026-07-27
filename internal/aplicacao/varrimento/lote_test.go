@@ -26,7 +26,7 @@ func TestAGuardaNaoDeixaCorrerEmCimaDoVarrimentoAnterior(t *testing.T) {
 
 	cat := &catalogoFalso{ultimo: agora.Add(-2 * time.Hour), houve: true}
 
-	lote, err := v.VarrerEGravar(t.Context(), cat, pontos("variavel/0/propria"), 6*time.Hour)
+	lote, err := v.VarrerEGravar(t.Context(), cat, varrimento.MesmosPontos(pontos("variavel/0/propria")), 6*time.Hour)
 	if !errors.Is(err, varrimento.ErrVarrimentoRecente) {
 		t.Fatalf("erro = %v, esperava ErrVarrimentoRecente", err)
 	}
@@ -70,7 +70,7 @@ func TestAGuardaDeixaPassarOQueJaEVelhoEOQueNuncaCorreu(t *testing.T) {
 				Agora:  func() time.Time { return agora },
 			})
 
-			lote, err := v.VarrerEGravar(t.Context(), caso.catalogo, pontos("variavel/0/propria"), 6*time.Hour)
+			lote, err := v.VarrerEGravar(t.Context(), caso.catalogo, varrimento.MesmosPontos(pontos("variavel/0/propria")), 6*time.Hour)
 			if err != nil {
 				t.Fatalf("VarrerEGravar: %v", err)
 			}
@@ -97,7 +97,7 @@ func TestGuardaAZeroNaoPerguntaNada(t *testing.T) {
 	cat := &catalogoFalso{ultimo: agora, houve: true}
 	v := varredor(t, varrimento.Config{Bancos: []bancos.Banco{&bancoFalso{id: "cgd"}}})
 
-	lote, err := v.VarrerEGravar(t.Context(), cat, pontos("variavel/0/propria"), 0)
+	lote, err := v.VarrerEGravar(t.Context(), cat, varrimento.MesmosPontos(pontos("variavel/0/propria")), 0)
 	if err != nil {
 		t.Fatalf("VarrerEGravar: %v", err)
 	}
@@ -118,7 +118,7 @@ func TestUmaCorridaSemObservacoesNaoAbreLote(t *testing.T) {
 	cat := &catalogoFalso{}
 	v := varredor(t, varrimento.Config{Bancos: []bancos.Banco{&bancoFalso{id: "cgd"}}})
 
-	lote, err := v.VarrerEGravar(t.Context(), cat, nil, 0)
+	lote, err := v.VarrerEGravar(t.Context(), cat, varrimento.MesmosPontos(nil), 0)
 	if err != nil {
 		t.Fatalf("VarrerEGravar: %v", err)
 	}
@@ -133,7 +133,7 @@ func TestSemCatalogoNaoSeVarre(t *testing.T) {
 	// Correr sem ter onde gravar é bater nos bancos para deitar fora o
 	// resultado. Recusa-se à cabeça, como o Novo recusa o travão nulo.
 	v := varredor(t, varrimento.Config{Bancos: []bancos.Banco{&bancoFalso{id: "cgd"}}})
-	if _, err := v.VarrerEGravar(t.Context(), nil, pontos("variavel/0/propria"), 0); err == nil {
+	if _, err := v.VarrerEGravar(t.Context(), nil, varrimento.MesmosPontos(pontos("variavel/0/propria")), 0); err == nil {
 		t.Fatal("varreu sem catálogo")
 	}
 }
@@ -161,4 +161,72 @@ func (c *catalogoFalso) GravarLote(_ context.Context, obs []varrimento.Observaca
 	c.lotes++
 	c.ultimo, c.houve = time.Now(), true
 	return "00000000-0000-4000-8000-00000000000" + string(rune('0'+c.lotes)), nil
+}
+
+func TestCadaBancoRecebeAGrelhaDele(t *testing.T) {
+	t.Parallel()
+
+	// ⚠️ A grelha é DERIVADA dos Requisitos de cada banco (§4): os períodos
+	// fixos, os tenores e os produtos são dele. A CGD tem 7 períodos e impõe o
+	// tenor; o Novo Banco tem 9 e aceita três. Servir a lista de um a todos
+	// pedia a cada banco pontos que ele não pratica — e gastava um pedido por
+	// cada um para receber uma recusa.
+	//
+	// Este teste existe porque a reversão que trocava `pontos(b)` por
+	// `pontos(primeiro)` passou em tudo o resto: era o caminho que nenhum teste
+	// percorria.
+	cgd := &bancoFalso{id: "cgd"}
+	novobanco := &bancoFalso{id: "novobanco"}
+	v := varredor(t, varrimento.Config{Bancos: []bancos.Banco{cgd, novobanco}})
+
+	porBanco := map[string][]varrimento.Ponto{
+		"cgd":       pontos("fixa/5/propria", "fixa/10/propria"),
+		"novobanco": pontos("fixa/2/propria"),
+	}
+
+	r := v.VarrerCada(t.Context(), func(b bancos.Banco) []varrimento.Ponto {
+		return porBanco[b.ID()]
+	})
+
+	if n := cgd.chamadas.Load(); n != 2 {
+		t.Errorf("a CGD levou %d pedidos, e a grelha dela tem 2", n)
+	}
+	if n := novobanco.chamadas.Load(); n != 1 {
+		t.Errorf("o Novo Banco levou %d pedidos, e a grelha dele tem 1", n)
+	}
+
+	vistos := map[string]string{}
+	for _, o := range r.Observacoes {
+		vistos[o.Ponto.Cenario] = o.Oferta.BancoID
+	}
+	if dono := vistos["fixa/10/propria"]; dono != "cgd" {
+		t.Errorf("o ponto fixa/10/propria foi para %q, e é da grelha da CGD", dono)
+	}
+	if dono := vistos["fixa/2/propria"]; dono != "novobanco" {
+		t.Errorf("o ponto fixa/2/propria foi para %q, e é da grelha do Novo Banco", dono)
+	}
+}
+
+func TestUmBancoSemPontosNaoTomaOTravao(t *testing.T) {
+	t.Parallel()
+
+	// Tomar o travão para não fazer nada seria impedir, durante esse instante,
+	// um varrimento a sério do mesmo banco — que é precisamente o que o travão
+	// existe para arbitrar.
+	travao := novoTravaoFalso()
+	v := varredor(t, varrimento.Config{
+		Bancos: []bancos.Banco{&bancoFalso{id: "cgd"}, &bancoFalso{id: "novobanco"}},
+		Travao: travao,
+	})
+
+	v.VarrerCada(t.Context(), func(b bancos.Banco) []varrimento.Ponto {
+		if b.ID() == "cgd" {
+			return pontos("variavel/0/propria")
+		}
+		return nil
+	})
+
+	if tomados := travao.tomados; len(tomados) != 1 || tomados[0] != "cgd" {
+		t.Errorf("travões tomados = %v, esperava só o da CGD", tomados)
+	}
 }
