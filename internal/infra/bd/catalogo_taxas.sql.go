@@ -228,3 +228,39 @@ func (q *Queries) ListarSnapshots(ctx context.Context) ([]ListarSnapshotsRow, er
 	}
 	return items, nil
 }
+
+const novoVarrimentoID = `-- name: NovoVarrimentoID :one
+SELECT gen_random_uuid()::uuid AS varrimento_id
+`
+
+// NovoVarrimentoID cunha o id que agrupa as linhas de uma corrida.
+//
+// ⚠️ Sai da base e não do processo, e é de propósito: é a base que já é a
+// autoridade sobre o que existe, e assim não entra no go.mod uma dependência
+// de UUID para gerar dezasseis bytes.
+func (q *Queries) NovoVarrimentoID(ctx context.Context) (pgtype.UUID, error) {
+	row := q.db.QueryRow(ctx, novoVarrimentoID)
+	var varrimento_id pgtype.UUID
+	err := row.Scan(&varrimento_id)
+	return varrimento_id, err
+}
+
+const ultimoVarrimentoEm = `-- name: UltimoVarrimentoEm :one
+SELECT max(capturado_em)::timestamptz AS capturado_em FROM catalogo_taxas
+`
+
+// UltimoVarrimentoEm é a guarda de idempotência (`--se-antigo`): diz quando foi
+// a observação mais recente, para não se dispararem varrimentos em cima uns dos
+// outros. Nulo quando nunca se varreu nada.
+//
+// ⚠️ Olha para TODAS as linhas e não só para as de sucesso. Um varrimento em que
+// todos os bancos falharam continua a ser um varrimento que já se fez, e
+// repeti-lo já a seguir é bater no banco outra vez pela mesma razão que a guarda
+// existe para evitar. O v1 estragou a primeira medição assim: cinco corridas em
+// 14 minutos não são cinco dias de dados.
+func (q *Queries) UltimoVarrimentoEm(ctx context.Context) (pgtype.Timestamptz, error) {
+	row := q.db.QueryRow(ctx, ultimoVarrimentoEm)
+	var capturado_em pgtype.Timestamptz
+	err := row.Scan(&capturado_em)
+	return capturado_em, err
+}
