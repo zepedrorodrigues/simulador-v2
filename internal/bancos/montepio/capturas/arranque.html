@@ -1,0 +1,124 @@
+
+<!DOCTYPE html>
+<html lang="pt-PT"> 
+<head>
+    <base href="https://simuladores.bancomontepio.pt/ITSCredit.External/Calculator/ITSCredit.Calculator.UI.External/" />
+
+    <title>Simulador de Cr&#233;dito Habita&#231;&#227;o | Banco Montepio</title>
+
+        <meta name="description" content="Conhe&#231;a o simulador de Cr&#233;dito Habita&#231;&#227;o do Banco Montepio e fique preparado para o pr&#243;ximo passo na conquista da sua casa" />
+
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="facebook-domain-verification" content="4mstzukq2ikq81m5wctfagqp2ngspn" />
+    
+    <link rel="icon" type="image/x-icon" href="Content/Montepio/images/generic/favicon.ico" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;600&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="https://code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css">
+    <link rel="stylesheet" href="https://jqueryui.com/resources/demos/style.css">
+
+    <!-- CSS -->
+    <link href="/ITSCredit.External/Calculator/ITSCredit.Calculator.UI.External/bundles/css-hj?v=82iaYDUoWiB3rg5rtonhFYnAZWKKlULLV8tDL8ImqpA1" rel="stylesheet"/>
+
+
+    <!-- JS -->
+    <script src="/ITSCredit.External/Calculator/ITSCredit.Calculator.UI.External/bundles/scripts-hj?v=JGFB2EtNZn8iDqIsev1LYaWEJ5JFnNjYWGAux3z6UEE1"></script>
+
+
+	<!-- Google Tag Manager -->
+<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','GTM-PZB7TW');</script>
+<!-- End Google Tag Manager -->
+
+<!-- Google tag (gtag.js) --> <script async src="https://www.googletagmanager.com/gtag/js?id=G-8WVEJF7X11"></script> <script>   window.dataLayer = window.dataLayer || [];   function gtag(){dataLayer.push(arguments);}   gtag('js', new Date());   gtag('config', 'G-8WVEJF7X11'); </script>
+
+
+
+
+    <!-- OneTrust Cookies Consent Notice start for bancomontepio.pt --><script src="https://cdn.cookielaw.org/scripttemplates/otSDKStub.js"  type="text/javascript" charset="UTF-8" data-domain-script="242f9187-b6ed-4cea-95a3-2929effb3b10" ></script><script type="text/javascript">function OptanonWrapper() { }</script><!-- OneTrust Cookies Consent Notice end for bancomontepio.pt -->
+</head>
+<body>
+    
+    <!-- Google Tag Manager (noscript) --> <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-PZB7TW" height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript> <!-- End Google Tag Manager (noscript) -->
+
+    
+
+
+
+<script type="text/javascript">
+    //$(window).on("scroll", function () {
+    //    if ($(window).scrollTop() > 50) {
+    //        $(".navbar-simulation").addClass("scroll");
+    //    } else {
+    //        $(".navbar-simulation").removeClass("scroll");
+    //    }
+    //});
+
+    if (navigator.userAgent.match(/Trident\/7\./)) {
+
+        // Função comentada devido a um bug no IE que fazia com que o scroll deixasse de funcionar
+        //$('body').on("mousewheel", function () {
+        //    event.preventDefault();
+
+        //    var wheelDelta = event.wheelDelta;
+
+        //    var currentScrollPosition = window.pageYOffset;
+        //    window.scrollTo(0, currentScrollPosition - wheelDelta);
+        //});
+
+        $('body').keydown(function (e) {
+            var ua = window.navigator.userAgent;
+            var msie = ua.indexOf("MSIE ");
+
+            if (msie > 0 || !!navigator.userAgent.match(/Trident.*rv\:11\./))  // If Internet Explorer, return version number
+            {
+                e = e || event;/* get IE event ( not passed ) */
+
+                if (e.stopPropagation) {
+                    e.stopPropagation();
+                }
+            } else { // If another browser, return 0
+                e.preventDefault(); // prevent the default action (scroll / move caret)
+            }
+
+            var currentScrollPosition = window.pageYOffset;
+
+            switch (e.which) {
+
+                case 38: // up
+                    window.scrollTo(0, currentScrollPosition - 120);
+                    break;
+
+                case 40: // down
+                    window.scrollTo(0, currentScrollPosition + 120);
+                    break;
+
+                default: return; // exit this handler for other keys
+            }
+        });
+    }
+</script>
+
+<div id="container">
+    <div id="body">
+        <input id="HashRequest" type="hidden" value="e45a4619da78c3b9dc6b789bdae336e1" />
+        <my-app-hj></my-app-hj>
+
+            <input hidden type="text" id="model.Configs" value="{&quot;hascomparator&quot;:true,&quot;hasfinanceplan&quot;:true,&quot;hasemail&quot;:false,&quot;hasscenarios&quot;:false,&quot;hasrpgdpage&quot;:false,&quot;rgpdsendmethod&quot;:&quot;E&quot;,&quot;howmuchwillisaveactive&quot;:false,&quot;fixedrateshowbothinstallments&quot;:false,&quot;stressratemt&quot;:true,&quot;stressratemultif&quot;:true,&quot;conditioninfolabel&quot;:false,&quot;initialpage&quot;:&quot;https://www.bancomontepio.pt&quot;,&quot;loginnet24&quot;:&quot;https://net24.bancomontepio.pt/Net24-Web/func/credito/creditoHabitacao.jsp?simulationID={SimulationID}&amp;simulationType={SimulationType}&quot;,&quot;urlspecialconditions&quot;:&quot;https://www.bancomontepio.pt/condicoes-especiais-credito-habitacao&quot;,&quot;smartslideractive&quot;:true,&quot;documentscreditamount&quot;:&quot;0&quot;,&quot;irscodelength&quot;:&quot;12&quot;,&quot;manualNameMaxCharacters&quot;:&quot;21&quot;,&quot;enableGoogleTagManager&quot;:true,&quot;signMaxRetriesLOQR&quot;:3,&quot;maxamountppcivida&quot;:7000,&quot;showgoalsdropdownCPNPA&quot;:false,&quot;defaultproductCPNPA&quot;:&quot;26B1129900X&quot;,&quot;maxamountcpnpa&quot;:75000,&quot;defaultproductCPV2&quot;:&quot;26B1129900X&quot;,&quot;maxmortgageterm&quot;:&quot;00-30:40;31-35:37;36-99:35;&quot;,&quot;hasiframev2&quot;:false,&quot;isNewHousingJourney&quot;:true,&quot;campaignCode&quot;:&quot;C029&quot;,&quot;newHousingJourneyIntroImage&quot;:&quot;&quot;,&quot;personalJourneyIntroImage&quot;:&quot;&quot;,&quot;mtPortalUrl&quot;:&quot;https://www.bancomontepio.pt/&quot;,&quot;mtdl44PurposeList&quot;:&quot;HD00;HE00;HF00;HG30;HH00;HI00;OD00;OE00;OF00;OG30;OH00;OI00;&quot;,&quot;initialExemptionsCode&quot;:&quot;C032&quot;,&quot;flagInitialExemptions&quot;:true,&quot;language&quot;:&quot;pt&quot;,&quot;isauthenticate&quot;:false,&quot;hasiframe&quot;:false,&quot;isapp&quot;:false,&quot;channel&quot;:&quot;1&quot;,&quot;getCustomerPlafond&quot;:null,&quot;getPersonalLoanSimulationData&quot;:null}" />
+    </div>
+</div>
+
+<div id="pre-bootstrap" class="pre-bootstrap">
+    <div class="spinner">
+        <div class="double-bounce1"></div>
+        <div class="double-bounce2"></div>
+    </div>
+</div>
+
+<script type="text/javascript" src="dist/0.c563cc773f9ae256e2b9.chunk.js"></script><script type="text/javascript" src="dist/app-hj.c563cc773f9ae256e2b9.bundle.js"></script><script type="text/javascript" src="/_Incapsula_Resource?SWJIYLWA=719d34d31c8e3a6e6fffd425f7e032f3&ns=1&cb=854734737" async></script></body>
+</html>
