@@ -81,9 +81,9 @@ func grelhaDeEnsaio() []varrimento.Ponto {
 		base("variavel/ltv80/30a/pequeno", 125_000, 100_000, 30, dominio.TaxaVariavel, nil),
 		base("variavel/ltv80/30a/grande", 500_000, 400_000, 30, dominio.TaxaVariavel, nil),
 
-		// ⚠️ Os três pontos que partem o modelo de bandas de 5 %. Caem todos na
-		// banda 70 do dominio.BandaLTV e têm três spreads diferentes. Ver o
-		// subteste «a banda de 5 % não chega para a CGD».
+		// ⚠️ Os três pontos que partiram o modelo de bandas de 5 %: caíam todos
+		// na banda 70 e têm três spreads diferentes (KAN-35). Ver o subteste
+		// «a banda de 5 % não chega para a CGD».
 		base("variavel/ltv66/30a", 303_030, 200_000, 30, dominio.TaxaVariavel, nil),
 		base("variavel/ltv67/30a", 298_507, 200_000, 30, dominio.TaxaVariavel, nil),
 		base("variavel/ltv68/30a", 294_117, 200_000, 30, dominio.TaxaVariavel, nil),
@@ -249,17 +249,19 @@ func TestE2EAGrelhaInteiraPelaCGD(t *testing.T) {
 		}
 	})
 
-	// ⚠️ O achado mais importante deste E2E, e o que contraria uma hipótese
-	// escrita no ARQUITETURA.md §4.
+	// ⚠️ O achado mais importante deste E2E. Foi ele que obrigou a §4 do
+	// ARQUITETURA.md a mudar.
 	//
-	// A §4 diz que o spread se guarda «por banda de LTV», e o dominio.BandaLTV
-	// implementa isso com vinte degraus de 5 %. Medido a 2026-07-26, o spread da
-	// CGD muda **dentro** de um desses degraus: os LTV de 66 %, 67 % e 68 % caem
-	// todos na banda 70 e têm 2,000, 2,050 e 1,350 p.p. — 0,70 p.p. de diferença
-	// entre os extremos.
+	// A §4 dizia que o spread se guardava «por banda de LTV», e o
+	// dominio.BandaLTV implementava-o com vinte degraus de 5 %. Medido a
+	// 2026-07-26, o spread da CGD muda **dentro** de um desses degraus: os LTV
+	// de 66 %, 67 % e 68 % caíam todos na banda 70 e têm 2,000, 2,050 e 1,350
+	// p.p. — 0,70 p.p. de diferença entre os extremos.
 	//
-	// Uma grelha com uma linha por banda de 5 % serve a dois destes três o preço
-	// de outro cliente. Está registado em KAN-35; este teste é o que o vigia.
+	// Resolvido na KAN-35: o spread passou a guardar-se por intervalo com
+	// fronteiras medidas (dominio.EscalaDeLTV), e o BandaLTV saiu do domínio.
+	// Este teste continua aqui como sentinela contra a rede — é o que dá pela
+	// CGD mudar de preçário e tornar a medição obsoleta.
 	t.Run("a banda de 5 % não chega para a CGD", func(t *testing.T) {
 		spreads := map[string]string{}
 		for _, cenario := range []string{"variavel/ltv66/30a", "variavel/ltv67/30a", "variavel/ltv68/30a"} {
@@ -269,17 +271,16 @@ func TestE2EAGrelhaInteiraPelaCGD(t *testing.T) {
 			}
 			spreads[cenario] = o.Oferta.Spread.String()
 		}
-		t.Logf("dentro da banda 70 do BandaLTV: 66%% → %s, 67%% → %s, 68%% → %s",
+		t.Logf("dentro da antiga banda 70: 66%% → %s, 67%% → %s, 68%% → %s",
 			spreads["variavel/ltv66/30a"], spreads["variavel/ltv67/30a"], spreads["variavel/ltv68/30a"])
 
 		if spreads["variavel/ltv66/30a"] == spreads["variavel/ltv68/30a"] {
 			t.Logf("✅ os LTV de 66 %% e 68 %% passaram a ter o mesmo spread — a CGD mudou de preçário " +
-				"desde 2026-07-26, e a KAN-35 pode ser reavaliada com esta medição nova")
+				"desde 2026-07-26, e as fronteiras medidas que a KAN-35 fixou têm de ser varridas de novo")
 			return
 		}
-		t.Logf("⚠️ CONFIRMADO: a banda de 5 %% junta preços diferentes. Uma linha por banda na grelha "+
-			"(KAN-16) daria a um destes LTV o spread do outro, com %s p.p. de erro.",
-			"0,70")
+		t.Logf("⚠️ CONFIRMADO, e continua a ser a razão de ser da EscalaDeLTV: os três LTV têm preços " +
+			"diferentes dentro de uma banda de 5 %%. A grelha da KAN-16 guarda-os por intervalo medido.")
 	})
 }
 
