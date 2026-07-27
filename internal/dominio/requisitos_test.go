@@ -77,6 +77,43 @@ func TestRequisitosValidar(t *testing.T) {
 			muda:      func(r *dominio.Requisitos) { r.BancoNome = "" },
 			queroErro: "identificação",
 		},
+		// ⚠️ Um produto sem o prefixo do banco é um produto que a selecção de um
+		// pedido nunca lhe entregaria: o Pedido.ProdutosDoBanco reparte pelo
+		// prefixo, e sem ele o banco declara uma bonificação que ninguém lhe
+		// consegue pedir.
+		{
+			nome: "produto sem o prefixo do banco",
+			muda: func(r *dominio.Requisitos) {
+				r.Produtos = []dominio.Produto{{ID: "primeiro_banco", Rotulo: "Primeiro Banco"}}
+			},
+			queroErro: "prefixado",
+		},
+		{
+			nome: "produto com o prefixo de outro banco",
+			muda: func(r *dominio.Requisitos) {
+				r.Produtos = []dominio.Produto{{ID: "cgd:packs", Rotulo: "Packs"}}
+			},
+			queroErro: "prefixado",
+		},
+		{
+			nome: "produto declarado duas vezes",
+			muda: func(r *dominio.Requisitos) {
+				r.Produtos = []dominio.Produto{
+					{ID: "novobanco:protecao", Rotulo: "Proteção"},
+					{ID: "novobanco:protecao", Rotulo: "Proteção"},
+				}
+			},
+			queroErro: "duas vezes",
+		},
+		{
+			nome: "produtos bem prefixados passam",
+			muda: func(r *dominio.Requisitos) {
+				r.Produtos = []dominio.Produto{
+					{ID: "novobanco:primeiro_banco", Rotulo: "Primeiro Banco"},
+					{ID: "novobanco:protecao", Rotulo: "Proteção"},
+				}
+			},
+		},
 	}
 
 	for _, c := range casos {

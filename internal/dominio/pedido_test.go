@@ -137,6 +137,32 @@ func TestPedidoValidar(t *testing.T) {
 			},
 			queroCampo: "rendimento_mensal",
 		},
+		{
+			nome:       "produto sem o prefixo do banco",
+			muda:       func(p *dominio.Pedido) { p.Produtos = []string{"packs"} },
+			queroCampo: "produtos",
+		},
+		{
+			nome:       "produto sem nome depois do prefixo",
+			muda:       func(p *dominio.Pedido) { p.Produtos = []string{"cgd:"} },
+			queroCampo: "produtos",
+		},
+		{
+			nome:       "produto sem banco antes do prefixo",
+			muda:       func(p *dominio.Pedido) { p.Produtos = []string{":packs"} },
+			queroCampo: "produtos",
+		},
+		{
+			nome:       "o mesmo produto escolhido duas vezes",
+			muda:       func(p *dominio.Pedido) { p.Produtos = []string{"cgd:packs", "cgd:packs"} },
+			queroCampo: "produtos",
+		},
+		{
+			nome: "produtos de dois bancos passam",
+			muda: func(p *dominio.Pedido) {
+				p.Produtos = []string{"cgd:packs", "novobanco:primeiro_banco"}
+			},
+		},
 	}
 
 	for _, c := range casos {
@@ -165,6 +191,47 @@ func TestPedidoValidar(t *testing.T) {
 				t.Error("a recusa não traz mensagem")
 			}
 		})
+	}
+}
+
+// Um pedido leva a selecção de todos os bancos comparados, e cada banco lê só a
+// sua. É o prefixo do id que reparte — sem ele, escolher os packs da CGD ligava
+// bonificações no Novo Banco.
+func TestProdutosDoBancoRepartemPeloPrefixo(t *testing.T) {
+	p := pedidoValido(t)
+	p.Produtos = []string{"cgd:packs", "novobanco:primeiro_banco", "novobanco:protecao"}
+
+	if dele := p.ProdutosDoBanco("cgd"); len(dele) != 1 || dele[0] != "cgd:packs" {
+		t.Errorf("a CGD tem um produto nesta selecção, saíram %v", dele)
+	}
+	if dele := p.ProdutosDoBanco("novobanco"); len(dele) != 2 {
+		t.Errorf("o Novo Banco tem dois produtos nesta selecção, saíram %v", dele)
+	}
+	if dele := p.ProdutosDoBanco("montepio"); dele != nil {
+		t.Errorf("o Montepio não tem nenhum, saíram %v", dele)
+	}
+
+	// ⚠️ O prefixo compara-se inteiro, com o separador: "cgd" não pode apanhar
+	// os produtos de um banco cujo id comece pelas mesmas letras.
+	p.Produtos = []string{"cgdmocambique:packs"}
+	if dele := p.ProdutosDoBanco("cgd"); dele != nil {
+		t.Errorf("o prefixo tem de incluir o separador, saíram %v", dele)
+	}
+}
+
+// TemProduto é o que cada banco usa para decidir se envia — ou lê — a variante
+// com desconto.
+func TestTemProduto(t *testing.T) {
+	p := pedidoValido(t)
+	if p.TemProduto("cgd:packs") {
+		t.Error("um pedido sem produtos não tem produto nenhum")
+	}
+	p.Produtos = []string{"cgd:packs"}
+	if !p.TemProduto("cgd:packs") {
+		t.Error("o produto escolhido não foi reconhecido")
+	}
+	if p.TemProduto("cgd:outro") {
+		t.Error("reconheceu um produto que não foi escolhido")
 	}
 }
 
