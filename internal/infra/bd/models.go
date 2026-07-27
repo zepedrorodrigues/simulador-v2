@@ -32,6 +32,9 @@ type CatalogoTaxa struct {
 	Notas            []byte
 	Sucesso          bool
 	Erro             pgtype.Text
+	LtvMin           pgtype.Numeric
+	LtvMax           pgtype.Numeric
+	SpreadMinimo     pgtype.Numeric
 }
 
 type Limite struct {
