@@ -72,7 +72,7 @@ type Lote struct {
 // escrita e não pouparia o que interessa poupar, que é a carga no simulador
 // alheio.
 func (v *Varredor) VarrerEGravar(
-	ctx context.Context, cat Catalogo, pontos []Ponto, seMaisVelhoQue time.Duration,
+	ctx context.Context, cat Catalogo, pontos PontosDe, seMaisVelhoQue time.Duration,
 ) (Lote, error) {
 	if cat == nil {
 		return Lote{}, errors.New("varrimento sem catálogo onde gravar")
@@ -95,7 +95,7 @@ func (v *Varredor) VarrerEGravar(
 		}
 	}
 
-	resultado := v.Varrer(ctx, pontos)
+	resultado := v.VarrerCada(ctx, pontos)
 
 	// ⚠️ Uma corrida sem observações não abre lote. Não é o mesmo que um lote
 	// vazio: um varrimento_id sem linhas nenhumas ficaria na série a dizer que

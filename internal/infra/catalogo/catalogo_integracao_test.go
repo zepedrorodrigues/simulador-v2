@@ -31,7 +31,7 @@ func TestDoisVarrimentosSeguidosComAGuardaDaoUmLote(t *testing.T) {
 	v := varredorDeProva(t)
 
 	const guarda = 6 * time.Hour
-	pontos := []varrimento.Ponto{pontoDeProva("variavel/0/propria")}
+	pontos := varrimento.MesmosPontos([]varrimento.Ponto{pontoDeProva("variavel/0/propria")})
 
 	primeiro, err := v.VarrerEGravar(t.Context(), cat, pontos, guarda)
 	if err != nil {

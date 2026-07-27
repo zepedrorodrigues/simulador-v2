@@ -230,12 +230,34 @@ type saidaDeBanco struct {
 	salto       *Salto
 }
 
-// Varrer corre todos os bancos sobre todos os pontos e devolve o que saiu.
+// PontosDe diz que pontos se pedem a cada banco.
+//
+// ⚠️ É função do banco e não uma lista só, e isso não é generalidade
+// especulativa: a grelha é DERIVADA dos Requisitos de cada banco (§4) — os
+// períodos fixos, os tenores da Euribor e os produtos são dele, e não do
+// projecto. A CGD tem 7 períodos e impõe o tenor; o Novo Banco tem 9 e aceita
+// três. Uma lista só para todos pedia a cada banco pontos que ele não pratica,
+// e gastava um pedido por cada um para receber uma recusa.
+type PontosDe func(b bancos.Banco) []Ponto
+
+// MesmosPontos é a PontosDe de quem quer a mesma lista para todos os bancos.
+// Serve os testes e quem varre um ponto de referência transversal.
+func MesmosPontos(pontos []Ponto) PontosDe {
+	return func(bancos.Banco) []Ponto { return pontos }
+}
+
+// Varrer corre todos os bancos sobre a mesma lista de pontos.
+func (v *Varredor) Varrer(ctx context.Context, pontos []Ponto) Resultado {
+	return v.VarrerCada(ctx, MesmosPontos(pontos))
+}
+
+// VarrerCada corre cada banco sobre os pontos que lhe pertencem e devolve o que
+// saiu.
 //
 // Não devolve erro: as falhas são por banco e por ponto, e cada uma tem o seu
 // lugar no Resultado. Um banco avariado nunca derruba o varrimento (§5).
-func (v *Varredor) Varrer(ctx context.Context, pontos []Ponto) Resultado {
-	if len(pontos) == 0 || len(v.bancos) == 0 {
+func (v *Varredor) VarrerCada(ctx context.Context, pontos PontosDe) Resultado {
+	if pontos == nil || len(v.bancos) == 0 {
 		return Resultado{}
 	}
 
@@ -249,7 +271,7 @@ func (v *Varredor) Varrer(ctx context.Context, pontos []Ponto) Resultado {
 			// Cada goroutine escreve o seu índice e mais nenhum: não há partilha
 			// para proteger, e a saída sai pela ordem dos bancos em vez da ordem
 			// em que chegaram.
-			saidas[i] = v.varrerBanco(ctx, b, pontos)
+			saidas[i] = v.varrerBanco(ctx, b, pontos(b))
 		}()
 	}
 	wg.Wait()
@@ -269,6 +291,13 @@ func (v *Varredor) Varrer(ctx context.Context, pontos []Ponto) Resultado {
 // porBanco de cada vez.
 func (v *Varredor) varrerBanco(ctx context.Context, b bancos.Banco, pontos []Ponto) saidaDeBanco {
 	id := b.ID()
+
+	// ⚠️ Sem pontos não se toma o travão. Tomá-lo para não fazer nada seria
+	// impedir, durante esse instante, um varrimento a sério do mesmo banco —
+	// e é precisamente o que o travão existe para arbitrar.
+	if len(pontos) == 0 {
+		return saidaDeBanco{}
+	}
 
 	largar, err := v.travao.Tomar(ctx, id)
 	if err != nil {
