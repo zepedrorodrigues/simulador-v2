@@ -6,6 +6,8 @@ package bd
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type Querier interface {
@@ -26,6 +28,22 @@ type Querier interface {
 	// ListarSnapshots serve o /api/rate-catalog/snapshots: um por varrimento, com a
 	// data e a contagem de linhas.
 	ListarSnapshots(ctx context.Context) ([]ListarSnapshotsRow, error)
+	// NovoVarrimentoID cunha o id que agrupa as linhas de uma corrida.
+	//
+	// ⚠️ Sai da base e não do processo, e é de propósito: é a base que já é a
+	// autoridade sobre o que existe, e assim não entra no go.mod uma dependência
+	// de UUID para gerar dezasseis bytes.
+	NovoVarrimentoID(ctx context.Context) (pgtype.UUID, error)
+	// UltimoVarrimentoEm é a guarda de idempotência (`--se-antigo`): diz quando foi
+	// a observação mais recente, para não se dispararem varrimentos em cima uns dos
+	// outros. Nulo quando nunca se varreu nada.
+	//
+	// ⚠️ Olha para TODAS as linhas e não só para as de sucesso. Um varrimento em que
+	// todos os bancos falharam continua a ser um varrimento que já se fez, e
+	// repeti-lo já a seguir é bater no banco outra vez pela mesma razão que a guarda
+	// existe para evitar. O v1 estragou a primeira medição assim: cinco corridas em
+	// 14 minutos não são cinco dias de dados.
+	UltimoVarrimentoEm(ctx context.Context) (pgtype.Timestamptz, error)
 }
 
 var _ Querier = (*Queries)(nil)
