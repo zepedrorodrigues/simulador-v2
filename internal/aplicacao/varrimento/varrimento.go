@@ -41,6 +41,16 @@ type Ponto struct {
 type Observacao struct {
 	Ponto  Ponto
 	Oferta dominio.Oferta
+
+	// Degrau, quando não é nulo, diz que esta linha é um degrau da escala de
+	// LTV: o spread dela vale sobre o intervalo medido, e não só no ponto.
+	// Nulo é uma observação num ponto, que não afirma intervalo nenhum.
+	//
+	// ⚠️ É a distinção que a §4 fixa em «O que estas três colunas descrevem». A
+	// observação continua a ser uma observação a sério — a que traz o spread
+	// servido do degrau —, e é por isso que isto é um campo a mais e não um
+	// tipo à parte: a linha de catalogo_taxas é a mesma.
+	Degrau *dominio.DegrauLTV
 }
 
 // Sucesso deriva da oferta: uma observação de falha traz o erro estruturado em
@@ -68,6 +78,15 @@ type Salto struct {
 type Resultado struct {
 	Observacoes []Observacao
 	Saltados    []Salto
+
+	// EscalasNaoMedidas são os bancos cuja escala de LTV não se conseguiu medir.
+	//
+	// ⚠️ Não é um Salto e não se confunde com um: o banco FOI varrido, e as
+	// observações dos pontos dele estão no Resultado. O que falta é a dimensão
+	// do LTV. Calá-lo deixava passar uma grelha sem degraus com ar de grelha
+	// completa, e quem a lesse servia o spread do ponto de referência a toda a
+	// gente — que é a banda única que a KAN-35 matou.
+	EscalasNaoMedidas []Salto
 }
 
 // ErrBancoTravado diz que outro varrimento tem este banco. Não é falha.
@@ -167,6 +186,11 @@ type Config struct {
 	// PorBanco a zero vale PorBancoOmissao.
 	PorBanco int
 
+	// Degraus mede a escala de LTV de cada banco. Nulo não descobre escala
+	// nenhuma — e é o que serve quem varre só pontos, incluindo os testes que
+	// existiam antes desta dimensão.
+	Degraus DegrausDe
+
 	// Agora é o relógio. Nulo vale time.Now. O domínio não tem relógio; quem
 	// carimba a hora da captura é esta camada (ver dominio.Oferta.CapturadoEm).
 	Agora func() time.Time
@@ -178,6 +202,7 @@ type Varredor struct {
 	travao   Travao
 	prazos   Prazos
 	porBanco int
+	degraus  DegrausDe
 	agora    func() time.Time
 }
 
@@ -206,6 +231,7 @@ func Novo(c Config) (*Varredor, error) {
 		travao:   c.Travao,
 		prazos:   c.Prazos,
 		porBanco: c.PorBanco,
+		degraus:  c.Degraus,
 		agora:    c.Agora,
 	}
 	if v.prazos.Barato <= 0 {
@@ -228,6 +254,11 @@ func Novo(c Config) (*Varredor, error) {
 type saidaDeBanco struct {
 	observacoes []Observacao
 	salto       *Salto
+
+	// escalaFalhada diz que os pontos correram e a escala de LTV não. São
+	// coisas independentes: uma não anula a outra, e por isso viaja ao lado das
+	// observações em vez de as substituir.
+	escalaFalhada *Salto
 }
 
 // PontosDe diz que pontos se pedem a cada banco.
@@ -245,6 +276,18 @@ type PontosDe func(b bancos.Banco) []Ponto
 func MesmosPontos(pontos []Ponto) PontosDe {
 	return func(bancos.Banco) []Ponto { return pontos }
 }
+
+// DegrausDe mede a escala de LTV de um banco e devolve-a como observações de
+// degrau — as linhas que trazem ltv_min/ltv_max.
+//
+// ⚠️ Declara-se como porta, e não se chama aqui o grelha.DescobrirBanco, porque
+// é o grelha que importa este pacote e não ao contrário (§3). Quem a preenche é
+// a infra, ao montar o varredor.
+//
+// ⚠️ E corre DENTRO do travão do banco, a seguir aos pontos dele: são ~86
+// pedidos ao mesmo simulador, e deixá-los fora do travão era pôr no banco
+// exactamente a carga concorrente que a §7.2 existe para impedir.
+type DegrausDe func(ctx context.Context, b bancos.Banco) ([]Observacao, error)
 
 // Varrer corre todos os bancos sobre a mesma lista de pontos.
 func (v *Varredor) Varrer(ctx context.Context, pontos []Ponto) Resultado {
@@ -283,6 +326,9 @@ func (v *Varredor) VarrerCada(ctx context.Context, pontos PontosDe) Resultado {
 			continue
 		}
 		r.Observacoes = append(r.Observacoes, s.observacoes...)
+		if s.escalaFalhada != nil {
+			r.EscalasNaoMedidas = append(r.EscalasNaoMedidas, *s.escalaFalhada)
+		}
 	}
 	return r
 }
@@ -339,7 +385,23 @@ alimentar:
 	close(indices)
 	wg.Wait()
 
-	return saidaDeBanco{observacoes: observacoes[:entregues]}
+	saida := saidaDeBanco{observacoes: observacoes[:entregues]}
+
+	// A escala de LTV, ainda dentro do travão deste banco.
+	//
+	// ⚠️ Só se o varrimento dos pontos não tiver sido interrompido. Depois de um
+	// cancelamento, ir buscar mais ~86 pontos ao banco é bater em quem já
+	// desistimos de ouvir; e a descoberta devolveria de qualquer forma uma
+	// escala truncada, que é o que o grelha.Descobrir recusa fazer.
+	if v.degraus != nil && ctx.Err() == nil {
+		degraus, err := v.degraus(ctx, b)
+		if err != nil {
+			saida.escalaFalhada = &Salto{BancoID: id, Motivo: err}
+		} else {
+			saida.observacoes = append(saida.observacoes, degraus...)
+		}
+	}
+	return saida
 }
 
 // simular corre um ponto contra um banco, com prazo próprio, e devolve sempre

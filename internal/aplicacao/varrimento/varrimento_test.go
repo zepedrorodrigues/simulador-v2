@@ -576,10 +576,117 @@ func (t *travaoFalso) Tomar(_ context.Context, bancoID string) (varrimento.Larga
 	}, nil
 }
 
+// temTravao diz se o banco está travado neste instante. É como se afirma que a
+// escala corre DENTRO do travão, e não a seguir a ele.
+func (t *travaoFalso) temTravao(bancoID string) bool {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.ocupados[bancoID]
+}
+
 func (t *travaoFalso) largados() []string {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	saida := make([]string, len(t.devolvidos))
 	copy(saida, t.devolvidos)
 	return saida
+}
+
+// A escala de LTV, que entra pela porta DegrausDe e corre dentro do travão.
+
+func TestAEscalaMedeSeComOTravaoDoBancoTomado(t *testing.T) {
+	defer semFugas(t)
+
+	// ⚠️ São ~86 pedidos ao mesmo simulador, a seguir aos pontos. Fora do travão
+	// seriam exactamente a carga concorrente que a §7.2 existe para impedir — e
+	// nada no resultado denunciaria isso.
+	travao := novoTravaoFalso()
+	var tinhaTravao bool
+	v := varredor(t, varrimento.Config{
+		Bancos: []bancos.Banco{&bancoFalso{id: "cgd", custo: dominio.CustoBarato}},
+		Travao: travao,
+		Degraus: func(_ context.Context, b bancos.Banco) ([]varrimento.Observacao, error) {
+			tinhaTravao = travao.temTravao(b.ID())
+			return nil, nil
+		},
+	})
+
+	v.Varrer(t.Context(), pontos("variavel/0/propria"))
+
+	if !tinhaTravao {
+		t.Error("a escala foi medida com o travão do banco largado: são ~86 pedidos fora do que a §7.2 arbitra")
+	}
+}
+
+func TestOsDegrausEntramNoMesmoLoteQueOsPontos(t *testing.T) {
+	defer semFugas(t)
+
+	// Um degrau é uma linha de catalogo_taxas como as outras, e é do mesmo
+	// varrimento — logo viaja nas observações e não num canal à parte.
+	degrau := dominio.DegrauLTV{De: racioT("0.30"), Ate: racioT("0.80"), Spread: taxaT("1.350")}
+	v := varredor(t, varrimento.Config{
+		Bancos: []bancos.Banco{&bancoFalso{id: "cgd", custo: dominio.CustoBarato}},
+		Degraus: func(context.Context, bancos.Banco) ([]varrimento.Observacao, error) {
+			return []varrimento.Observacao{{
+				Ponto:  varrimento.Ponto{Cenario: "variavel/0/propria"},
+				Oferta: dominio.Oferta{BancoID: "cgd"},
+				Degrau: &degrau,
+			}}, nil
+		},
+	})
+
+	r := v.Varrer(t.Context(), pontos("variavel/0/propria"))
+
+	comIntervalo := 0
+	for _, o := range r.Observacoes {
+		if o.Degrau != nil {
+			comIntervalo++
+		}
+	}
+	if comIntervalo != 1 {
+		t.Errorf("saíram %d linhas de degrau de %d observações, e esperava-se 1",
+			comIntervalo, len(r.Observacoes))
+	}
+}
+
+func TestUmaEscalaQueNaoSeMediuNaoApagaOsPontosDoBanco(t *testing.T) {
+	defer semFugas(t)
+
+	// São coisas independentes: o banco respondeu aos pontos dele e a escala é
+	// que não saiu. Deitar fora os pontos por causa disso perdia medições boas;
+	// calar a escala servia uma grelha sem degraus com ar de grelha completa.
+	v := varredor(t, varrimento.Config{
+		Bancos: []bancos.Banco{&bancoFalso{id: "cgd", custo: dominio.CustoBarato}},
+		Degraus: func(context.Context, bancos.Banco) ([]varrimento.Observacao, error) {
+			return nil, errors.New("o banco recusou metade do domínio de LTV")
+		},
+	})
+
+	r := v.Varrer(t.Context(), pontos("variavel/0/propria"))
+
+	if len(r.Observacoes) != 1 {
+		t.Errorf("uma escala falhada levou os pontos atrás: ficaram %d observações", len(r.Observacoes))
+	}
+	if len(r.EscalasNaoMedidas) != 1 {
+		t.Fatalf("a escala não se mediu e o resultado não o diz: %d registos", len(r.EscalasNaoMedidas))
+	}
+	if len(r.Saltados) != 0 {
+		t.Error("uma escala falhada foi dada como banco saltado, e o banco foi varrido")
+	}
+}
+
+func racioT(s string) dominio.Racio {
+	r, err := dominio.RacioDeTexto(s)
+	if err != nil {
+		panic(err)
+	}
+	return r
+}
+
+func taxaT(s string) dominio.Taxa {
+	v, err := dominio.TaxaDeTexto(s)
+	if err != nil {
+		panic(err)
+	}
+	return v
 }

@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
@@ -311,4 +312,181 @@ func subirBase(t *testing.T) *pgxpool.Pool {
 	}
 	t.Cleanup(pool.Close)
 	return pool
+}
+
+// As linhas de degrau. ⚠️ Mede-se contra um Postgres a sério porque o que se
+// afirma são os CHECK e a PRECISÃO das colunas, e nenhum dos dois existe fora
+// da base: um numeric(9,8) só arredonda onde é imposto.
+
+func TestUmDegrauGravaOIntervaloMedidoSemOArredondar(t *testing.T) {
+	pool := subirBase(t)
+	cat := catalogo.NovoPostgres(pool)
+
+	// A fronteira medida da CGD a 2026-07-27. Tem sete casas decimais, e é o
+	// número que a §4 usa para justificar o numeric(9,8): em numeric(6,3)
+	// ficava 0,666 — 0,05 p.p. de erro, o orçamento inteiro do refinamento.
+	deu, ate := racioDe("0.30"), racioDe("0.66593750")
+	obs := observacaoDeProva()
+	obs.Degrau = &dominio.DegrauLTV{De: deu, Ate: ate, Spread: taxaDe("1.350")}
+
+	if _, err := cat.GravarLote(t.Context(), []varrimento.Observacao{obs}); err != nil {
+		t.Fatalf("gravar o degrau: %v", err)
+	}
+
+	min, max, minimo := lerIntervalo(t, pool)
+	if !min.Valid || !max.Valid {
+		t.Fatal("gravou-se um degrau sem intervalo: a linha não afirma sobre que LTV o spread vale")
+	}
+	if got := numeroTexto(t, max); got != "0.66593750" {
+		t.Errorf("mediu-se 0.66593750 e a base guardou %s", got)
+	}
+	if got := numeroTexto(t, min); got != "0.30000000" {
+		t.Errorf("ltv_min: mediu-se 0.30 e a base guardou %s", got)
+	}
+	// Resolvido: o lado barato não existe, e não se guarda duas vezes a mesma
+	// verdade — o `resolvido` deriva-se deste nulo.
+	if minimo.Valid {
+		t.Errorf("um degrau resolvido gravou spread_minimo (%s)", numeroTexto(t, minimo))
+	}
+}
+
+func TestUmDegrauPorResolverGravaOLadoBaratoAoLado(t *testing.T) {
+	pool := subirBase(t)
+	cat := catalogo.NovoPostgres(pool)
+
+	// Sem os dois números a nota obrigatória não se reconstrói da linha: ela
+	// nomeia o spread servido E o que se descartou (§4).
+	barato := taxaDe("1.200")
+	obs := observacaoDeProva()
+	obs.Degrau = &dominio.DegrauLTV{
+		De: racioDe("0.66"), Ate: racioDe("0.67"),
+		Spread: taxaDe("1.350"), SpreadMinimo: &barato,
+	}
+
+	if _, err := cat.GravarLote(t.Context(), []varrimento.Observacao{obs}); err != nil {
+		t.Fatalf("gravar o degrau por resolver: %v", err)
+	}
+
+	_, _, minimo := lerIntervalo(t, pool)
+	if !minimo.Valid {
+		t.Fatal("um degrau por resolver gravou sem o lado barato, e a nota deixa de se reconstruir")
+	}
+	if got := numeroTexto(t, minimo); got != "1.200" {
+		t.Errorf("spread_minimo = %s, mediu-se 1.200", got)
+	}
+}
+
+func TestUmaObservacaoDePontoNaoAfirmaIntervaloDeLTV(t *testing.T) {
+	pool := subirBase(t)
+	cat := catalogo.NovoPostgres(pool)
+
+	// Uma observação num ponto — um período fixo, um tenor, uma finalidade — é
+	// medida no LTV de referência e não afirma intervalo nenhum. Inventar um de
+	// largura zero à volta dela seria dizer que o preço muda ali (§4).
+	if _, err := cat.GravarLote(t.Context(), []varrimento.Observacao{observacaoDeProva()}); err != nil {
+		t.Fatalf("gravar a observação: %v", err)
+	}
+
+	min, max, minimo := lerIntervalo(t, pool)
+	for nome, col := range map[string]pgtype.Numeric{"ltv_min": min, "ltv_max": max, "spread_minimo": minimo} {
+		if col.Valid {
+			t.Errorf("uma observação de ponto gravou %s, e não mediu intervalo nenhum", nome)
+		}
+	}
+}
+
+func TestUmDegrauCujaObservacaoDesceuAFalhaPerdeOIntervalo(t *testing.T) {
+	pool := subirBase(t)
+	cat := catalogo.NovoPostgres(pool)
+
+	// A observação vem sem TAEG: desce a falha, como a §4 manda. O intervalo vai
+	// com ela — um intervalo agarrado a uma resposta que não se leu afirmaria
+	// que o preço vale de ltv_min a ltv_max sem haver preço nenhum medido.
+	obs := observacaoDeProva()
+	obs.Oferta.TAEG = nil
+	obs.Degrau = &dominio.DegrauLTV{
+		De: racioDe("0.30"), Ate: racioDe("0.80"), Spread: taxaDe("1.350"),
+	}
+
+	if _, err := cat.GravarLote(t.Context(), []varrimento.Observacao{obs}); err != nil {
+		t.Fatalf("gravar: %v", err)
+	}
+
+	var sucesso bool
+	if err := pool.QueryRow(t.Context(), `SELECT sucesso FROM catalogo_taxas`).Scan(&sucesso); err != nil {
+		t.Fatalf("ler sucesso: %v", err)
+	}
+	if sucesso {
+		t.Fatal("uma resposta sem TAEG ficou como sucesso")
+	}
+	if min, _, _ := lerIntervalo(t, pool); min.Valid {
+		t.Error("a linha desceu a falha e ficou a afirmar um intervalo de LTV na mesma")
+	}
+}
+
+func TestUmDegrauCujoSpreadDiscordaDaSuaObservacaoNaoSeGrava(t *testing.T) {
+	pool := subirBase(t)
+	cat := catalogo.NovoPostgres(pool)
+
+	// É o defeito que esta fatia existe para impedir, e nenhum CHECK o apanha:
+	// cada coluna, sozinha, é válida. A observação de prova mediu 1,350; o
+	// degrau diz servir 2,050 — logo a tan, o taeg e o mtic da linha são de
+	// outro preço.
+	obs := observacaoDeProva()
+	obs.Degrau = &dominio.DegrauLTV{
+		De: racioDe("0.66"), Ate: racioDe("0.67"), Spread: taxaDe("2.050"),
+	}
+
+	_, err := cat.GravarLote(t.Context(), []varrimento.Observacao{obs})
+	if err == nil {
+		t.Fatal("gravou-se um degrau com o spread de um preço e o TAEG de outro")
+	}
+	if !strings.Contains(err.Error(), "TAEG de outro") {
+		t.Errorf("o erro não nomeia o defeito: %v", err)
+	}
+	if n := contarLinhas(t, pool); n != 0 {
+		t.Errorf("o lote deixou %d linha(s) para trás", n)
+	}
+}
+
+func lerIntervalo(t *testing.T, pool *pgxpool.Pool) (min, max, minimo pgtype.Numeric) {
+	t.Helper()
+	err := pool.QueryRow(t.Context(),
+		`SELECT ltv_min, ltv_max, spread_minimo FROM catalogo_taxas`).Scan(&min, &max, &minimo)
+	if err != nil {
+		t.Fatalf("ler o intervalo: %v", err)
+	}
+	return min, max, minimo
+}
+
+// numeroTexto lê o numeric como a base o guardou, com as casas decimais que a
+// coluna impõe. É isso que se está a afirmar — não o valor em Go.
+func numeroTexto(t *testing.T, n pgtype.Numeric) string {
+	t.Helper()
+	v, err := n.Value()
+	if err != nil {
+		t.Fatalf("ler o numeric: %v", err)
+	}
+	s, ok := v.(string)
+	if !ok {
+		t.Fatalf("o numeric veio como %T", v)
+	}
+	return s
+}
+
+func contarLinhas(t *testing.T, pool *pgxpool.Pool) int {
+	t.Helper()
+	var n int
+	if err := pool.QueryRow(t.Context(), `SELECT count(*) FROM catalogo_taxas`).Scan(&n); err != nil {
+		t.Fatalf("contar linhas: %v", err)
+	}
+	return n
+}
+
+func racioDe(s string) dominio.Racio {
+	r, err := dominio.RacioDeTexto(s)
+	if err != nil {
+		panic(err)
+	}
+	return r
 }
