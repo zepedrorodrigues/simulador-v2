@@ -123,7 +123,7 @@ que só escuta no socket unix e é desligado a seguir. A razão está comentada 
 |---|---|---|---|
 | CGD | `cgd` | HTTP simples | implementado, confrontado ao vivo a 2026-07-26 |
 | Novo Banco | `novobanco` | HTTP simples | implementado, confrontado ao vivo a 2026-07-26 |
-| Montepio | `montepio` | HTTP com sessão | por fazer |
+| Montepio | `montepio` | HTTP com sessão | implementado, confrontado ao vivo a 2026-07-27 |
 | Banco CTT | `bancoctt` | HTTP simples | por fazer |
 | Santander | `santander` | HTTP simples | por fazer |
 | Crédito Agrícola | `creditoagricola` | HTTP simples | por fazer |
