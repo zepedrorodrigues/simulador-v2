@@ -1,7 +1,15 @@
-# Ambiente de desenvolvimento: PostgreSQL e Redis, e mais nada.
+# Ambiente de desenvolvimento: PostgreSQL, e mais nada.
 #
-# A app não entra aqui — o `Dockerfile` é o issue #28, fase 4. O `make dev` sobe
-# estes dois serviços e espera que respondam de facto.
+# ⚠️ O Redis esteve aqui e saiu (KAN-39), porque a §7 do ARQUITETURA.md o tinha
+# tirado do desenho a 2026-07-25 e o ambiente ficou para trás. Estava cá para a
+# cache e para o *gate* por banco, e nenhum dos dois existe: a leitura do cliente
+# é uma consulta a `catalogo_taxas`, e o *gate* vive em `internal/infra/travao`,
+# no `pg_try_advisory_lock` do próprio PostgreSQL. Se um dia voltar, volta por
+# uma entrada nova na §7 — não por alguém achar que um contentor a mais não faz
+# mal.
+#
+# A app não entra aqui — o `Dockerfile` é a KAN-22, fase 4. O `make dev` sobe
+# este serviço e espera que responda de facto.
 #
 # Todas as variáveis têm default: `make dev` funciona numa máquina limpa, sem
 # `.env` nenhum. O que se pode afinar está em `.env.example`.
@@ -60,36 +68,6 @@ services:
       test:
         - CMD-SHELL
         - pg_isready -h 127.0.0.1 -U ${PG_UTILIZADOR:-simulador} -d ${PG_BASE:-simulador}
-      interval: 2s
-      timeout: 3s
-      retries: 30
-
-  redis:
-    image: redis:8.8-alpine
-
-    ports:
-      - "127.0.0.1:${REDIS_PORTA:-56379}:6379"
-
-    # ⚠️ O `--save ''` desliga os snapshots RDB, porque o default da imagem
-    # **persiste**. Medido, `CONFIG GET save` num contentor sem argumentos:
-    #
-    #   save  3600 1 300 100 60 10000      (dir=/data)
-    #
-    # Aqui só vive cache e o *gate* por banco: perder o conteúdo é inconsequente
-    # por construção — mas **recuperá-lo** não é. Um `stop`/`start` do mesmo
-    # contentor recarregaria um `dump.rdb` com taxas de ontem, e a validade da
-    # cache nunca pode atravessar a viragem do dia (a Euribor fixa diariamente).
-    #
-    # O `--appendonly no` fica de fora de propósito: já é o default medido, e uma
-    # linha que finge fazer alguma coisa é pior do que não a ter.
-    command: redis-server --save ''
-
-    # Sem volume, e é literal: ao contrário da imagem do postgres, esta não
-    # declara `VOLUME` nenhum (`docker inspect` → `Volumes: null`), por isso não
-    # nasce um volume anónimo a cada recriação.
-
-    healthcheck:
-      test: ["CMD-SHELL", "redis-cli ping | grep -q PONG"]
       interval: 2s
       timeout: 3s
       retries: 30

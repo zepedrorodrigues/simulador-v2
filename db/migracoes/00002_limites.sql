@@ -4,8 +4,10 @@
 -- partir do NOSSO IP contra os bancos. A tabela tem nome próprio — e não o de
 -- uma funcionalidade apagada, como o `auth_throttle` do v1.
 --
--- ⚠️ Isto é o tecto persistente por chave; o gate por banco e a cache vivem em
--- Redis (§7), não aqui.
+-- ⚠️ Isto é o tecto persistente por chave; o travão por banco vive noutro sítio
+-- — no `pg_try_advisory_lock` do `internal/infra/travao` —, e cache não há
+-- nenhuma. (Dizia aqui «vivem em Redis (§7)»; o Redis saiu do desenho nessa
+-- mesma §7 e do ambiente na KAN-39. Só o comentário mudou: o esquema é o mesmo.)
 
 -- +goose Up
 CREATE TABLE limites (

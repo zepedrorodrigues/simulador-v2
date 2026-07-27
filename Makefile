@@ -66,16 +66,16 @@ teste:
 teste-rede:
 	go test -race -tags rede ./...
 
-# PostgreSQL e Redis locais. O `--wait` espera pelos healthchecks do
-# `docker-compose.yml`, e esses são literalmente o `pg_isready` e o `redis-cli
-# ping` — não um `sleep`, que dá verde antes de o serviço existir.
+# O PostgreSQL local. O `--wait` espera pelo healthcheck do
+# `docker-compose.yml`, e esse é literalmente o `pg_isready` — não um `sleep`,
+# que dá verde antes de o serviço existir.
 #
 # Idempotente por construção: com a configuração inalterada, o `up -d` não
-# recria nada e o `--wait` devolve mal os healthchecks estejam verdes.
+# recria nada e o `--wait` devolve mal o healthcheck esteja verde.
 dev:
 	docker compose up -d --wait --wait-timeout 120
 
-# Pára os serviços e guarda os dados.
+# Pára o serviço e guarda os dados.
 parar:
 	docker compose down
 
