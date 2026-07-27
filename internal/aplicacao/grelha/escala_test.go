@@ -14,14 +14,14 @@ import (
 // banco falso: respondem sem rede e sem relógio, e é contra elas que se afirma
 // que a descoberta reconstrói o que o banco pratica.
 
-// cgd é a forma medida da CGD a 2026-07-26 (docs/ANALISE-KAN-35.md §3), na
+// escadariaCGD é a forma medida da CGD a 2026-07-26 (docs/ANALISE-KAN-35.md §3), na
 // fatia que foi varrida.
 //
 // ⚠️ Duas das três fronteiras não caem em LTV inteiro, e o 2,050 é um patamar
 // isolado de 1,3 p.p. onde o preço SOBE e volta a DESCER. É esta forma que
 // matou a banda de passo fixo, e é por isso que ela é o caso de referência
 // deste ficheiro.
-func cgd() escadaria {
+func escadariaCGD() escadaria {
 	return escadaria{
 		{ate: ltv("0.3325"), spread: pp("1.950")},
 		{ate: ltv("0.6660"), spread: pp("2.000")},
@@ -30,9 +30,9 @@ func cgd() escadaria {
 	}
 }
 
-// montepio é o extremo oposto, medido a 2026-07-27: o LTV não muda o preço de
+// escadariaMontepio é o extremo oposto, medido a 2026-07-27: o LTV não muda o preço de
 // todo, de 50 % a 100 %. Um degrau só.
-func montepio() escadaria {
+func escadariaMontepio() escadaria {
 	return escadaria{{ate: ltv("1.00"), spread: pp("1.500")}}
 }
 
@@ -43,7 +43,7 @@ func TestDescobrirDaOsTresSpreadsDaCGDNosTresPontosMedidos(t *testing.T) {
 	// receber TRÊS spreads diferentes. Numa banda de 5 %, ou de 1 %, recebiam
 	// dois — e quem caísse do lado errado pagava 0,70 p.p. a mais, cerca de
 	// 79 € por mês em 200 000 € a 30 anos.
-	d, err := grelha.Descobrir(context.Background(), grelha.Config{}, cgd().amostrar)
+	d, err := grelha.Descobrir(context.Background(), grelha.Config{}, escadariaCGD().amostrar)
 	if err != nil {
 		t.Fatalf("Descobrir: %v", err)
 	}
@@ -73,7 +73,7 @@ func TestDescobrirNaoAfirmaUmSpreadOndeMediuOutro(t *testing.T) {
 	// medir, a escala devolve o spread que o banco deu ali. Uma fronteira posta
 	// no ponto de cima em vez do de baixo quebra isto — e quebra-o em silêncio,
 	// que é o modo de falha da §7.4.
-	escadas := cgd()
+	escadas := escadariaCGD()
 	var medidos []grelha.Medicao
 	espiar := func(ctx context.Context, r dominio.Racio) (grelha.Medicao, error) {
 		m, err := escadas.amostrar(ctx, r)
@@ -105,7 +105,7 @@ func TestDescobrirEncontraOPatamarNaoMonotonoDaCGD(t *testing.T) {
 	// O 2,050 tem de existir como degrau próprio. É o achado que abriu a
 	// KAN-35, e é o que uma descoberta que assuma monotonia — ou poucos degraus
 	// — perde: entre 2,000 e 1,350 o preço sobe antes de descer.
-	d, err := grelha.Descobrir(context.Background(), grelha.Config{}, cgd().amostrar)
+	d, err := grelha.Descobrir(context.Background(), grelha.Config{}, escadariaCGD().amostrar)
 	if err != nil {
 		t.Fatalf("Descobrir: %v", err)
 	}
@@ -141,7 +141,7 @@ func TestORefinamentoEncontraUmPatamarQueCaiuEntreDoisPontosDaFase1(t *testing.T
 		De:    ltv("0.30"),
 		Ate:   ltv("0.70"),
 		Passo: ltv("0.05"),
-	}, cgd().amostrar)
+	}, escadariaCGD().amostrar)
 	if err != nil {
 		t.Fatalf("Descobrir: %v", err)
 	}
@@ -168,7 +168,7 @@ func TestDescobrirDaUmDegrauSoAUmBancoDePrecoConstante(t *testing.T) {
 	// O Montepio, medido: o LTV não lhe muda o preço. A grelha por intervalos
 	// representa-o com UMA linha — que é o argumento de que a representação
 	// exacta é também a mais pequena.
-	d, err := grelha.Descobrir(context.Background(), grelha.Config{De: ltv("0.50")}, montepio().amostrar)
+	d, err := grelha.Descobrir(context.Background(), grelha.Config{De: ltv("0.50")}, escadariaMontepio().amostrar)
 	if err != nil {
 		t.Fatalf("Descobrir: %v", err)
 	}
@@ -252,7 +252,7 @@ func TestDescobrirCabeNoOrcamentoDaAnalise(t *testing.T) {
 	// mais ~25 de refinamento —, e é desse número que saem os ~58 s por corrida
 	// contra a CGD. Um refinamento que rebentasse o orçamento seria uma decisão
 	// nova sobre a carga que pomos num simulador alheio, e não um detalhe.
-	d, err := grelha.Descobrir(context.Background(), grelha.Config{}, cgd().amostrar)
+	d, err := grelha.Descobrir(context.Background(), grelha.Config{}, escadariaCGD().amostrar)
 	if err != nil {
 		t.Fatalf("Descobrir: %v", err)
 	}
@@ -268,7 +268,7 @@ func TestDescobrirConstroiSobreOLTVMedidoENaoOPedido(t *testing.T) {
 	// Um pedido põe-se em euros, e o montante arredonda ao cêntimo: pedir
 	// 66,5625 % pode medir outra coisa. A escala tem de ficar com o que se
 	// mediu.
-	escadas := cgd()
+	escadas := escadariaCGD()
 	desviado := func(ctx context.Context, r dominio.Racio) (grelha.Medicao, error) {
 		m, err := escadas.amostrar(ctx, r)
 		if err != nil {
@@ -304,7 +304,7 @@ func TestDescobrirRecusaUmPlanoQueDesligaORefinamentoSemODizer(t *testing.T) {
 	_, err := grelha.Descobrir(context.Background(), grelha.Config{
 		Passo:      ltv("0.01"),
 		Tolerancia: ltv("0.01"),
-	}, cgd().amostrar)
+	}, escadariaCGD().amostrar)
 	if !errors.Is(err, grelha.ErrDominioInvalido) {
 		t.Fatalf("erro = %v, esperava ErrDominioInvalido", err)
 	}
@@ -336,7 +336,7 @@ func TestDescobrirParaQuandoOContextoAcaba(t *testing.T) {
 	// O varrimento cancela-se, e a descoberta não fica a bater no banco depois
 	// disso.
 	ctx, cancelar := context.WithCancel(context.Background())
-	escadas := cgd()
+	escadas := escadariaCGD()
 	contadas := 0
 	aoDecimo := func(c context.Context, r dominio.Racio) (grelha.Medicao, error) {
 		contadas++
