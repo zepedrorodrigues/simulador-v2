@@ -252,40 +252,10 @@ func TestLTV(t *testing.T) {
 	})
 }
 
-func TestBandaLTV(t *testing.T) {
-	casos := []struct {
-		ltv   string
-		banda int
-	}{
-		{"0.5", 50},
-		{"0.75", 75},
-		{"0.7999", 80},
-		{"0.8", 80},    // ⚠️ a fronteira é fechada em cima: "LTV até 80 %" inclui 80 %
-		{"0.8001", 85}, // e um cêntimo acima já é o degrau seguinte
-		{"0.9", 90},
-		{"1", 100},
-	}
-	for _, c := range casos {
-		t.Run("ltv "+c.ltv, func(t *testing.T) {
-			if b := dominio.BandaLTV(racio(t, c.ltv)); b != c.banda {
-				t.Errorf("banda de %s = %d, queria %d", c.ltv, b, c.banda)
-			}
-		})
-	}
-}
-
-func TestMesmaBanda(t *testing.T) {
-	t.Run("dentro do mesmo degrau", func(t *testing.T) {
-		if !dominio.MesmaBanda(racio(t, "0.7999"), racio(t, "0.8")) {
-			t.Error("0,7999 e 0,80 estão na mesma banda e o teste diz que não")
-		}
-	})
-	t.Run("a atravessar o degrau", func(t *testing.T) {
-		if dominio.MesmaBanda(racio(t, "0.8"), racio(t, "0.8001")) {
-			t.Error("0,80 e 0,8001 estão em bandas diferentes — arredondar aqui dá o spread de outro cliente")
-		}
-	})
-}
+// ⚠️ O TestBandaLTV e o TestMesmaBanda estavam aqui e saíram com as funções
+// que testavam, a 2026-07-26 (KAN-35). O que eles afirmavam — bandas de 5 %
+// fechadas em cima — deixou de ser verdade sobre o preço: as fronteiras são
+// medidas por banco. O que os substitui está no escala_ltv_test.go.
 
 // FuzzEncaixarPeriodoFixo afirma o invariante que nenhuma tabela consegue
 // esgotar: o que sai está sempre na lista do banco. Um período fixo que o banco
@@ -314,24 +284,49 @@ func FuzzEncaixarPeriodoFixo(f *testing.F) {
 	})
 }
 
-// FuzzBandaLTV afirma que a banda é múltipla de 5 e que não desce quando o
-// rácio sobe. Uma função em degraus que não seja monótona dá preços que se
-// contradizem.
-func FuzzBandaLTV(f *testing.F) {
-	f.Add(uint16(8000), uint16(8001))
-	f.Add(uint16(0), uint16(10000))
+// FuzzEscalaDeLTV afirma o invariante que nenhuma tabela esgota: dentro do
+// domínio que o banco preça, qualquer rácio cai em exactamente um degrau, e o
+// spread servido é um dos que foram medidos — nunca um valor interpolado.
+//
+// ⚠️ E afirma-se de propósito o que NÃO se afirma: a monotonia. O fuzz antigo
+// do BandaLTV exigia que o degrau não descesse quando o rácio subia, e isso é
+// falso sobre o preço — na CGD o 2,050 é um patamar isolado entre dois mais
+// baixos (KAN-35). Um invariante de monotonia aqui rejeitaria a realidade
+// medida.
+func FuzzEscalaDeLTV(f *testing.F) {
+	f.Add(uint16(6650))
+	f.Add(uint16(6675))
+	f.Add(uint16(6800))
+	f.Add(uint16(0))
+	f.Add(uint16(10000))
 
-	f.Fuzz(func(t *testing.T, x, y uint16) {
-		if x > y {
-			x, y = y, x
+	medidos := []string{"2", "2.05", "1.35"}
+
+	f.Fuzz(func(t *testing.T, x uint16) {
+		e, err := dominio.NovaEscalaDeLTV([]dominio.DegrauLTV{
+			{De: racio(t, "0.335"), Ate: racio(t, "0.6650"), Spread: taxa(t, "2.000")},
+			{De: racio(t, "0.6650"), Ate: racio(t, "0.6775"), Spread: taxa(t, "2.050")},
+			{De: racio(t, "0.6775"), Ate: racio(t, "0.92"), Spread: taxa(t, "1.350")},
+		})
+		if err != nil {
+			t.Fatalf("a escala medida não construiu: %v", err)
 		}
-		bx := dominio.BandaLTV(racio(t, fmt.Sprintf("0.%04d", x)))
-		by := dominio.BandaLTV(racio(t, fmt.Sprintf("0.%04d", y)))
-		if bx%5 != 0 || by%5 != 0 {
-			t.Fatalf("bandas não múltiplas de 5: %d e %d", bx, by)
+
+		ltv := racio(t, fmt.Sprintf("0.%04d", x))
+		dentro := ltv.Cmp(racio(t, "0.335")) >= 0 && ltv.Cmp(racio(t, "0.92")) <= 0
+
+		s, _, err := e.SpreadEm(ltv)
+		switch {
+		case dentro && err != nil:
+			t.Fatalf("0.%04d está dentro da escala e mesmo assim deu erro: %v", x, err)
+		case !dentro && err == nil:
+			t.Fatalf("0.%04d está fora da escala e recebeu o spread %s", x, s)
+		case !dentro:
+			return
 		}
-		if bx > by {
-			t.Fatalf("banda de 0.%04d = %d é maior do que a de 0.%04d = %d", x, bx, y, by)
+
+		if !slices.Contains(medidos, s.String()) {
+			t.Fatalf("0.%04d recebeu o spread %s, que não é nenhum dos medidos %v", x, s, medidos)
 		}
 	})
 }

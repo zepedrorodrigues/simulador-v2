@@ -4,8 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"slices"
-
-	"github.com/shopspring/decimal"
 )
 
 // As políticas puras: funções de dados para dados, sem rede, sem relógio e sem
@@ -129,21 +127,8 @@ func LTV(montante, valorImovel Dinheiro) (Racio, error) {
 	return Racio{v: montante.v.Div(valorImovel.v)}, nil
 }
 
-// BandaLTV devolve a banda de 5 % a que o rácio pertence, em pontos
-// percentuais: 0,7999 e 0,80 dão ambos 80; 0,8001 dá 85.
-//
-// ⚠️ A fronteira é fechada em cima porque é assim que os bancos preçam — "LTV
-// até 80 %" inclui os 80 %. O spread é uma função em degraus, e dar a banda
-// errada é dar o preço de outro cliente.
-func BandaLTV(r Racio) int {
-	// Vinte degraus de 5 % entre 0 e 100 %: banda = ceil(ltv × 20) × 5.
-	// O Ceil é o que fecha a fronteira em cima — 0,80 × 20 dá 16 exacto e
-	// fica nos 80 %, enquanto 0,8001 × 20 dá 16,002 e sobe para os 85 %.
-	degraus := r.v.Mul(decimal.NewFromInt(20)).Ceil()
-	return int(degraus.IntPart()) * 5
-}
-
-// MesmaBanda diz se dois rácios caem na mesma banda de 5 %. É a guarda que a
-// quantização do pedido vai precisar (KAN-15): arredondar o montante é bom
-// para a cache, mas não à custa de mudar de degrau de spread.
-func MesmaBanda(a, b Racio) bool { return BandaLTV(a) == BandaLTV(b) }
+// ⚠️ O BandaLTV e o MesmaBanda viviam aqui e saíram a 2026-07-26 (KAN-35).
+// Não foram corrigidos para outro passo: o que estava errado não era a
+// constante dos 5 %, era a ideia de que existe uma banda de passo fixo. As
+// fronteiras são medidas banco a banco e nem sempre caem em LTV inteiro — ver
+// o escala_ltv.go, que os substitui, e a §4 do ARQUITETURA.md.
