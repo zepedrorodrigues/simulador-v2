@@ -3,7 +3,7 @@
 Compara ofertas de crédito à habitação dos bancos portugueses, correndo os
 simuladores públicos ao vivo, e publica a série temporal do preçário de mercado.
 
-**Go · PostgreSQL · Redis · chi · pgx/sqlc · OpenAPI.** Serve **apenas JSON**: a
+**Go · PostgreSQL · chi · pgx/sqlc · OpenAPI.** Serve **apenas JSON**: a
 interface é uma app React Native, em repositório à parte.
 
 > **Estado: em planeamento.** Ainda não há código de negócio — só as fundações.
@@ -50,7 +50,6 @@ está tudo abaixo. **Perceber porque é que o portão te reprovou:** as mensagen
 | `oapi-codegen` | 2.8.0 | `go.mod`, bloco `tool` |
 | `make` | GNU make | não fixado — só invoca; em Windows, `winget install ezwinports.make` |
 | PostgreSQL | 18.4 (`postgres:18.4-alpine`) | `docker-compose.yml` |
-| Redis | 8.8 (`redis:8.8-alpine`) | `docker-compose.yml` |
 | Docker Compose | v2+ | não fixado — o `make dev` usa `--wait`, que existe desde a v2 |
 | Node | 24.18.0 LTS | `.nvmrc` |
 
@@ -90,7 +89,7 @@ Os testes que tocam a rede dos bancos ficam de fora, por trás de
 ## Ambiente de desenvolvimento
 
 ```
-make dev      # sobe PostgreSQL e Redis, e espera que respondam de facto
+make dev      # sobe o PostgreSQL, e espera que responda de facto
 make parar    # pára, guardando os dados
 make limpar   # pára e leva o volume do PostgreSQL à frente
 ```
@@ -102,17 +101,16 @@ cresce com cada issue que traga um sítio novo a ler ambiente.
 | serviço | porta | notas |
 |---|---|---|
 | PostgreSQL | `127.0.0.1:55433` | dados em volume nomeado `pgdata` |
-| Redis | `127.0.0.1:56379` | efémero de propósito, sem volume |
 
-⚠️ **Portas fora das habituais, e fora das do v1.** A 5432 costuma estar ocupada
+⚠️ **Porta fora das habituais, e fora da do v1.** A 5432 costuma estar ocupada
 por um PostgreSQL nativo na máquina de desenvolvimento, e o
 `simulador-credito-habitacao` publica a 55432 — os dois repositórios têm de poder
-estar de pé ao mesmo tempo, que é a situação de quem compara o v2 com o v1. Ambas
-publicadas só no *loopback*: um bind em `0.0.0.0` punha a base de dados na
+estar de pé ao mesmo tempo, que é a situação de quem compara o v2 com o v1.
+Publicada só no *loopback*: um bind em `0.0.0.0` punha a base de dados na
 internet no dia em que isto corresse num VPS.
 
-O `make dev` não usa `sleep`: espera pelos healthchecks do compose, que são
-literalmente o `pg_isready` e o `redis-cli ping`. ⚠️ O `pg_isready` leva
+O `make dev` não usa `sleep`: espera pelo healthcheck do compose, que é
+literalmente o `pg_isready`. ⚠️ O `pg_isready` leva
 `-h 127.0.0.1` de propósito — sem ele responde o servidor temporário do `initdb`,
 que só escuta no socket unix e é desligado a seguir. A razão está comentada no
 `docker-compose.yml`, com a medição.
