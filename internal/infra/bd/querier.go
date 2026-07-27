@@ -12,6 +12,12 @@ type Querier interface {
 	// Queries do catálogo de taxas. Geradas pelo sqlc para internal/infra/bd/.
 	// InserirTaxa grava uma linha de um banco num varrimento. Os campos de resposta
 	// são opcionais: numa falha entram nulos e `erro` preenchido.
+	//
+	// ⚠️ ltv_min, ltv_max e spread_minimo são nulos numa linha que não seja um
+	// degrau da escala de LTV — uma observação de um período fixo, de um tenor, de
+	// uma finalidade ou de um produto é medida no LTV de referência e não afirma
+	// intervalo nenhum (ARQUITETURA.md §4). O LTV dessa observação continua
+	// derivável de montante/valor_imovel, que já vão na linha.
 	InserirTaxa(ctx context.Context, arg InserirTaxaParams) (int64, error)
 	// ListarPontos serve o points[] do /api/rate-catalog. Os filtros são todos
 	// opcionais (nulo = não filtra); `limite` nulo devolve tudo (LIMIT NULL no PG).

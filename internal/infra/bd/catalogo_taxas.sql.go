@@ -17,12 +17,14 @@ INSERT INTO catalogo_taxas (
     varrimento_id, capturado_em, cenario, banco_id, banco_nome, rate_type,
     valor_imovel, montante, prazo_anos, fixed_period_years, euribor_indexante,
     tan, taeg, spread, euribor_valor, prestacao_mensal, mtic,
+    ltv_min, ltv_max, spread_minimo,
     produtos, aplicado, notas, sucesso, erro
 ) VALUES (
     $1, $2, $3, $4, $5, $6,
     $7, $8, $9, $10, $11,
     $12, $13, $14, $15, $16, $17,
-    $18, $19, $20, $21, $22
+    $18, $19, $20,
+    $21, $22, $23, $24, $25
 )
 RETURNING id
 `
@@ -45,6 +47,9 @@ type InserirTaxaParams struct {
 	EuriborValor     pgtype.Numeric
 	PrestacaoMensal  pgtype.Numeric
 	Mtic             pgtype.Numeric
+	LtvMin           pgtype.Numeric
+	LtvMax           pgtype.Numeric
+	SpreadMinimo     pgtype.Numeric
 	Produtos         []byte
 	Aplicado         []byte
 	Notas            []byte
@@ -55,6 +60,12 @@ type InserirTaxaParams struct {
 // Queries do catálogo de taxas. Geradas pelo sqlc para internal/infra/bd/.
 // InserirTaxa grava uma linha de um banco num varrimento. Os campos de resposta
 // são opcionais: numa falha entram nulos e `erro` preenchido.
+//
+// ⚠️ ltv_min, ltv_max e spread_minimo são nulos numa linha que não seja um
+// degrau da escala de LTV — uma observação de um período fixo, de um tenor, de
+// uma finalidade ou de um produto é medida no LTV de referência e não afirma
+// intervalo nenhum (ARQUITETURA.md §4). O LTV dessa observação continua
+// derivável de montante/valor_imovel, que já vão na linha.
 func (q *Queries) InserirTaxa(ctx context.Context, arg InserirTaxaParams) (int64, error) {
 	row := q.db.QueryRow(ctx, inserirTaxa,
 		arg.VarrimentoID,
@@ -74,6 +85,9 @@ func (q *Queries) InserirTaxa(ctx context.Context, arg InserirTaxaParams) (int64
 		arg.EuriborValor,
 		arg.PrestacaoMensal,
 		arg.Mtic,
+		arg.LtvMin,
+		arg.LtvMax,
+		arg.SpreadMinimo,
 		arg.Produtos,
 		arg.Aplicado,
 		arg.Notas,
