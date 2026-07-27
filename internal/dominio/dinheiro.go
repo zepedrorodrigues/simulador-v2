@@ -135,6 +135,23 @@ func RacioDeTexto(s string) (Racio, error) {
 // RacioDeDecimal é a porta de entrada a partir da fronteira.
 func RacioDeDecimal(d decimal.Decimal) Racio { return Racio{v: d} }
 
+// Add e Sub somam e subtraem rácios. São a aritmética do varrimento do LTV: dar
+// o passo seguinte da amostragem, e medir a largura de um intervalo por
+// resolver contra a tolerância.
+func (r Racio) Add(o Racio) Racio { return Racio{v: r.v.Add(o.v)} }
+
+func (r Racio) Sub(o Racio) Racio { return Racio{v: r.v.Sub(o.v)} }
+
+// Meio é o ponto médio entre dois rácios, e existe para a bissecção que
+// descobre as fronteiras de LTV de um banco (KAN-16).
+//
+// ⚠️ Vive aqui, e não em quem bissecta, pela mesma razão que o Add: um ponto
+// médio de LTV calculado por fora passaria pelo Decimal(), que é a porta da
+// fronteira — base de dados e contrato — e não a de fazer contas.
+func (r Racio) Meio(o Racio) Racio {
+	return Racio{v: r.v.Add(o.v).Div(decimal.NewFromInt(2))}
+}
+
 func (r Racio) Equal(o Racio) bool { return r.v.Equal(o.v) }
 
 func (r Racio) Cmp(o Racio) int { return r.v.Cmp(o.v) }
