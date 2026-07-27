@@ -227,20 +227,20 @@ func TestArrendamentoCustaMeioPontoDeSpread(t *testing.T) {
 
 // --- as bonificações ------------------------------------------------------------
 
-// As duas bonificações vão ligadas por omissão, e o que elas valem tem de sair
-// escrito: um preço descontado apresentado ao lado de bancos sem desconto, sem
-// uma palavra, é uma comparação entre coisas diferentes.
-func TestBonificacoesVaoLigadasEODescontoFicaEscrito(t *testing.T) {
+// As bonificações que a pessoa escolheu vão no pedido, e o que elas valem tem de
+// sair escrito: um preço descontado apresentado ao lado de bancos sem desconto,
+// sem uma palavra, é uma comparação entre coisas diferentes.
+func TestBonificacoesEscolhidasVaoNoPedidoEODescontoFicaEscrito(t *testing.T) {
 	banco, falso := montar(t, "variavel_12m")
 
-	oferta, err := banco.Simular(t.Context(), pedidoBase())
+	oferta, err := banco.Simular(t.Context(), comAsBonificacoes(pedidoBase()))
 	if err != nil {
 		t.Fatalf("Simular: %v", err)
 	}
 
 	enviado := corpoEnviado(t, falso)
 	if len(enviado.Bonificacoes) != 2 {
-		t.Errorf("as duas bonificações são as de omissão do simulador, foram %v", enviado.Bonificacoes)
+		t.Errorf("escolheram-se as duas bonificações, foram %v", enviado.Bonificacoes)
 	}
 	if len(oferta.ProdutosAplicados) != 2 {
 		t.Errorf("a oferta tem de dizer que produtos aplicou, disse %v", oferta.ProdutosAplicados)
@@ -252,6 +252,35 @@ func TestBonificacoesVaoLigadasEODescontoFicaEscrito(t *testing.T) {
 	}
 }
 
+// Quem não escolhe nada leva o preço sem desconto, e o pedido tem de sair com a
+// lista de bonificações vazia.
+//
+// ⚠️ Este é o teste que a KAN-33 obriga a existir do lado do Novo Banco. Antes
+// dela as duas bonificações iam sempre — logo o Novo Banco aparecia com spread
+// 0,90 ao lado da CGD com 1,350, e a comparação dizia que ele era 0,45 p.p. mais
+// barato. Em pé de igualdade é a CGD a mais barata por 0,25 p.p., nas duas
+// colunas: 1,350 contra 1,600 sem produtos, 0,650 contra 0,900 com eles. O erro
+// não somava ruído — invertia a resposta.
+func TestSemEscolherProdutosOPrecoVaiSemDescontoEDizSeOEspecifica(t *testing.T) {
+	banco, falso := montar(t, "variavel_sem_produtos")
+
+	oferta, err := banco.Simular(t.Context(), pedidoBase())
+	if err != nil {
+		t.Fatalf("Simular: %v", err)
+	}
+
+	if enviado := corpoEnviado(t, falso); len(enviado.Bonificacoes) != 0 {
+		t.Errorf("não se escolheu produto nenhum e foram %v", enviado.Bonificacoes)
+	}
+	verTaxa(t, "spread sem bonificações", oferta.Spread, "1.6")
+	if len(oferta.ProdutosAplicados) != 0 {
+		t.Errorf("não se aplicou produto nenhum; a oferta diz %v", oferta.ProdutosAplicados)
+	}
+	if !algumaNotaContem(oferta, "não inclui as bonificações") {
+		t.Errorf("um preço sem as bonificações tem de dizer que o é: %v", oferta.Notas())
+	}
+}
+
 // O desconto que a nota promete é o que o banco cobra de facto a quem não tem
 // as bonificações — e isso mede-se contra a captura em que elas não foram
 // enviadas, não contra o mesmo número duas vezes.
@@ -260,7 +289,7 @@ func TestBonificacoesVaoLigadasEODescontoFicaEscrito(t *testing.T) {
 // dissesse 0,7 e o banco cobrasse outra coisa, era a nota que estava a mentir.
 func TestODescontoPrometidoEOQueOBancoCobraSemAsBonificacoes(t *testing.T) {
 	comBonificacoes, _ := montar(t, "variavel_12m")
-	oferta, err := comBonificacoes.Simular(t.Context(), pedidoBase())
+	oferta, err := comBonificacoes.Simular(t.Context(), comAsBonificacoes(pedidoBase()))
 	if err != nil {
 		t.Fatalf("Simular: %v", err)
 	}
@@ -278,10 +307,11 @@ func TestODescontoPrometidoEOQueOBancoCobraSemAsBonificacoes(t *testing.T) {
 	if !algumaNotaContem(oferta, "0.7") || !algumaNotaContem(oferta, "1.6") {
 		t.Errorf("a nota tem de dizer o desconto e o preço sem ele: %v", oferta.Notas())
 	}
-	// Sem desconto nenhum a anunciar, não se anuncia: a resposta sem
-	// bonificações tem os dois spreads iguais.
-	if len(outra.Notas()) != 0 {
-		t.Errorf("não há desconto nenhum nesta resposta; não devia haver nota: %v", outra.Notas())
+	// ⚠️ E a nota de quem não escolheu não leva números: com `bonificacoes: []`
+	// o banco devolve os dois spreads iguais, logo o preço bonificado não vem
+	// nesta resposta e não se pode afirmar daqui.
+	if algumaNotaContem(outra, "0.7") {
+		t.Errorf("esta resposta não traz o preço bonificado; a nota não pode citá-lo: %v", outra.Notas())
 	}
 }
 
@@ -451,6 +481,10 @@ func TestOPayloadBateComOCapturado(t *testing.T) {
 		{"variavel_arrendamento", comFinalidade(pedidoDaCaptura(), dominio.FinalidadeArrendamento)},
 		{"mista_5a", comMista(pedidoDaCaptura(), 5)},
 		{"fixa_10a", comFixa(pedidoDaCaptura(), 10)},
+		// ⚠️ O par que fixa o outro lado da escolha: sem produtos escolhidos, o
+		// campo `bonificacoes` sai `[]`. É a captura que prova que o banco
+		// aceita a lista vazia em vez de responder com erro.
+		{"variavel_sem_produtos", pedidoBase()},
 	}
 
 	for _, c := range casos {
@@ -679,7 +713,17 @@ func pedidoBase() dominio.Pedido {
 // pedidoDaCaptura é o pedidoBase com a data de nascimento exacta com que as
 // capturas foram gravadas — é o que permite comparar o payload gerado com o
 // gravado sem que o relógio o desfaça.
-func pedidoDaCaptura() dominio.Pedido { return pedidoBase() }
+//
+// ⚠️ Leva as duas bonificações porque as capturas foram gravadas com elas
+// ligadas (a única excepção é a `variavel_sem_produtos`). Isso é um facto sobre
+// as capturas e não a omissão do banco: quem não escolhe nada leva `[]`.
+func pedidoDaCaptura() dominio.Pedido { return comAsBonificacoes(pedidoBase()) }
+
+// comAsBonificacoes escolhe as duas bonificações do Novo Banco.
+func comAsBonificacoes(p dominio.Pedido) dominio.Pedido {
+	p.Produtos = append(p.Produtos, novobanco.ProdutoPrimeiroBanco, novobanco.ProdutoProtecao)
+	return p
+}
 
 func comIndexante(p dominio.Pedido, i dominio.Indexante) dominio.Pedido {
 	p.Indexante = i

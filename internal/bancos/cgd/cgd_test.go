@@ -55,6 +55,58 @@ func TestVariavelLeOsNumerosDaCaptura(t *testing.T) {
 	}
 }
 
+// --- as duas colunas de preço ---------------------------------------------------
+
+// Escolher os packs dá a segunda coluna de preço da mesma resposta, e não uma
+// nota sobre ela.
+//
+// ⚠️ Este é o teste que a KAN-33 obriga a existir. A CGD devolve as duas
+// variantes no mesmo corpo — `BaseResult` e `DiscountedResult` — e o desconto
+// entre elas é de 0,700 p.p., 78,64 € por mês neste cenário. Antes da KAN-33 o
+// `comPacks` estava preso em falso e a segunda coluna só saía como prosa: um
+// número que ninguém podia ordenar ao lado dos outros bancos.
+func TestPacksEscolhidosDaoASegundaColunaDePreco(t *testing.T) {
+	banco, _ := montar(t, cenario{calculo: "variavel_ltv80"})
+
+	oferta, err := banco.Simular(t.Context(), comPacks(pedidoBase()))
+	if err != nil {
+		t.Fatalf("Simular: %v", err)
+	}
+
+	verTaxa(t, "spread", oferta.Spread, "0.65")
+	verTaxa(t, "TAN", oferta.TAN, "3.246")
+	verDinheiro(t, "prestação", oferta.Prestacao, "869.97")
+
+	if len(oferta.ProdutosAplicados) != 1 || oferta.ProdutosAplicados[0] != cgd.ProdutoPacks {
+		t.Errorf("a oferta tem de dizer que aplicou os packs, disse %v", oferta.ProdutosAplicados)
+	}
+	// Quem escolheu lê quanto lhe valem; quem não escolheu lê quanto lhe custa
+	// não os ter. Nenhum dos dois é silêncio.
+	if !algumaNotaContem(oferta, "já desconta") || !algumaNotaContem(oferta, "1.35") {
+		t.Errorf("a nota tem de dizer o desconto e o preço sem ele: %v", oferta.Notas())
+	}
+}
+
+// O outro lado da mesma escolha: sem os packs, é o preçário base que sai, e a
+// nota diz o que eles valeriam. É o TestVariavelLeOsNumerosDaCaptura que fixa os
+// números — aqui fixa-se que a segunda coluna não desaparece do texto.
+func TestSemOsPacksANotaDizOQueEsseDescontoValeria(t *testing.T) {
+	banco, _ := montar(t, cenario{calculo: "variavel_ltv80"})
+
+	oferta, err := banco.Simular(t.Context(), pedidoBase())
+	if err != nil {
+		t.Fatalf("Simular: %v", err)
+	}
+
+	verTaxa(t, "spread", oferta.Spread, "1.35")
+	if len(oferta.ProdutosAplicados) != 0 {
+		t.Errorf("não se escolheu produto nenhum; a oferta diz %v", oferta.ProdutosAplicados)
+	}
+	if !algumaNotaContem(oferta, "desceria") || !algumaNotaContem(oferta, "0.65") {
+		t.Errorf("a nota tem de dizer para quanto desceria: %v", oferta.Notas())
+	}
+}
+
 // A mista traz as duas fases, e é a única que traz. A validação do domínio
 // exige que fechem exactamente no prazo — 60 + 300 = 360 meses.
 func TestMistaTrazAsDuasFases(t *testing.T) {
@@ -451,6 +503,15 @@ func caminhos(f *transporte.Falso) []string {
 	return cs
 }
 
+func algumaNotaContem(o dominio.Oferta, texto string) bool {
+	for _, n := range o.Notas() {
+		if strings.Contains(n, texto) {
+			return true
+		}
+	}
+	return false
+}
+
 func contem(xs []string, x string) bool {
 	for _, v := range xs {
 		if v == x {
@@ -501,6 +562,12 @@ func comMista(p dominio.Pedido, periodo int) dominio.Pedido {
 
 func comFinalidade(p dominio.Pedido, f dominio.Finalidade) dominio.Pedido {
 	p.Finalidade = f
+	return p
+}
+
+// comPacks escolhe os packs de vinculação da CGD.
+func comPacks(p dominio.Pedido) dominio.Pedido {
+	p.Produtos = append(p.Produtos, cgd.ProdutoPacks)
 	return p
 }
 

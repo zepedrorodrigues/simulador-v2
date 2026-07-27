@@ -170,7 +170,11 @@ func (b *Banco) Simular(ctx context.Context, p dominio.Pedido) (dominio.Oferta, 
 		return dominio.Oferta{}, err
 	}
 
-	oferta, err := lerResposta(corpo, false)
+	// ⚠️ As duas colunas de preço vêm na mesma resposta e a escolha é de leitura,
+	// não de pedido: a CGD não tem campo nenhum no /calculate por onde se ligarem
+	// os packs. Isso torna-a o banco mais barato de varrer nas duas variantes —
+	// um pedido dá as duas linhas.
+	oferta, err := lerResposta(corpo, p.TemProduto(ProdutoPacks))
 	if err != nil {
 		return dominio.Oferta{}, err
 	}

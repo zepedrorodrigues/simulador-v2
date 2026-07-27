@@ -233,7 +233,7 @@ func lerResposta(corpo []byte, enviado payload) (dominio.Oferta, error) {
 	}
 
 	o.ProdutosAplicados = enviado.produtosAplicados()
-	anotarBonificacoes(&o, res)
+	anotarBonificacoes(&o, res, len(enviado.Bonificacoes) > 0)
 	return o, nil
 }
 
@@ -269,15 +269,25 @@ func lerFases(res *resultado, prazo int, enviado payload) ([]dominio.Fase, error
 	return fases, nil
 }
 
-// anotarBonificacoes diz, em números, o que as bonificações valem.
+// anotarBonificacoes diz o que as bonificações valem, ou que não estão neste
+// preço.
 //
-// ⚠️ As duas variantes vêm sempre na mesma resposta, e o dominio.Pedido não tem
-// por onde se escolher produtos (KAN-33): as duas bonificações vão sempre
-// ligadas, porque são as de omissão do simulador. É por isso que este preço é um
-// preço com desconto — e dizê-lo é obrigatório. Apresentá-lo ao lado da CGD, que
-// simula sem os packs, sem uma palavra que o diga, era comparar duas coisas
-// diferentes (CONTRATO-BANCO.md §6).
-func anotarBonificacoes(o *dominio.Oferta, res *resultado) {
+// Um preço com desconto apresentado ao lado da CGD sem uma palavra que o diga
+// era comparar duas coisas diferentes (CONTRATO-BANCO.md §6) — e a KAN-33 mediu
+// que não era ruído: invertia a ordem dos dois bancos.
+//
+// ⚠️ A nota de quem **não** escolheu não leva números, e é deliberado. Com
+// `bonificacoes: []` o banco devolve `spread` igual a `spreadSemBonificacao`
+// (medido na captura `variavel_sem_produtos`), logo o preço bonificado não vem
+// nesta resposta e não se pode afirmar daqui. Os valores medidos vivem nos
+// Requisitos, com data — inventar aqui um número seria dar por cotado o que
+// ninguém cotou (ARQUITETURA.md §4).
+func anotarBonificacoes(o *dominio.Oferta, res *resultado, escolhidas bool) {
+	if !escolhidas {
+		o.Anotar("Este preço não inclui as bonificações do Novo Banco. " +
+			"Escolhê-las desconta spread, e exigem domiciliar o ordenado e contratar os seguros.")
+		return
+	}
 	com, err := taxa(res.Taxas.Spread)
 	if err != nil || com == nil {
 		return

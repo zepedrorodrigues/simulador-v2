@@ -1,6 +1,9 @@
 package dominio
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 // CampoCanonico é uma chave do vocabulário do formulário.
 //
@@ -105,11 +108,28 @@ type Input struct {
 
 // Produto é uma bonificação que um banco sabe aplicar. O id é único por banco
 // e vem prefixado por ele ("novobanco:primeiro_banco").
+//
+// ⚠️ PorOmissao é conselho à app sobre o que pré-seleccionar, e não uma escolha
+// que o banco faça por nós depois: o que vale é o Pedido.Produtos. A distinção
+// custou dinheiro medido — ver o comentário do Pedido.Produtos.
 type Produto struct {
 	ID         string
 	Rotulo     string
 	Descricao  string
 	PorOmissao bool
+}
+
+// separadorDeProduto separa o banco do produto no id.
+//
+// ⚠️ Não é convenção de leitura, é estrutura: é por ele que a selecção de um
+// pedido que vai a vários bancos se reparte, e é o Requisitos.Validar que o
+// impõe a quem declara produtos. Um id sem prefixo seria um produto que nenhum
+// banco reclama e que nenhum banco aplica.
+const separadorDeProduto = ":"
+
+// ProdutoDoBanco diz se um id de produto pertence a um banco.
+func ProdutoDoBanco(id, bancoID string) bool {
+	return strings.HasPrefix(id, bancoID+separadorDeProduto)
 }
 
 // Custo é a expectativa honesta de tempo de um banco.
@@ -208,6 +228,18 @@ func (r Requisitos) Validar() error {
 	}
 	if r.IdadeMaximaFim <= IdadeMinima {
 		return fmt.Errorf("%s: idade máxima de fim impossível (%d)", r.BancoID, r.IdadeMaximaFim)
+	}
+	produtos := make(map[string]bool, len(r.Produtos))
+	for _, p := range r.Produtos {
+		if !ProdutoDoBanco(p.ID, r.BancoID) {
+			return fmt.Errorf(
+				"%s: o produto %q não vem prefixado por %q — o pedido não teria por onde saber a quem entregá-lo",
+				r.BancoID, p.ID, r.BancoID+separadorDeProduto)
+		}
+		if produtos[p.ID] {
+			return fmt.Errorf("%s: produto %q declarado duas vezes", r.BancoID, p.ID)
+		}
+		produtos[p.ID] = true
 	}
 	return nil
 }

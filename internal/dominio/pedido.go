@@ -1,6 +1,9 @@
 package dominio
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 // TipoTaxa é a modalidade de taxa de juro.
 type TipoTaxa string
@@ -119,6 +122,48 @@ type Pedido struct {
 	Localizacao     Localizacao
 	GarantiaPublica bool
 	JaCliente       bool
+
+	// Produtos são as bonificações escolhidas, pelos ids que os Requisitos de
+	// cada banco publicam ("cgd:packs"). Um pedido vai a vários bancos e cada um
+	// lê os seus, pelo prefixo.
+	//
+	// ⚠️ Vazio quer dizer **nenhum**, e não "os que cada banco liga por
+	// omissão". A diferença está medida, e não é de estilo: a 2026-07-26, no
+	// mesmo cenário (250 000 € / 200 000 € / 30 anos, própria), a CGD respondia
+	// com o preçário base — spread 1,350 — e o Novo Banco com as duas
+	// bonificações já ligadas — spread 0,90 contra 1,600 sem elas. Lado a lado
+	// isso dizia que o Novo Banco era 0,45 p.p. mais barato, quando em pé de
+	// igualdade é a CGD a mais barata por 0,25 p.p. em qualquer das duas
+	// colunas. O preço de cada banco estava certo; a comparação estava
+	// invertida — que é precisamente o que a Directiva 2006/114/CE, art. 4.º,
+	// proíbe ao exigir que se comparem características representativas.
+	//
+	// Quem escolhe é a pessoa: o PorOmissao do Produto diz à app o que
+	// pré-seleccionar, e mais nada.
+	Produtos []string
+}
+
+// TemProduto diz se um id de produto foi escolhido.
+func (p Pedido) TemProduto(id string) bool {
+	for _, escolhido := range p.Produtos {
+		if escolhido == id {
+			return true
+		}
+	}
+	return false
+}
+
+// ProdutosDoBanco devolve os produtos escolhidos que pertencem a um banco, pela
+// ordem em que foram pedidos. Nil quer dizer que nenhum é dele — o que é o caso
+// comum, porque um pedido leva a selecção de todos os bancos comparados.
+func (p Pedido) ProdutosDoBanco(bancoID string) []string {
+	var dele []string
+	for _, id := range p.Produtos {
+		if ProdutoDoBanco(id, bancoID) {
+			dele = append(dele, id)
+		}
+	}
+	return dele
 }
 
 // ErroValidacao nomeia o campo que reprovou. O contrato serve um campo só
@@ -179,6 +224,9 @@ func (p Pedido) Validar(hoje Data) error {
 	if !p.Localizacao.Valido() {
 		return invalido("localizacao", "localização desconhecida")
 	}
+	if err := validarProdutos(p.Produtos); err != nil {
+		return err
+	}
 	if len(p.Titulares) < 1 || len(p.Titulares) > 2 {
 		return invalido("titulares", "um pedido tem um ou dois titulares")
 	}
@@ -196,6 +244,29 @@ func (p Pedido) Validar(hoje Data) error {
 		if t.RendimentoMensal.Cmp(Dinheiro{}) < 0 {
 			return invalido("rendimento_mensal", "o rendimento não pode ser negativo")
 		}
+	}
+	return nil
+}
+
+// validarProdutos recusa uma selecção que nenhum banco poderia honrar.
+//
+// ⚠️ O domínio não sabe que ids existem — isso vive nos Requisitos de cada
+// banco — e por isso não os verifica. Verifica a forma, que é o que decide se o
+// id chega a algum banco: sem prefixo não chega a nenhum, e um id repetido
+// deixaria a Oferta.ProdutosAplicados a reportar duas vezes o mesmo produto.
+func validarProdutos(ids []string) error {
+	vistos := make(map[string]bool, len(ids))
+	for _, id := range ids {
+		banco, produto, temSeparador := strings.Cut(id, separadorDeProduto)
+		if !temSeparador || banco == "" || produto == "" {
+			return invalido("produtos", fmt.Sprintf(
+				"o produto %q não tem a forma banco%sproduto e não chegaria a banco nenhum",
+				id, separadorDeProduto))
+		}
+		if vistos[id] {
+			return invalido("produtos", fmt.Sprintf("o produto %q foi escolhido duas vezes", id))
+		}
+		vistos[id] = true
 	}
 	return nil
 }

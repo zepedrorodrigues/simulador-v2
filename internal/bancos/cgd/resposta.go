@@ -261,10 +261,10 @@ func lerFases(res *resultado) ([]dominio.Fase, error) {
 // anotarDescontoDosPacks diz, em números, o que os packs valem — ou o que
 // custou não os ter.
 //
-// ⚠️ As duas variantes vêm sempre na mesma resposta, e o dominio.Pedido não
-// transporta selecção de produtos nenhuma. Enquanto não transportar, o desconto
-// sai como nota para a pessoa: escondê-lo era esconder que existe uma coluna de
-// preço ao lado desta.
+// ⚠️ As duas variantes vêm sempre na mesma resposta, e por isso a nota sai nos
+// dois sentidos: quem escolheu os packs lê quanto lhe valem, quem não os
+// escolheu lê quanto lhe custa não os ter. Nenhum dos dois é silêncio —
+// esconder a coluna do lado era esconder que existe.
 func anotarDescontoDosPacks(o *dominio.Oferta, base, comDesconto *resultado, aplicados bool) {
 	if base == nil || comDesconto == nil {
 		return

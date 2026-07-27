@@ -228,9 +228,9 @@ func conferirContraOEspelho(nome string, corpo []byte, o dominio.Oferta, pedido 
 		problemas = append(problemas, err.Error())
 	}
 
-	// O desconto dos packs sai em prosa (KAN-33), e prosa também se confere:
-	// enquanto for o único sítio onde a segunda coluna de preço existe, tem de
-	// bater com a diferença entre as duas variantes do corpo.
+	// A corrida corre sem packs escolhidos, e por isso o que se confere é a nota
+	// que diz o que eles valeriam. Prosa também se confere: o número que ela
+	// anuncia tem de ser a diferença entre as duas variantes do corpo.
 	comparados++
 	if desconto, _ := dados["DiscountedResult"].(map[string]any); desconto != nil {
 		if err := conferirNotaDosPacks(base, desconto, o); err != nil {

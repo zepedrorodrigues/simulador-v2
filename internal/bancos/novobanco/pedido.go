@@ -112,6 +112,23 @@ const (
 	bonificacaoProtecao      = "PROTECAO"
 )
 
+// bonificacoesDe traduz os produtos escolhidos nos códigos do banco, pela ordem
+// em que o simulador os lista.
+//
+// ⚠️ Devolve uma lista vazia e não nula: o campo `bonificacoes` vai sempre no
+// JSON, e a captura `variavel_sem_produtos` prova que o banco aceita `[]` — o
+// que responde com o preço sem desconto nenhum, e não com um erro.
+func bonificacoesDe(p dominio.Pedido) []string {
+	bs := make([]string, 0, 2)
+	if p.TemProduto(ProdutoPrimeiroBanco) {
+		bs = append(bs, bonificacaoPrimeiroBanco)
+	}
+	if p.TemProduto(ProdutoProtecao) {
+		bs = append(bs, bonificacaoProtecao)
+	}
+	return bs
+}
+
 func localizacaoDe(l dominio.Localizacao) string {
 	switch l {
 	case dominio.LocalizacaoAcores:
@@ -204,11 +221,12 @@ func construirPayload(p dominio.Pedido, prazo int) (payload, []*dominio.Ajuste, 
 		RegimeCredito:  regimeGeral,
 		ValorAvaliacao: numero(p.ValorImovel),
 		Missao:         missaoBase,
-		// ⚠️ As duas bonificações vão sempre. São as que o simulador do banco
-		// traz ligadas por omissão, e o dominio.Pedido não tem por onde se
-		// escolher produtos (KAN-33). O que elas valem sai como nota na oferta,
-		// para o preço não aparecer descontado sem se dizer que o é.
-		Bonificacoes: []string{bonificacaoPrimeiroBanco, bonificacaoProtecao},
+		// ⚠️ Vão as que a pessoa escolheu, e não as que o simulador do banco
+		// traz ligadas. Aqui a selecção **vai no pedido**: medido a 2026-07-26,
+		// com as duas o spread é 0,90 e sem nenhuma é 1,600, e o que decide qual
+		// é este campo — ao contrário da CGD, que devolve as duas colunas na
+		// mesma resposta.
+		Bonificacoes: bonificacoesDe(p),
 		Campanhas:    []string{},
 		indexante:    indexante,
 	}
