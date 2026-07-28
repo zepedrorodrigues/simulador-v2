@@ -11,6 +11,25 @@ import (
 )
 
 type Querier interface {
+	// Queries do tecto de pedidos por IP (ARQUITETURA.md §4, tabela `limites`).
+	//
+	// ⚠️ A razão desta tabela MUDOU a 2026-07-25 e ela fica. Existia porque «cada
+	// submissão custa dezenas de segundos de scraping a partir do nosso IP» — e isso
+	// deixou de ser verdade: uma submissão custa uma consulta a Postgres. O tecto
+	// mantém-se porque um endpoint público sem tecto é um convite, mas passa a ser
+	// uma medida contra abuso banal e não o travão que protegia a relação com os
+	// bancos. Esse travão é agora o do varrimento (§7.2).
+	// ContarPedido regista um pedido e devolve o estado da janela.
+	//
+	// ⚠️ Tudo numa instrução, e é isso que a torna correcta sob concorrência: um
+	// SELECT seguido de UPDATE deixa duas ligações a lerem a mesma contagem e a
+	// escreverem a mesma soma, e o tecto passava a valer o dobro. O `ON CONFLICT`
+	// resolve a corrida dentro da base, que é quem sabe arbitrar.
+	//
+	// A janela é FIXA e não deslizante: quando a actual expira, começa uma nova com
+	// contagem 1. Uma janela deslizante exigiria guardar cada pedido — e isto é uma
+	// tabela de contadores, não um registo de quem nos visitou.
+	ContarPedido(ctx context.Context, arg ContarPedidoParams) (ContarPedidoRow, error)
 	// Queries do catálogo de taxas. Geradas pelo sqlc para internal/infra/bd/.
 	// InserirTaxa grava uma linha de um banco num varrimento. Os campos de resposta
 	// são opcionais: numa falha entram nulos e `erro` preenchido.
@@ -29,6 +48,13 @@ type Querier interface {
 	// corrigir a TAN para o LTV de quem pergunta, e a linha grava-se como dado bruto
 	// mas não se serve (§4, «Onde a base vive»).
 	InserirTaxa(ctx context.Context, arg InserirTaxaParams) (int64, error)
+	// LimparLimitesAntigos apaga as janelas que já não contam para nada.
+	//
+	// ⚠️ Existe para a tabela não crescer com um contador por IP que nunca mais
+	// volta. Corre-se por manutenção, não a cada pedido: apagar no caminho de um
+	// cliente punha uma escrita a mais em cada visita para poupar linhas que ninguém
+	// lê.
+	LimparLimitesAntigos(ctx context.Context, arg LimparLimitesAntigosParams) (int64, error)
 	// ListarPontos serve o points[] do /api/rate-catalog. Os filtros são todos
 	// opcionais (nulo = não filtra); `limite` nulo devolve tudo (LIMIT NULL no PG).
 	// Só linhas bem-sucedidas: o consumidor lê tan/spread/euribor, ausentes em falha.

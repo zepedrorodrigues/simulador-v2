@@ -302,3 +302,28 @@ func int32Ou(n int) int32 {
 	}
 	return int32(n) //nolint:gosec // preso entre 1 e 10000 acima
 }
+
+// ContarPedido regista um pedido de um cliente e devolve quantos vai nesta
+// janela. É o contador do tecto por IP (§4, tabela `limites`).
+//
+// ⚠️ Numa instrução só. Um SELECT seguido de UPDATE deixa duas ligações a lerem
+// a mesma contagem e a escreverem a mesma soma — e o tecto passava a valer o
+// dobro sob a carga que ele existe para travar.
+func (p *Postgres) ContarPedido(
+	ctx context.Context, chave string, janela time.Duration, agora time.Time,
+) (int, error) {
+	linha, err := bd.New(p.pool).ContarPedido(ctx, bd.ContarPedidoParams{
+		Chave:  chave,
+		Agora:  pgtype.Timestamptz{Time: agora, Valid: true},
+		Janela: intervaloDe(janela),
+	})
+	if err != nil {
+		return 0, fmt.Errorf("contar o pedido de %q: %w", chave, err)
+	}
+	return int(linha.Contagem), nil
+}
+
+// intervaloDe converte a janela para o intervalo do Postgres.
+func intervaloDe(d time.Duration) pgtype.Interval {
+	return pgtype.Interval{Microseconds: d.Microseconds(), Valid: true}
+}

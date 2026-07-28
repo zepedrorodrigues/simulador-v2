@@ -64,10 +64,27 @@ func Servir(ctx context.Context, url, endereco string, saida io.Writer) error {
 		avisoDeChaveAberta(saida)
 	}
 
+	proxies, err := RedesDe(os.Getenv("PROXIES_DE_CONFIANCA"))
+	if err != nil {
+		return fmt.Errorf("ler os proxies de confiança: %w", err)
+	}
+
 	cat := catalogo.NovoPostgres(pool)
 	servidor, err := Novo(cat, cat, bancos.Predefinido(), chaves, time.Now)
 	if err != nil {
 		return fmt.Errorf("montar o servidor: %w", err)
+	}
+	// ⚠️ O tecto liga-se sempre. Sem proxies declarados ele conta pelo endereço
+	// da ligação, que é o comportamento seguro: é atrás de um proxy que ele
+	// precisa de ajuda para saber quem é quem, e é aí que o v1 se enganou.
+	servidor = servidor.ComTecto(cat, Tecto{
+		Pedidos:            PedidosOmissao,
+		Janela:             JanelaOmissao,
+		ProxiesDeConfianca: proxies,
+	})
+	if len(proxies) == 0 {
+		_, _ = fmt.Fprintln(saida,
+			"tecto por IP ligado pelo endereço da ligação (nenhum PROXIES_DE_CONFIANCA declarado)")
 	}
 
 	servidorHTTP := &http.Server{

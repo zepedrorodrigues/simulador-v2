@@ -1,0 +1,44 @@
+-- Queries do tecto de pedidos por IP (ARQUITETURA.md §4, tabela `limites`).
+--
+-- ⚠️ A razão desta tabela MUDOU a 2026-07-25 e ela fica. Existia porque «cada
+-- submissão custa dezenas de segundos de scraping a partir do nosso IP» — e isso
+-- deixou de ser verdade: uma submissão custa uma consulta a Postgres. O tecto
+-- mantém-se porque um endpoint público sem tecto é um convite, mas passa a ser
+-- uma medida contra abuso banal e não o travão que protegia a relação com os
+-- bancos. Esse travão é agora o do varrimento (§7.2).
+
+-- ContarPedido regista um pedido e devolve o estado da janela.
+--
+-- ⚠️ Tudo numa instrução, e é isso que a torna correcta sob concorrência: um
+-- SELECT seguido de UPDATE deixa duas ligações a lerem a mesma contagem e a
+-- escreverem a mesma soma, e o tecto passava a valer o dobro. O `ON CONFLICT`
+-- resolve a corrida dentro da base, que é quem sabe arbitrar.
+--
+-- A janela é FIXA e não deslizante: quando a actual expira, começa uma nova com
+-- contagem 1. Uma janela deslizante exigiria guardar cada pedido — e isto é uma
+-- tabela de contadores, não um registo de quem nos visitou.
+-- name: ContarPedido :one
+INSERT INTO limites (chave, janela_inicio, contagem)
+VALUES (@chave, @agora::timestamptz, 1)
+ON CONFLICT (chave) DO UPDATE SET
+    janela_inicio = CASE
+        WHEN limites.janela_inicio + @janela::interval <= @agora::timestamptz
+        THEN @agora::timestamptz
+        ELSE limites.janela_inicio
+    END,
+    contagem = CASE
+        WHEN limites.janela_inicio + @janela::interval <= @agora::timestamptz
+        THEN 1
+        ELSE limites.contagem + 1
+    END
+RETURNING contagem, janela_inicio;
+
+-- LimparLimitesAntigos apaga as janelas que já não contam para nada.
+--
+-- ⚠️ Existe para a tabela não crescer com um contador por IP que nunca mais
+-- volta. Corre-se por manutenção, não a cada pedido: apagar no caminho de um
+-- cliente punha uma escrita a mais em cada visita para poupar linhas que ninguém
+-- lê.
+-- name: LimparLimitesAntigos :execrows
+DELETE FROM limites
+WHERE janela_inicio + @janela::interval <= @agora::timestamptz;
