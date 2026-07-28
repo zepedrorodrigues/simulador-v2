@@ -576,3 +576,35 @@ func racio(t *testing.T, s string) dominio.Racio {
 	}
 	return r
 }
+
+// TestOAjusteDosEncargosNaoDependeDaOrdemDeIteracao é o teste de um defeito que
+// entrou e quase passou despercebido.
+//
+// ⚠️ O ajuste ancora na observação de prazo mais curto e na de mais longo. As
+// observações vinham de um MAPA, e a iteração de um mapa em Go é aleatória a
+// cada corrida — logo, quando duas partilhavam o prazo com TAN diferentes, qual
+// delas era âncora mudava entre execuções. Medido a 2026-07-28: **uma falha em
+// seis corridas**, com a TAEG a saltar de 4,4 % para 5,476 %.
+//
+// Um teste que falha uma vez em seis é pior do que um que falha sempre: passa no
+// portão, entra, e reaparece em produção como «às vezes o número está mal».
+func TestOAjusteDosEncargosNaoDependeDaOrdemDeIteracao(t *testing.T) {
+	// Vinte catálogos construídos do zero: cada `NovoCatalogo` percorre os seus
+	// próprios mapas, e a semente da aleatoriedade do Go muda a cada um.
+	var primeira string
+	for i := range 20 {
+		o := ofertaUnica(t, catalogoDeProva(t), pedido(t, "320000", 30, dominio.TaxaVariavel))
+		if o.TAEG == nil {
+			t.Fatalf("corrida %d: a oferta saiu sem TAEG", i+1)
+		}
+		if i == 0 {
+			primeira = o.TAEG.String()
+			continue
+		}
+		if got := o.TAEG.String(); got != primeira {
+			t.Fatalf("corrida %d: TAEG %s, e a primeira deu %s — o ajuste depende da ordem de iteração",
+				i+1, got, primeira)
+		}
+	}
+	t.Logf("TAEG estável em 20 catálogos: %s %%", primeira)
+}

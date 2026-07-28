@@ -1,0 +1,365 @@
+package web_test
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+	"time"
+
+	openapi_types "github.com/oapi-codegen/runtime/types"
+
+	"github.com/zepedrorodrigues/simulador-v2/api"
+	"github.com/zepedrorodrigues/simulador-v2/internal/aplicacao/varrimento"
+	"github.com/zepedrorodrigues/simulador-v2/internal/bancos"
+	"github.com/zepedrorodrigues/simulador-v2/internal/dominio"
+	"github.com/zepedrorodrigues/simulador-v2/internal/infra/web"
+)
+
+// A fronteira HTTP, contra observações gravadas e **sem base nem rede**.
+//
+// ⚠️ A fonte é injectada, e é isso que torna estes testes possíveis sem Postgres
+// montado. O que aqui se afirma é a tradução e as guardas — os números têm os
+// seus testes no `aplicacao/comparar`.
+
+func TestUmPedidoUmaRespostaComTodosOsBancos(t *testing.T) {
+	s := servidor(t, observacoesDeQuatroBancos(t))
+
+	resposta := comparar(t, s, corpoDePedido(nil))
+
+	if resposta.Code != http.StatusOK {
+		t.Fatalf("estado %d: %s", resposta.Code, resposta.Body.String())
+	}
+	// ⚠️ Uma resposta e não duas: não há identificador para sondar, e é o ponto
+	// inteiro da inversão da §1.
+	var c api.Comparacao
+	lerJSON(t, resposta, &c)
+
+	if len(c.Ofertas) != 4 {
+		t.Fatalf("pediram-se quatro bancos e vieram %d ofertas", len(c.Ofertas))
+	}
+	if c.CalculadoEm.IsZero() {
+		t.Error("a comparação não diz quando foi calculada")
+	}
+
+	for _, o := range c.Ofertas {
+		if !o.Sucesso {
+			t.Errorf("%s falhou: %+v", o.BancoId, o.Erro)
+			continue
+		}
+		// ⚠️ E cada oferta diz de quando é o PREÇO, que é outra data: o
+		// `calculado_em` é de agora, o `capturado_em` é do varrimento.
+		if o.CapturadoEm == nil {
+			t.Errorf("%s: a oferta não diz quando o preço foi medido", o.BancoId)
+			continue
+		}
+		if !o.CapturadoEm.Before(c.CalculadoEm) {
+			t.Errorf("%s: o preço foi medido em %s e a resposta calculada em %s",
+				o.BancoId, o.CapturadoEm, c.CalculadoEm)
+		}
+	}
+}
+
+// TestUmaOfertaSemDataDoVarrimentoNaoEServida é a guarda que a KAN-13 pede.
+//
+// ⚠️ O número existe — o que falta é a data. Servi-lo era apresentá-lo como
+// cotado agora, e a §4 é explícita: «não se serve um número calculado como se
+// fosse cotado pelo banco». Desce a falha, e a mensagem diz porquê.
+func TestUmaOfertaSemDataDoVarrimentoNaoEServida(t *testing.T) {
+	obs := observacoesDeQuatroBancos(t)
+	for i := range obs {
+		if obs[i].Oferta.BancoID == "cgd" {
+			obs[i].Oferta.CapturadoEm = time.Time{}
+		}
+	}
+
+	resposta := comparar(t, servidor(t, obs), corpoDePedido([]string{"cgd"}))
+	var c api.Comparacao
+	lerJSON(t, resposta, &c)
+
+	if len(c.Ofertas) != 1 {
+		t.Fatalf("esperava uma oferta, vieram %d", len(c.Ofertas))
+	}
+	o := c.Ofertas[0]
+	if o.Sucesso {
+		tan := "sem TAN"
+		if o.Tan != nil {
+			tan = fmt.Sprintf("%.3f %%", *o.Tan)
+		}
+		t.Fatalf("serviu-se uma oferta sem a data do varrimento, com TAN %s — "+
+			"um preço sem data apresenta-se como se fosse de agora", tan)
+	}
+	if !strings.Contains(o.Erro.Mensagem, "não diz de quando é o preço") {
+		t.Errorf("a recusa não nomeia a falta da data: %q", o.Erro.Mensagem)
+	}
+}
+
+// TestSemVarrimentoNaoSeCulpaOsBancos: o serviço não ter dados é diferente de os
+// bancos estarem em baixo, e a resposta tem de o distinguir.
+func TestSemVarrimentoNaoSeCulpaOsBancos(t *testing.T) {
+	s, err := web.Novo(fonteVazia{}, bancos.Predefinido(), relogio)
+	if err != nil {
+		t.Fatalf("Novo: %v", err)
+	}
+
+	resposta := comparar(t, s, corpoDePedido(nil))
+
+	if resposta.Code != http.StatusServiceUnavailable {
+		t.Errorf("estado %d, esperava 503", resposta.Code)
+	}
+	var erro api.RespostaErro
+	lerJSON(t, resposta, &erro)
+	if erro.Erro.Codigo != "sem_varrimento" {
+		t.Errorf("código %q, e o que falta são dados nossos e não os bancos", erro.Erro.Codigo)
+	}
+	// ⚠️ Em português, para uma pessoa ler. O v1 devolvia texto solto e a UI não
+	// distinguia «este banco não faz isto» de «este banco está em baixo».
+	if !strings.Contains(erro.Erro.Mensagem, "preços varridos") {
+		t.Errorf("a mensagem não explica o que falta: %q", erro.Erro.Mensagem)
+	}
+}
+
+func TestUmPedidoInvalidoNomeiaOCampo(t *testing.T) {
+	s := servidor(t, observacoesDeQuatroBancos(t))
+
+	corpo := corpoDePedido(nil)
+	corpo.Pedido.Montante = 900_000 // acima do valor do imóvel
+
+	resposta := comparar(t, s, corpo)
+	if resposta.Code != http.StatusBadRequest {
+		t.Fatalf("estado %d, esperava 400", resposta.Code)
+	}
+
+	var erro api.RespostaErro
+	lerJSON(t, resposta, &erro)
+	if erro.Erro.Campo == nil || *erro.Erro.Campo != "montante" {
+		t.Errorf("o erro não nomeia o campo: %+v", erro.Erro)
+	}
+}
+
+// TestUmProdutoDeOutroBancoNaoPassa: o prefixo do id é estrutura e não convenção
+// de leitura — é por ele que a selecção se reparte pelos bancos.
+func TestUmProdutoDeOutroBancoNaoPassa(t *testing.T) {
+	s := servidor(t, observacoesDeQuatroBancos(t))
+
+	corpo := corpoDePedido(nil)
+	corpo.Produtos = &map[string][]string{"cgd": {"novobanco:protecao"}}
+
+	resposta := comparar(t, s, corpo)
+	if resposta.Code != http.StatusBadRequest {
+		t.Fatalf("estado %d, esperava 400", resposta.Code)
+	}
+}
+
+func TestOsBancosSaemDoRegistoEDosRequisitos(t *testing.T) {
+	s := servidor(t, observacoesDeQuatroBancos(t))
+
+	pedido := httptest.NewRequest(http.MethodGet, "/api/v1/bancos", nil)
+	resposta := httptest.NewRecorder()
+	s.Rotas().ServeHTTP(resposta, pedido)
+
+	if resposta.Code != http.StatusOK {
+		t.Fatalf("estado %d: %s", resposta.Code, resposta.Body.String())
+	}
+	var r api.BancosResposta
+	lerJSON(t, resposta, &r)
+
+	if len(r.Bancos) != len(bancos.Predefinido().IDs()) {
+		t.Errorf("o registo tem %d bancos e a resposta traz %d", len(bancos.Predefinido().IDs()), len(r.Bancos))
+	}
+	if len(r.InputsCanonicos) == 0 {
+		t.Error("a resposta não traz o vocabulário do formulário")
+	}
+
+	// ⚠️ O Banco CTT impõe a Euribor e não a deixa escolher. Vazio nas opções
+	// não é «não sei» — é «o banco impõe o seu», e o imposto vai ao lado.
+	for _, b := range r.Bancos {
+		if b.Id != "bancoctt" {
+			continue
+		}
+		if len(b.EuriborOpcoes) != 0 {
+			t.Errorf("o Banco CTT declara %d opções de Euribor e não deixa escolher", len(b.EuriborOpcoes))
+		}
+		if b.EuriborImposto == nil || *b.EuriborImposto != "12m" {
+			t.Errorf("o Banco CTT impõe a Euribor a 12 meses, e a resposta diz %v", b.EuriborImposto)
+		}
+	}
+}
+
+func TestTodasAsRespostasLevamRequestID(t *testing.T) {
+	s := servidor(t, observacoesDeQuatroBancos(t))
+
+	pedido := httptest.NewRequest(http.MethodGet, "/healthz", nil)
+	resposta := httptest.NewRecorder()
+	s.Rotas().ServeHTTP(resposta, pedido)
+
+	// ⚠️ Na resposta e não só no log: sem ele, quem reporta um problema não tem
+	// como dizer qual das respostas correu mal.
+	if resposta.Header().Get("X-Request-ID") == "" {
+		t.Error("a resposta não traz X-Request-ID")
+	}
+}
+
+// --- ajudantes ---------------------------------------------------------------------
+
+var relogio = func() time.Time { return time.Date(2026, 7, 28, 12, 0, 0, 0, time.UTC) }
+
+type fonteEmMemoria struct{ obs []varrimento.Observacao }
+
+func (f fonteEmMemoria) UltimoVarrimento(context.Context) ([]varrimento.Observacao, error) {
+	return f.obs, nil
+}
+
+type fonteVazia struct{}
+
+func (fonteVazia) UltimoVarrimento(context.Context) ([]varrimento.Observacao, error) {
+	return nil, dominio.ErrSemTitulares // qualquer erro serve: o que se afirma é o 503
+}
+
+func servidor(t *testing.T, obs []varrimento.Observacao) *web.Servidor {
+	t.Helper()
+	s, err := web.Novo(fonteEmMemoria{obs: obs}, bancos.Predefinido(), relogio)
+	if err != nil {
+		t.Fatalf("Novo: %v", err)
+	}
+	return s
+}
+
+func comparar(t *testing.T, s *web.Servidor, corpo api.ComparacaoPedido) *httptest.ResponseRecorder {
+	t.Helper()
+	bruto, err := json.Marshal(corpo)
+	if err != nil {
+		t.Fatalf("serializar o pedido: %v", err)
+	}
+	pedido := httptest.NewRequest(http.MethodPost, "/api/v1/comparacoes", bytes.NewReader(bruto))
+	pedido.Header.Set("Content-Type", "application/json")
+
+	resposta := httptest.NewRecorder()
+	s.Rotas().ServeHTTP(resposta, pedido)
+	return resposta
+}
+
+func corpoDePedido(ids []string) api.ComparacaoPedido {
+	return api.ComparacaoPedido{
+		Bancos: ids,
+		Pedido: api.Pedido{
+			ValorImovel: 400_000,
+			Montante:    320_000,
+			PrazoAnos:   30,
+			RateType:    api.PedidoRateType(dominio.TaxaVariavel),
+			Finalidade:  api.PedidoFinalidade(dominio.FinalidadePropria),
+			Localizacao: string(dominio.LocalizacaoContinente),
+			Titulares: []api.Titular{{
+				DataNascimento:   openapi_types.Date{Time: time.Date(1996, 1, 15, 0, 0, 0, 0, time.UTC)},
+				RendimentoMensal: 2000,
+			}},
+		},
+	}
+}
+
+func lerJSON(t *testing.T, r *httptest.ResponseRecorder, alvo any) {
+	t.Helper()
+	if err := json.Unmarshal(r.Body.Bytes(), alvo); err != nil {
+		t.Fatalf("ler a resposta (%s): %v", r.Body.String(), err)
+	}
+}
+
+// observacoesDeQuatroBancos monta um varrimento com a forma que o real tem: os
+// degraus da escala, a referência, os produtos e os dois extremos de prazo, para
+// cada banco registado.
+func observacoesDeQuatroBancos(t *testing.T) []varrimento.Observacao {
+	t.Helper()
+
+	var obs []varrimento.Observacao
+	for _, id := range bancos.Predefinido().IDs() {
+		obs = append(obs, observacoesDeUmBanco(t, id)...)
+	}
+	return obs
+}
+
+func observacoesDeUmBanco(t *testing.T, id string) []varrimento.Observacao {
+	t.Helper()
+
+	var obs []varrimento.Observacao
+	for _, d := range []struct{ de, ate, spread string }{
+		{"0.30", "0.70", "2.000"},
+		{"0.70", "0.90", "1.350"},
+	} {
+		spread := taxa(t, d.spread)
+		o := observacao(t, id, "variavel/0/propria", 30, spread)
+		o.Degrau = &dominio.DegrauLTV{De: racio(t, d.de), Ate: racio(t, d.ate), Spread: spread}
+		obs = append(obs, o)
+	}
+
+	obs = append(obs,
+		observacao(t, id, "variavel/0/propria", 30, taxa(t, "1.350")),
+		observacao(t, id, "variavel/0/propria", 10, taxa(t, "1.350")),
+		observacao(t, id, "variavel/0/propria", 40, taxa(t, "1.350")),
+	)
+	return obs
+}
+
+func observacao(t *testing.T, bancoID, cenario string, prazoAnos int, spread dominio.Taxa) varrimento.Observacao {
+	t.Helper()
+
+	euribor := taxa(t, "2.450")
+	tan := euribor.Add(spread)
+	meses := prazoAnos * 12
+
+	encargos := dominio.Encargos{Antecipado: racio(t, "0.005"), Recorrente: taxa(t, "0.25")}
+	taeg, mtic, err := encargos.Aplicar(dominio.DinheiroDeInteiro(320_000),
+		[]dominio.Trecho{{Meses: meses, Anual: tan}})
+	if err != nil {
+		t.Fatalf("TAEG de prova: %v", err)
+	}
+	plano, err := dominio.PlanoFrances(dominio.DinheiroDeInteiro(320_000),
+		[]dominio.Trecho{{Meses: meses, Anual: tan}})
+	if err != nil {
+		t.Fatalf("plano de prova: %v", err)
+	}
+	prestacao := plano.Fases[0].Prestacao
+
+	return varrimento.Observacao{
+		Ponto: varrimento.Ponto{
+			Cenario: cenario,
+			Pedido: dominio.Pedido{
+				ValorImovel: dominio.DinheiroDeInteiro(400_000),
+				Montante:    dominio.DinheiroDeInteiro(320_000),
+				PrazoAnos:   prazoAnos,
+				TipoTaxa:    dominio.TaxaVariavel,
+				Finalidade:  dominio.FinalidadePropria,
+				Localizacao: dominio.LocalizacaoContinente,
+			},
+		},
+		Oferta: dominio.Oferta{
+			BancoID: bancoID, BancoNome: bancoID,
+			TAN: &tan, TAEG: &taeg, MTIC: &mtic, Spread: &spread,
+			EuriborValor: &euribor, Indexante: dominio.Euribor6M,
+			Prestacao:   &prestacao,
+			Fases:       plano.Fases,
+			CapturadoEm: relogio().Add(-6 * time.Hour),
+		},
+	}
+}
+
+func taxa(t *testing.T, s string) dominio.Taxa {
+	t.Helper()
+	x, err := dominio.TaxaDeTexto(s)
+	if err != nil {
+		t.Fatalf("taxa inválida %q: %v", s, err)
+	}
+	return x
+}
+
+func racio(t *testing.T, s string) dominio.Racio {
+	t.Helper()
+	r, err := dominio.RacioDeTexto(s)
+	if err != nil {
+		t.Fatalf("rácio inválido %q: %v", s, err)
+	}
+	return r
+}
