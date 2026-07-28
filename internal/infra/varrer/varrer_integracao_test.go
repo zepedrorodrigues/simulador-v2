@@ -66,11 +66,17 @@ func TestOSubcomandoContaOsPontosDeCadaBancoAntesDeCorrer(t *testing.T) {
 		t.Fatalf("Correr: %v", err)
 	}
 
-	// Banco CTT 12 + CGD 18 + Montepio 21 + Novo Banco 27, medidos no
+	// Banco CTT 14 + CGD 20 + Montepio 23 + Novo Banco 29, medidos no
 	// grelha.Pontos. ⚠️ O Banco CTT é o mais barato dos quatro porque tem o
 	// leque mais curto: quatro períodos de mista, dois prazos de fixa, e um
 	// indexante que não é escolhível.
-	const esperados = 12 + 18 + 21 + 27
+	//
+	// ⚠️ Cada banco leva mais **dois** pontos desde a 7.ª família (o prazo, nos
+	// extremos que cada um serve). Não são para medir o spread — está medido que
+	// ele não depende do prazo — mas a TAEG depende, e é da distância entre dois
+	// prazos que a repartição dos encargos se torna identificável. Dois pedidos
+	// por banco é o que separa uma TAEG medida de uma TAEG assumida.
+	const esperados = 14 + 20 + 23 + 29
 	if rel.Pontos != esperados {
 		t.Errorf("%d pontos, esperava %d — se um banco ganhou período fixo ou produto, é aqui que se vê",
 			rel.Pontos, esperados)

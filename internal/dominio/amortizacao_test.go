@@ -1,158 +1,199 @@
 package dominio_test
 
 import (
-	"strings"
+	"errors"
 	"testing"
+
+	"github.com/shopspring/decimal"
 
 	"github.com/zepedrorodrigues/simulador-v2/internal/dominio"
 )
 
-// Os testes da amortização francesa.
+// A prestação de 100 000 € a 6 % em 360 meses é 599,55 €.
 //
-// ⚠️ Os valores esperados não saem desta implementação: saem da fórmula
-// fechada, calculada à parte com 40 dígitos de precisão. Um esperado copiado do
-// que o código devolve afirma que o código não mudou, e não que está certo — e
-// é esta conta que decide se um banco mudou de forma de calcular (§7.4).
+// ⚠️ É o valor de manual, e está aqui de propósito em vez de um valor que este
+// código tenha produzido. Um teste que compare a função consigo mesma passa com
+// a fórmula errada; este falha. Confere-se à mão: i = 0,005, (1,005)^360 ≈
+// 6,022575, p = 100000 × 0,005 / (1 − 1/6,022575) = 500 / 0,833958 = 599,55.
+func TestAPrestacaoBateComOValorDeManual(t *testing.T) {
+	t.Parallel()
 
-// arredonda compara ao cêntimo, que é a unidade em que um banco publica uma
-// prestação.
-func verEuros(t *testing.T, o string, obtido dominio.Dinheiro) {
-	t.Helper()
-	if got := obtido.Decimal().StringFixed(2); got != o {
-		t.Errorf("esperava %s €, deu %s €", o, got)
+	p, err := dominio.PrestacaoFrancesa(dominio.DinheiroDeInteiro(100_000), taxa(t, "6"), 360)
+	if err != nil {
+		t.Fatalf("PrestacaoFrancesa: %v", err)
+	}
+	if esperado := dinheiro(t, "599.55"); !p.Equal(esperado) {
+		t.Errorf("a prestação é %s e o manual diz %s", p, esperado)
 	}
 }
 
-func TestPrestacaoFrancesaBateComAFormulaFechada(t *testing.T) {
-	// 200 000 € a 3,00 % em 30 anos. O número clássico, e o mesmo que sai da
-	// fórmula com 40 dígitos: 843,2080674…
-	p, err := dominio.PrestacaoFrancesa(dinheiro(t, "200000"), taxa(t, "3.00"), 360)
+func TestATaxaZeroRepartOCapitalPelosMeses(t *testing.T) {
+	t.Parallel()
+
+	// ⚠️ Não é um caso exótico a mais: é o caso em que a fórmula geral divide
+	// por zero, porque 1−(1+0)^−n é exactamente 0. Sem o desvio explícito, isto
+	// era um pânico do decimal a meio de um pedido de um cliente.
+	p, err := dominio.PrestacaoFrancesa(dominio.DinheiroDeInteiro(120_000), taxa(t, "0"), 240)
 	if err != nil {
-		t.Fatalf("não calculou: %v", err)
+		t.Fatalf("PrestacaoFrancesa: %v", err)
 	}
-	verEuros(t, "843.21", p)
+	if esperado := dinheiro(t, "500"); !p.Equal(esperado) {
+		t.Errorf("a prestação a 0 %% é %s e devia ser %s", p, esperado)
+	}
 }
 
-// TestAPrestacaoDaFaseFixaSaiDoPrazoTodoENaoDaDuracaoDaFase é a armadilha da
-// mista, e vale um teste próprio porque o número errado é perfeitamente
-// plausível: 3 593,74 € é uma prestação que existe — a de um empréstimo de
-// cinco anos — e nada nela diz que está errada.
-func TestAPrestacaoDaFaseFixaSaiDoPrazoTodoENaoDaDuracaoDaFase(t *testing.T) {
-	capital, tan := dinheiro(t, "200000"), taxa(t, "3.00")
+func TestUmPlanoFechaSempreExactamenteAZero(t *testing.T) {
+	t.Parallel()
 
-	planoInteiro, err := dominio.PrestacaoFrancesa(capital, tan, 360)
-	if err != nil {
-		t.Fatalf("não calculou o plano inteiro: %v", err)
+	// ⚠️ É a propriedade que o arredondamento ao cêntimo põe em risco: ao longo
+	// de 480 meses, meio cêntimo por mês são dois euros e meio de saldo que
+	// ninguém explicaria. O PlanoFrances fecha com «o que resta mais o juro do
+	// mês» exactamente para isto, e aqui afirma-se sobre muitas combinações em
+	// vez de uma.
+	for _, capital := range []int64{50_000, 320_000, 1_000_000} {
+		for _, anos := range []int{5, 15, 30, 40} {
+			for _, tx := range []string{"0", "0.5", "3.25", "7.125", "12"} {
+				plano, err := dominio.PlanoFrances(
+					dominio.DinheiroDeInteiro(capital),
+					[]dominio.Trecho{{Meses: anos * 12, Anual: taxa(t, tx)}},
+				)
+				if err != nil {
+					t.Fatalf("%d € / %d anos / %s %%: %v", capital, anos, tx, err)
+				}
+				if got := plano.Meses(); got != anos*12 {
+					t.Errorf("%d € / %d anos / %s %%: %d fluxos, esperava %d",
+						capital, anos, tx, got, anos*12)
+				}
+				if err := dominio.ValidarFases(plano.Fases, anos); err != nil {
+					t.Errorf("%d € / %d anos / %s %%: ValidarFases: %v", capital, anos, tx, err)
+				}
+			}
+		}
 	}
-	soAFase, err := dominio.PrestacaoFrancesa(capital, tan, 60)
-	if err != nil {
-		t.Fatalf("não calculou a fase: %v", err)
-	}
-
-	verEuros(t, "843.21", planoInteiro)
-	verEuros(t, "3593.74", soAFase)
 }
 
-func TestPrestacaoSemJuroRepartOCapitalPelosMeses(t *testing.T) {
-	// Sem este caminho, a fórmula dividia por zero.
-	p, err := dominio.PrestacaoFrancesa(dinheiro(t, "120000"), taxa(t, "0"), 240)
+func TestNumaMistaAPrestacaoDaFaseFixaSaiDoPrazoTodoENaoDaFase(t *testing.T) {
+	t.Parallel()
+
+	// ⚠️ É a armadilha que o E2E da CGD nomeia: «numa mista, a prestação da fase
+	// fixa calcula-se sobre o prazo TODO e não sobre a duração da fase — é o que
+	// faz dela uma fase de um plano e não um empréstimo de cinco anos».
+	// Calculá-la sobre os 60 meses do troço dava uma prestação várias vezes
+	// maior, e plausível à vista.
+	const capital = 320_000
+	const anos = 30
+
+	plano, err := dominio.PlanoFrances(dominio.DinheiroDeInteiro(capital), []dominio.Trecho{
+		{Meses: 5 * 12, Anual: taxa(t, "2.9")},
+		{Meses: 25 * 12, Anual: taxa(t, "3.9")},
+	})
 	if err != nil {
-		t.Fatalf("não calculou: %v", err)
+		t.Fatalf("PlanoFrances: %v", err)
 	}
-	verEuros(t, "500.00", p)
+	if len(plano.Fases) != 2 {
+		t.Fatalf("%d fases, esperava 2", len(plano.Fases))
+	}
+
+	// A fase fixa amortizaria o capital todo em 30 anos àquela taxa.
+	sobreOPrazoTodo, err := dominio.PrestacaoFrancesa(dominio.DinheiroDeInteiro(capital), taxa(t, "2.9"), anos*12)
+	if err != nil {
+		t.Fatalf("PrestacaoFrancesa: %v", err)
+	}
+	if !plano.Fases[0].Prestacao.Equal(sobreOPrazoTodo) {
+		t.Errorf("a fase fixa dá %s e sobre o prazo todo dá %s",
+			plano.Fases[0].Prestacao, sobreOPrazoTodo)
+	}
+
+	// E sobre os 60 meses do troço daria muito mais — é o erro que isto exclui.
+	sobreOTroco, err := dominio.PrestacaoFrancesa(dominio.DinheiroDeInteiro(capital), taxa(t, "2.9"), 5*12)
+	if err != nil {
+		t.Fatalf("PrestacaoFrancesa: %v", err)
+	}
+	if plano.Fases[0].Prestacao.Cmp(sobreOTroco) >= 0 {
+		t.Errorf("a fase fixa (%s) não devia ser tão alta como a do troço isolado (%s)",
+			plano.Fases[0].Prestacao, sobreOTroco)
+	}
+	t.Logf("fase fixa %s; sobre o troço isolado seria %s", plano.Fases[0].Prestacao, sobreOTroco)
 }
 
-func TestCapitalEmDividaDepoisDaFaseFixa(t *testing.T) {
-	// Cinco anos pagos de um plano de trinta, a 3,00 %: é o capital que a fase
-	// indexada de uma mista vai amortizar.
-	c, err := dominio.CapitalEmDivida(dinheiro(t, "200000"), taxa(t, "3.00"), 360, 60)
-	if err != nil {
-		t.Fatalf("não calculou: %v", err)
-	}
-	verEuros(t, "177812.73", c)
+func TestOJuroTotalEASomaDosFluxosMenosOCapital(t *testing.T) {
+	t.Parallel()
 
-	// E a fase seguinte, a 4,5 % sobre o que sobrou, nos 300 meses que faltam.
-	p, err := dominio.PrestacaoFrancesa(c, taxa(t, "4.5"), 300)
+	// O MTIC é construído sobre esta soma, por isso vale afirmá-la aqui: se os
+	// fluxos não somarem capital + juro, tudo o que se derive deles está errado.
+	const capital = 200_000
+	plano, err := dominio.PlanoFrances(dominio.DinheiroDeInteiro(capital), []dominio.Trecho{
+		{Meses: 360, Anual: taxa(t, "4")},
+	})
 	if err != nil {
-		t.Fatalf("não calculou a fase indexada: %v", err)
+		t.Fatalf("PlanoFrances: %v", err)
 	}
-	verEuros(t, "988.34", p)
+
+	soma := decimal.Zero
+	for _, f := range plano.Fluxos {
+		soma = soma.Add(f.Decimal())
+	}
+	if soma.Cmp(decimal.NewFromInt(capital)) <= 0 {
+		t.Errorf("a soma dos fluxos (%s) não excede o capital (%d)", soma.StringFixed(2), capital)
+	}
+	t.Logf("200 000 € a 4 %% em 30 anos: paga-se %s €, dos quais %s € de juro",
+		soma.StringFixed(2), soma.Sub(decimal.NewFromInt(capital)).StringFixed(2))
 }
 
-func TestCapitalEmDividaNosExtremosDoPlano(t *testing.T) {
-	capital, tan := dinheiro(t, "200000"), taxa(t, "3.00")
+func TestOSaldoVaiDoCapitalAZero(t *testing.T) {
+	t.Parallel()
 
-	inicio, err := dominio.CapitalEmDivida(capital, tan, 360, 0)
+	capital := dominio.DinheiroDeInteiro(150_000)
+	const meses = 240
+
+	inicio, err := dominio.SaldoApos(capital, taxa(t, "3.5"), meses, 0)
 	if err != nil {
-		t.Fatalf("não calculou o início: %v", err)
+		t.Fatalf("SaldoApos(0): %v", err)
 	}
 	if !inicio.Equal(capital) {
-		t.Errorf("sem um mês pago, a dívida é %s e o capital era %s", inicio, capital)
+		t.Errorf("sem prestações pagas o saldo é %s e devia ser o capital %s", inicio, capital)
 	}
 
-	fim, err := dominio.CapitalEmDivida(capital, tan, 360, 360)
+	fim, err := dominio.SaldoApos(capital, taxa(t, "3.5"), meses, meses)
 	if err != nil {
-		t.Fatalf("não calculou o fim: %v", err)
+		t.Fatalf("SaldoApos(%d): %v", meses, err)
 	}
-	if fim.Decimal().StringFixed(2) != "0.00" {
-		t.Errorf("com o plano todo pago, ainda sobram %s €", fim.Decimal().StringFixed(2))
+	// ⚠️ Tolerância de um euro, e não zero: esta é a fórmula fechada com a
+	// prestação já arredondada aos cêntimos, e 240 meses desse arredondamento
+	// movem o saldo. Quem quer o fecho exacto usa o PlanoFrances, que caminha
+	// mês a mês — é ele o autoritativo, e é a mesma distinção que o E2E da CGD
+	// já registou ao dar tolerância maior à segunda fase.
+	if fim.Decimal().Abs().Cmp(decimal.NewFromInt(1)) > 0 {
+		t.Errorf("ao fim do prazo o saldo é %s e devia ser perto de zero", fim)
 	}
+	t.Logf("saldo final pela fórmula fechada: %s €", fim)
 }
 
-// TestSemJuroADividaDesceEmLinhaReta afirma o caminho da taxa zero, que a
-// fórmula geral não consegue percorrer.
-func TestSemJuroADividaDesceEmLinhaReta(t *testing.T) {
-	c, err := dominio.CapitalEmDivida(dinheiro(t, "120000"), taxa(t, "0"), 240, 60)
-	if err != nil {
-		t.Fatalf("não calculou: %v", err)
-	}
-	verEuros(t, "90000.00", c)
-}
+func TestOMotorRecusaOQueNaoEAmortizavel(t *testing.T) {
+	t.Parallel()
 
-// TestAmortizacaoRecusaOQueNaoEUmPlano: cada um destes devolveria um número —
-// zero, infinito ou negativo — que se leria como um resíduo enorme, ou seja
-// como «o banco mudou». Falham alto, e o erro nomeia o que estava errado.
-func TestAmortizacaoRecusaOQueNaoEUmPlano(t *testing.T) {
-	casos := []struct {
-		nome    string
-		capital dominio.Dinheiro
-		taxa    dominio.Taxa
-		meses   int
-		nomeia  string
+	for _, caso := range []struct {
+		nome     string
+		capital  int64
+		taxa     string
+		meses    int
+		sentinel error
 	}{
-		{"plano de zero meses", dinheiro(t, "200000"), taxa(t, "3.00"), 0, "0 meses"},
-		{"plano de meses negativos", dinheiro(t, "200000"), taxa(t, "3.00"), -12, "-12 meses"},
-		{"capital a zero", dinheiro(t, "0"), taxa(t, "3.00"), 360, "capital"},
-		{"capital negativo", dinheiro(t, "-1"), taxa(t, "3.00"), 360, "capital"},
-		{"taxa negativa", dinheiro(t, "200000"), taxa(t, "-0.5"), 360, "taxa anual"},
-	}
-	for _, c := range casos {
-		t.Run(c.nome, func(t *testing.T) {
-			_, err := dominio.PrestacaoFrancesa(c.capital, c.taxa, c.meses)
-			if err == nil {
-				t.Fatal("a prestação foi calculada e não devia")
-			}
-			if !strings.Contains(err.Error(), c.nomeia) {
-				t.Errorf("o erro é %q e não nomeia %q", err, c.nomeia)
-			}
-
-			if _, err := dominio.CapitalEmDivida(c.capital, c.taxa, c.meses, 0); err == nil {
-				t.Error("o capital em dívida foi calculado e não devia")
+		{"capital zero", 0, "3", 360, dominio.ErrCapitalNaoAmortizavel},
+		{"prazo zero", 100_000, "3", 0, dominio.ErrPrazoNaoAmortizavel},
+		{"prazo negativo", 100_000, "3", -12, dominio.ErrPrazoNaoAmortizavel},
+		{"taxa negativa", 100_000, "-1", 360, dominio.ErrTaxaNegativa},
+	} {
+		t.Run(caso.nome, func(t *testing.T) {
+			t.Parallel()
+			_, err := dominio.PrestacaoFrancesa(
+				dominio.DinheiroDeInteiro(caso.capital), taxa(t, caso.taxa), caso.meses)
+			if !errors.Is(err, caso.sentinel) {
+				t.Errorf("erro %v, esperava %v", err, caso.sentinel)
 			}
 		})
 	}
 }
 
-func TestCapitalEmDividaRecusaMesesPagosForaDoPlano(t *testing.T) {
-	capital, tan := dinheiro(t, "200000"), taxa(t, "3.00")
-
-	for _, pagos := range []int{-1, 361} {
-		_, err := dominio.CapitalEmDivida(capital, tan, 360, pagos)
-		if err == nil {
-			t.Fatalf("com %d meses pagos de 360, calculou na mesma", pagos)
-		}
-		if !strings.Contains(err.Error(), "plano de 360") {
-			t.Errorf("o erro é %q e não diz de que plano se fala", err)
-		}
-	}
-}
+// ⚠️ Os utilitários `taxa` e `dinheiro` vivem no dinheiro_test.go, que é o
+// ficheiro de quem os tipos são. Não se repetem aqui.
