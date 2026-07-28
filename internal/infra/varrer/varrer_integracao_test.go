@@ -66,14 +66,17 @@ func TestOSubcomandoContaOsPontosDeCadaBancoAntesDeCorrer(t *testing.T) {
 		t.Fatalf("Correr: %v", err)
 	}
 
-	// CGD 18 + Montepio 21 + Novo Banco 27, medidos no grelha.Pontos.
-	const esperados = 18 + 21 + 27
+	// Banco CTT 12 + CGD 18 + Montepio 21 + Novo Banco 27, medidos no
+	// grelha.Pontos. ⚠️ O Banco CTT é o mais barato dos quatro porque tem o
+	// leque mais curto: quatro períodos de mista, dois prazos de fixa, e um
+	// indexante que não é escolhível.
+	const esperados = 12 + 18 + 21 + 27
 	if rel.Pontos != esperados {
 		t.Errorf("%d pontos, esperava %d — se um banco ganhou período fixo ou produto, é aqui que se vê",
 			rel.Pontos, esperados)
 	}
-	if len(rel.Bancos) != 3 {
-		t.Errorf("bancos = %v, esperava os três registados", rel.Bancos)
+	if len(rel.Bancos) != 4 {
+		t.Errorf("bancos = %v, esperava os quatro registados", rel.Bancos)
 	}
 }
 

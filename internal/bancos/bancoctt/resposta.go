@@ -171,6 +171,17 @@ func lerResposta(corpo []byte, p dominio.Pedido) (dominio.Oferta, error) {
 		return o, ilegivel("a TAN", err)
 	}
 
+	// A prestação de topo é a da PRIMEIRA fase — o que o cliente começa a pagar —
+	// e é a mesma que a TAN de topo descreve.
+	//
+	// ⚠️ Sem ela a oferta não é gravável: o CHECK
+	// catalogo_taxas_resposta_completa_quando_sucesso exige `prestacao_mensal`, e
+	// a linha descia a falha por «resposta incompleta» — culpando o banco de uma
+	// leitura que faltava deste lado.
+	if o.Prestacao, err = dinheiroJSON(col.prestacao); err != nil {
+		return o, ilegivel("a prestação", err)
+	}
+
 	if err := lerIndexado(&o, d, col, p); err != nil {
 		return o, err
 	}
@@ -178,7 +189,17 @@ func lerResposta(corpo []byte, p dominio.Pedido) (dominio.Oferta, error) {
 		return o, err
 	}
 	if len(o.Fases) > 0 {
-		if err := dominio.ValidarFases(o.Fases, p.PrazoAnos); err != nil {
+		// ⚠️ Contra o prazo que o BANCO devolveu, e não contra o do pedido. Os
+		// dois divergem sempre que o prazo foi ajustado — pela idade, ou pela
+		// fixa que só existe a 30 e 34 anos —, e validar contra o pedido dava
+		// «as fases acabam ao mês 360 e o prazo é de 480» numa resposta
+		// perfeitamente coerente. O que esta validação afirma é que o plano
+		// cobre o contrato inteiro; qual contrato, diz-lo a resposta.
+		anos, err := anosDeMeses(d.AmortizationPeriodMonths)
+		if err != nil {
+			return o, ilegivel("o prazo", err)
+		}
+		if err := dominio.ValidarFases(o.Fases, anos); err != nil {
 			return o, ilegivel("o plano de fases", err)
 		}
 	}
@@ -303,6 +324,19 @@ func lerFases(d *dados, col coluna, p dominio.Pedido) ([]dominio.Fase, error) {
 		{Meses: fixos, Taxa: *tan, Prestacao: *prestacao},
 		{Meses: prazoMeses - fixos, Taxa: *tanIndexada, Prestacao: *prestacaoIndexada},
 	})
+}
+
+// anosDeMeses converte o prazo que a resposta declara.
+//
+// ⚠️ Um prazo que não seja múltiplo de 12 não se arredonda: 366 meses truncados
+// a 30 anos passariam a validação das fases a afirmar um contrato que não é o
+// que o banco descreveu. Falha alto, que é o que a §5 manda fazer a um campo que
+// deixou de ter a forma conhecida.
+func anosDeMeses(meses int) (int, error) {
+	if meses < 12 || meses%12 != 0 {
+		return 0, fmt.Errorf("o banco devolveu %d meses de prazo, e não são anos inteiros", meses)
+	}
+	return meses / 12, nil
 }
 
 // anotarVendasAssociadas diz o que o preço pressupõe.
