@@ -503,3 +503,27 @@ func traduzir(err error, bancoNome string) *dominio.ErroOferta {
 		Mensagem: fmt.Sprintf("O %s não respondeu: %v", bancoNome, err),
 	}
 }
+
+// PrazoAplicado devolve o prazo que o banco praticou nesta observação, em meses.
+//
+// ⚠️ Existe porque a resposta precisa do prazo e o plano de fases **não se
+// grava**: a §4 não lhe deu coluna, e uma observação relida de `catalogo_taxas`
+// chega sem ele. Sem isto, o `comparar` funcionava sobre observações em memória
+// e partia-se sobre observações lidas da base — e o defeito só apareceria com a
+// base montada, que é o pior sítio para o descobrir.
+//
+// A ordem das fontes é a da fiabilidade, e não a da conveniência:
+//
+//  1. o **plano de fases**, quando existe. É o que o banco descreveu;
+//  2. o **ajuste ao prazo**, quando houve um. É o que ele declarou ter aplicado;
+//  3. o prazo do **pedido**. É o que se lhe perguntou, e sem 1 nem 2 é a melhor
+//     coisa que há — porque não ter ajuste quer dizer que ele não mexeu.
+func PrazoAplicado(o Observacao) int {
+	if n := len(o.Oferta.Fases); n > 0 {
+		return o.Oferta.Fases[n-1].AteMes
+	}
+	if anos, ok := o.Oferta.Aplicado()[string(dominio.AjustadoPrazoAnos)].(int); ok && anos > 0 {
+		return anos * 12
+	}
+	return o.Ponto.Pedido.PrazoAnos * 12
+}

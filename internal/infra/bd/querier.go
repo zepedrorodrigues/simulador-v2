@@ -42,6 +42,17 @@ type Querier interface {
 	// autoridade sobre o que existe, e assim não entra no go.mod uma dependência
 	// de UUID para gerar dezasseis bytes.
 	NovoVarrimentoID(ctx context.Context) (pgtype.UUID, error)
+	// ObservacoesDoVarrimento devolve as linhas de uma corrida, com TUDO o que a
+	// resposta local precisa de reconstruir.
+	//
+	// ⚠️ Difere do ListarPontos, que serve o /api/rate-catalog congelado e traz um
+	// subconjunto: aqui vêm também ltv_min, ltv_max, spread_minimo e base_fixa, sem
+	// os quais não se reconstrói a escala de LTV nem a base da taxa fixa — ou seja,
+	// sem os quais não há preço para quem não caia exactamente no ponto medido.
+	//
+	// Só linhas de sucesso: uma observação falhada é informação sobre o banco, e não
+	// preço com que se responda a alguém.
+	ObservacoesDoVarrimento(ctx context.Context, varrimentoID pgtype.UUID) ([]ObservacoesDoVarrimentoRow, error)
 	// UltimoVarrimentoEm é a guarda de idempotência (`--se-antigo`): diz quando foi
 	// a observação mais recente, para não se dispararem varrimentos em cima uns dos
 	// outros. Nulo quando nunca se varreu nada.
@@ -52,6 +63,14 @@ type Querier interface {
 	// existe para evitar. O v1 estragou a primeira medição assim: cinco corridas em
 	// 14 minutos não são cinco dias de dados.
 	UltimoVarrimentoEm(ctx context.Context) (pgtype.Timestamptz, error)
+	// UltimoVarrimentoID é o id da corrida mais recente. É por ele que a leitura da
+	// comparação escolhe as linhas: uma resposta mistura-se de um varrimento só.
+	//
+	// ⚠️ Não se juntam varrimentos para «preencher buracos». Um banco que falhou no
+	// último não é servido com o preço do anterior sem que alguém o decida — e a
+	// §7.3 tem a razão dura: a Euribor fixa diariamente, e um valor de 23:50 não se
+	// serve às 00:10.
+	UltimoVarrimentoID(ctx context.Context) (pgtype.UUID, error)
 }
 
 var _ Querier = (*Queries)(nil)
