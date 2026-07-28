@@ -71,7 +71,13 @@ paths:
     post:
       operationId: criarSimulacao
       tags: [v1]
-      summary: Abre uma comparação e devolve o identificador para sondar.
+      summary: Compara os bancos e devolve as ofertas todas, de uma vez.
+      description: >-
+        ⚠️ Um pedido, uma resposta. Não há identificador para sondar e não há
+        segundo plano: a resposta sai de uma consulta à grelha de preço e de
+        cálculo local (ARQUITETURA.md §1), e nenhum banco é interrogado neste
+        caminho. O ciclo antigo — 202, sondagem, progresso — descrevia o desenho
+        anterior à inversão de 2026-07-25 e saiu daqui na KAN-32.
       requestBody:
         required: true
         content:
@@ -79,43 +85,16 @@ paths:
             schema:
               $ref: "#/components/schemas/SimulacaoPedido"
       responses:
-        "202":
-          description: Aceite; a comparação corre em segundo plano.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SimulacaoCriada"
-        "400":
-          $ref: "#/components/responses/PedidoInvalido"
-        "429":
-          $ref: "#/components/responses/TectoExcedido"
-        "503":
-          $ref: "#/components/responses/DemasiadasEmCurso"
-
-  /api/v1/simulacoes/{id}:
-    get:
-      operationId: obterSimulacao
-      tags: [v1]
-      summary: O estado e as ofertas até agora. Sondagem, não streaming.
-      description: >-
-        A app faz GET a cada ~1 s enquanto `estado` for `em_curso`. A escolha da
-        sondagem sobre SSE é deliberada (ver docs/API.md): sobrevive a suspensão
-        da app, mudança de rede e reentrada no ecrã.
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
         "200":
-          description: O estado corrente da simulação.
+          description: As ofertas dos bancos pedidos.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Simulacao"
-        "404":
-          $ref: "#/components/responses/NaoEncontrado"
+        "400":
+          $ref: "#/components/responses/PedidoInvalido"
+        "429":
+          $ref: "#/components/responses/TectoExcedido"
 
   /api/rate-catalog:
     get:
@@ -214,12 +193,6 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/RespostaErro"
-    NaoEncontrado:
-      description: Não existe simulação com este identificador.
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/RespostaErro"
     TectoExcedido:
       description: Tecto de pedidos por IP excedido.
       headers:
@@ -227,12 +200,6 @@ components:
           description: Segundos a esperar antes de repetir.
           schema:
             type: integer
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/RespostaErro"
-    DemasiadasEmCurso:
-      description: Demasiadas simulações em curso; tentar mais tarde.
       content:
         application/json:
           schema:
@@ -260,7 +227,6 @@ components:
         [
           id,
           nome,
-          custo,
           inputs,
           periodos_fixos,
           periodos_fixos_modo,
@@ -279,12 +245,6 @@ components:
         nome:
           type: string
           example: Novo Banco
-        custo:
-          type: string
-          enum: [barato, caro]
-          description: >-
-            Dá à app uma expectativa honesta de tempo. Com bancos caros a
-            comparação demora dezenas de segundos; esconder isso parece avaria.
         inputs:
           type: array
           items:
@@ -438,67 +398,18 @@ components:
           type: number
           format: double
 
-    SimulacaoCriada:
-      type: object
-      required: [id, estado, bancos, duracao_estimada_s]
-      properties:
-        id:
-          type: string
-          example: 01J8...
-        estado:
-          $ref: "#/components/schemas/EstadoSimulacao"
-        bancos:
-          type: array
-          items:
-            type: string
-        duracao_estimada_s:
-          type: integer
-
     Simulacao:
       type: object
-      required: [id, estado, pedido_efectivo, progresso, ofertas]
+      description: >-
+        A resposta completa a uma comparação. ⚠️ Não tem `id` nem `estado`: não
+        há nada para sondar depois, e uma simulação de utilizador não é guardada
+        (ARQUITETURA.md §4, «O que não é uma tabela»).
+      required: [ofertas]
       properties:
-        id:
-          type: string
-        estado:
-          $ref: "#/components/schemas/EstadoSimulacao"
-        pedido_efectivo:
-          $ref: "#/components/schemas/PedidoEfectivo"
-        progresso:
-          $ref: "#/components/schemas/Progresso"
         ofertas:
           type: array
           items:
             $ref: "#/components/schemas/Oferta"
-
-    EstadoSimulacao:
-      type: string
-      enum: [em_curso, terminado]
-
-    PedidoEfectivo:
-      type: object
-      description: >-
-        ⚠️ O que foi mesmo simulado. Se a quantização alterou o montante para
-        aproveitar a cache, a app mostra o valor efectivo, não o pedido.
-      required: [montante, valor_imovel, quantizado]
-      properties:
-        montante:
-          type: number
-          format: double
-        valor_imovel:
-          type: number
-          format: double
-        quantizado:
-          type: boolean
-
-    Progresso:
-      type: object
-      required: [prontos, total]
-      properties:
-        prontos:
-          type: integer
-        total:
-          type: integer
 
     Oferta:
       type: object
@@ -506,7 +417,7 @@ components:
         ⚠️ Quando `aplicado` não está vazio, os números não correspondem ao
         pedido — a app é obrigada a mostrar a nota junto do valor. `erro` só
         aparece quando `sucesso` é falso.
-      required: [banco_id, banco_nome, sucesso]
+      required: [banco_id, banco_nome, sucesso, varrido_em]
       properties:
         banco_id:
           type: string
@@ -514,6 +425,16 @@ components:
           type: string
         sucesso:
           type: boolean
+        varrido_em:
+          type: string
+          format: date-time
+          description: >-
+            ⚠️ **Obrigatório, e é a data do VARRIMENTO** de que estes números
+            saíram — não o instante desta resposta. Os preços vêm da grelha
+            (ARQUITETURA.md §4) e podem ter horas; servi-los sem dizer quando
+            foram observados era apresentá-los como cotados agora, que é o que a
+            §4 proíbe. Uma oferta sem isto não é servível.
+          example: "2026-07-28T05:00:11Z"
         tan:
           type: number
           format: double
@@ -550,11 +471,6 @@ components:
           type: array
           items:
             type: string
-        em_cache:
-          type: boolean
-        capturado_em:
-          type: string
-          format: date-time
         erro:
           $ref: "#/components/schemas/OfertaErro"
 

@@ -33,28 +33,11 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Abre uma comparação e devolve o identificador para sondar. */
-        post: operations["criarSimulacao"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/simulacoes/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
         /**
-         * O estado e as ofertas até agora. Sondagem, não streaming.
-         * @description A app faz GET a cada ~1 s enquanto `estado` for `em_curso`. A escolha da sondagem sobre SSE é deliberada (ver docs/API.md): sobrevive a suspensão da app, mudança de rede e reentrada no ecrã.
+         * Compara os bancos e devolve as ofertas todas, de uma vez.
+         * @description ⚠️ Um pedido, uma resposta. Não há identificador para sondar e não há segundo plano: a resposta sai de uma consulta à grelha de preço e de cálculo local (ARQUITETURA.md §1), e nenhum banco é interrogado neste caminho. O ciclo antigo — 202, sondagem, progresso — descrevia o desenho anterior à inversão de 2026-07-25 e saiu daqui na KAN-32.
          */
-        get: operations["obterSimulacao"];
-        put?: never;
-        post?: never;
+        post: operations["criarSimulacao"];
         delete?: never;
         options?: never;
         head?: never;
@@ -128,11 +111,6 @@ export interface components {
             id: string;
             /** @example Novo Banco */
             nome: string;
-            /**
-             * @description Dá à app uma expectativa honesta de tempo. Com bancos caros a comparação demora dezenas de segundos; esconder isso parece avaria.
-             * @enum {string}
-             */
-            custo: "barato" | "caro";
             inputs: components["schemas"]["BancoInput"][];
             periodos_fixos: number[];
             /** @enum {string} */
@@ -221,39 +199,21 @@ export interface components {
             /** Format: double */
             rendimento_mensal: number;
         };
-        SimulacaoCriada: {
-            /** @example 01J8... */
-            id: string;
-            estado: components["schemas"]["EstadoSimulacao"];
-            bancos: string[];
-            duracao_estimada_s: number;
-        };
+        /** @description A resposta completa a uma comparação. ⚠️ Não tem `id` nem `estado`: não há nada para sondar depois, e uma simulação de utilizador não é guardada (ARQUITETURA.md §4, «O que não é uma tabela»). */
         Simulacao: {
-            id: string;
-            estado: components["schemas"]["EstadoSimulacao"];
-            pedido_efectivo: components["schemas"]["PedidoEfectivo"];
-            progresso: components["schemas"]["Progresso"];
             ofertas: components["schemas"]["Oferta"][];
-        };
-        /** @enum {string} */
-        EstadoSimulacao: "em_curso" | "terminado";
-        /** @description ⚠️ O que foi mesmo simulado. Se a quantização alterou o montante para aproveitar a cache, a app mostra o valor efectivo, não o pedido. */
-        PedidoEfectivo: {
-            /** Format: double */
-            montante: number;
-            /** Format: double */
-            valor_imovel: number;
-            quantizado: boolean;
-        };
-        Progresso: {
-            prontos: number;
-            total: number;
         };
         /** @description ⚠️ Quando `aplicado` não está vazio, os números não correspondem ao pedido — a app é obrigada a mostrar a nota junto do valor. `erro` só aparece quando `sucesso` é falso. */
         Oferta: {
             banco_id: string;
             banco_nome: string;
             sucesso: boolean;
+            /**
+             * Format: date-time
+             * @description ⚠️ **Obrigatório, e é a data do VARRIMENTO** de que estes números saíram — não o instante desta resposta. Os preços vêm da grelha (ARQUITETURA.md §4) e podem ter horas; servi-los sem dizer quando foram observados era apresentá-los como cotados agora, que é o que a §4 proíbe. Uma oferta sem isto não é servível.
+             * @example 2026-07-28T05:00:11Z
+             */
+            varrido_em: string;
             /** Format: double */
             tan?: number;
             /** Format: double */
@@ -274,9 +234,6 @@ export interface components {
                 [key: string]: unknown;
             };
             notas?: string[];
-            em_cache?: boolean;
-            /** Format: date-time */
-            capturado_em?: string;
             erro?: components["schemas"]["OfertaErro"];
         };
         Fase: {
@@ -380,29 +337,11 @@ export interface components {
                 "application/json": components["schemas"]["RespostaErro"];
             };
         };
-        /** @description Não existe simulação com este identificador. */
-        NaoEncontrado: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["RespostaErro"];
-            };
-        };
         /** @description Tecto de pedidos por IP excedido. */
         TectoExcedido: {
             headers: {
                 /** @description Segundos a esperar antes de repetir. */
                 "Retry-After"?: number;
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["RespostaErro"];
-            };
-        };
-        /** @description Demasiadas simulações em curso; tentar mais tarde. */
-        DemasiadasEmCurso: {
-            headers: {
                 [name: string]: unknown;
             };
             content: {
@@ -450,32 +389,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Aceite; a comparação corre em segundo plano. */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SimulacaoCriada"];
-                };
-            };
-            400: components["responses"]["PedidoInvalido"];
-            429: components["responses"]["TectoExcedido"];
-            503: components["responses"]["DemasiadasEmCurso"];
-        };
-    };
-    obterSimulacao: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description O estado corrente da simulação. */
+            /** @description As ofertas dos bancos pedidos. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -484,7 +398,8 @@ export interface operations {
                     "application/json": components["schemas"]["Simulacao"];
                 };
             };
-            404: components["responses"]["NaoEncontrado"];
+            400: components["responses"]["PedidoInvalido"];
+            429: components["responses"]["TectoExcedido"];
         };
     };
     obterRateCatalog: {
