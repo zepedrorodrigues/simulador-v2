@@ -14,24 +14,6 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
-// Defines values for BancoCusto.
-const (
-	Barato BancoCusto = "barato"
-	Caro   BancoCusto = "caro"
-)
-
-// Valid indicates whether the value is a known member of the BancoCusto enum.
-func (e BancoCusto) Valid() bool {
-	switch e {
-	case Barato:
-		return true
-	case Caro:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for BancoPeriodosFixosModo.
 const (
 	DaApi  BancoPeriodosFixosModo = "da-api"
@@ -47,24 +29,6 @@ func (e BancoPeriodosFixosModo) Valid() bool {
 	case DoHtml:
 		return true
 	case Lista:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for EstadoSimulacao.
-const (
-	EmCurso   EstadoSimulacao = "em_curso"
-	Terminado EstadoSimulacao = "terminado"
-)
-
-// Valid indicates whether the value is a known member of the EstadoSimulacao enum.
-func (e EstadoSimulacao) Valid() bool {
-	switch e {
-	case EmCurso:
-		return true
-	case Terminado:
 		return true
 	default:
 		return false
@@ -136,9 +100,6 @@ func (e PedidoRateType) Valid() bool {
 
 // Banco defines model for Banco.
 type Banco struct {
-	// Custo Dá à app uma expectativa honesta de tempo. Com bancos caros a comparação demora dezenas de segundos; esconder isso parece avaria.
-	Custo BancoCusto `json:"custo"`
-
 	// EuriborImposto Quando não-nulo, o banco impõe este indexante.
 	EuriborImposto *string `json:"euribor_imposto"`
 
@@ -162,9 +123,6 @@ type Banco struct {
 	Produtos          []Produto              `json:"produtos"`
 }
 
-// BancoCusto Dá à app uma expectativa honesta de tempo. Com bancos caros a comparação demora dezenas de segundos; esconder isso parece avaria.
-type BancoCusto string
-
 // BancoPeriodosFixosModo defines model for Banco.PeriodosFixosModo.
 type BancoPeriodosFixosModo string
 
@@ -184,6 +142,26 @@ type BancosResposta struct {
 	InputsCanonicos []InputCanonico `json:"inputs_canonicos"`
 }
 
+// Comparacao O resultado completo, de uma vez.
+// ⚠️ Não tem `id`, `estado` nem `progresso`, e nenhum dos três falta por esquecimento — a resposta É o cálculo inteiro, e não o primeiro estado de um trabalho que continua. Estavam aqui um `SimulacaoCriada` (`{id, estado, bancos, duracao_estimada_s}`) e um `Simulacao` com `estado: em_curso | terminado` e `progresso: {prontos, total}`: existiam para a app desenhar uma barra enquanto se falava com os bancos. Já não se fala com os bancos no caminho do cliente, e uma barra de progresso sobre uma consulta a Postgres seria teatro.
+// ⚠️ Também não tem `pedido_efectivo`. Aquele campo trazia `{montante, valor_imovel, quantizado}` porque a cache quantizava o montante para partilhar entradas entre pedidos parecidos, e a app tinha de mostrar o valor efectivamente simulado em vez do pedido. Sem cache não há quantização: o cálculo usa o montante que foi pedido, ao cêntimo. O que um banco ajusta (prazo, período fixo, indexante) continua a viajar em `Oferta.aplicado`, com a nota obrigatória agarrada — por banco, que é onde o ajuste acontece, e não num campo global que fingia valer para todos.
+type Comparacao struct {
+	// CalculadoEm Quando ESTA resposta foi calculada.
+	// ⚠️ Não é o `capturado_em` de cada oferta, que é quando o preço foi medido no banco. Os dois são diferentes por construção, e é precisamente essa diferença que diz à pessoa a idade do preço que está a ver — por isso viajam os dois, e por isso nenhum deles é opcional numa oferta com sucesso.
+	CalculadoEm time.Time `json:"calculado_em"`
+	Ofertas     []Oferta  `json:"ofertas"`
+}
+
+// ComparacaoPedido defines model for ComparacaoPedido.
+type ComparacaoPedido struct {
+	// Bancos Example: ["cgd","novobanco","montepio","bancoctt"]
+	Bancos []string `json:"bancos"`
+	Pedido Pedido   `json:"pedido"`
+
+	// Produtos Produtos escolhidos por banco. Chave = id do banco.
+	Produtos *map[string][]string `json:"produtos,omitempty"`
+}
+
 // DetalheErro defines model for DetalheErro.
 type DetalheErro struct {
 	// Campo O campo que falhou, quando aplicável.
@@ -193,9 +171,6 @@ type DetalheErro struct {
 	Codigo   string `json:"codigo"`
 	Mensagem string `json:"mensagem"`
 }
-
-// EstadoSimulacao defines model for EstadoSimulacao.
-type EstadoSimulacao string
 
 // Fase defines model for Fase.
 type Fase struct {
@@ -219,25 +194,44 @@ type InputCanonico struct {
 // Oferta ⚠️ Quando `aplicado` não está vazio, os números não correspondem ao pedido — a app é obrigada a mostrar a nota junto do valor. `erro` só aparece quando `sucesso` é falso.
 type Oferta struct {
 	// Aplicado O que o banco usou de facto, quando difere do pedido. Vazio = igual ao pedido.
-	Aplicado    *map[string]interface{} `json:"aplicado,omitempty"`
-	BancoId     string                  `json:"banco_id"`
-	BancoNome   string                  `json:"banco_nome"`
-	CapturadoEm *time.Time              `json:"capturado_em,omitempty"`
-	EmCache     *bool                   `json:"em_cache,omitempty"`
+	Aplicado  *map[string]interface{} `json:"aplicado,omitempty"`
+	BancoId   string                  `json:"banco_id"`
+	BancoNome string                  `json:"banco_nome"`
+
+	// CapturadoEm Quando o preço foi MEDIDO no banco, durante o varrimento — não quando esta resposta foi calculada (isso é o `calculado_em` da Comparacao).
+	// ⚠️ Presente sempre que `sucesso` é verdadeiro, e é o campo mais importante desta lista para a honestidade do produto: é o único que diz à pessoa que está a ver um preço de ontem à noite e não de agora. A app é obrigada a mostrá-lo. Escondê-lo apresentaria dados varridos como se fossem uma consulta ao vivo ao banco, que é exactamente o que este serviço não faz.
+	CapturadoEm *time.Time `json:"capturado_em,omitempty"`
 
 	// Erro Estruturado de propósito: `codigo` é para a app decidir, `mensagem` é para a pessoa ler, em português.
-	Erro              *OfertaErro `json:"erro,omitempty"`
-	EuriborIndexante  *string     `json:"euribor_indexante,omitempty"`
-	EuriborValor      *float64    `json:"euribor_valor,omitempty"`
-	Fases             *[]Fase     `json:"fases,omitempty"`
-	Mtic              *float64    `json:"mtic,omitempty"`
-	Notas             *[]string   `json:"notas,omitempty"`
-	PrestacaoMensal   *float64    `json:"prestacao_mensal,omitempty"`
-	ProdutosAplicados *[]string   `json:"produtos_aplicados,omitempty"`
-	Spread            *float64    `json:"spread,omitempty"`
-	Sucesso           bool        `json:"sucesso"`
-	Taeg              *float64    `json:"taeg,omitempty"`
-	Tan               *float64    `json:"tan,omitempty"`
+	Erro             *OfertaErro `json:"erro,omitempty"`
+	EuriborIndexante *string     `json:"euribor_indexante,omitempty"`
+	EuriborValor     *float64    `json:"euribor_valor,omitempty"`
+	Fases            *[]Fase     `json:"fases,omitempty"`
+
+	// Mtic ⚠️ DERIVADO, pela mesma razão e sobre o mesmo modelo de encargos que a `taeg`. Ver `pressupostos`.
+	Mtic  *float64  `json:"mtic,omitempty"`
+	Notas *[]string `json:"notas,omitempty"`
+
+	// Pressupostos As hipóteses sob as quais a `taeg` e o `mtic` desta oferta foram derivados, em português e legíveis por uma pessoa.
+	// ⚠️ Lista à parte de `notas`, e não misturada nela, de propósito: as duas têm estatutos diferentes. Uma `nota` é um aviso sobre o que aconteceu a ESTE pedido — o banco encurtou o prazo, o degrau de LTV não estava resolvido. Um pressuposto é uma hipótese de cálculo que a MCD obriga a declarar junto do número que dela depende (Anexo I, Parte II; Anexo II). Empacotadas na mesma lista, a app ficava sem forma de as apresentar como o que são.
+	// ⚠️ Não vazia sempre que `taeg` ou `mtic` vêm preenchidos. Vazia com um deles preenchido é defeito nosso, e não um caso legítimo.
+	Pressupostos *[]string `json:"pressupostos,omitempty"`
+
+	// PrestacaoMensal Amortização francesa sobre a `tan` e o montante pedido. É aritmética exacta, não medição — e é por isso que responde ao montante desta pessoa, e não ao do cenário de referência.
+	PrestacaoMensal   *float64  `json:"prestacao_mensal,omitempty"`
+	ProdutosAplicados *[]string `json:"produtos_aplicados,omitempty"`
+
+	// Spread ⚠️ Do INTERVALO de LTV medido que contém o rácio pedido, e não de uma banda assumida. Num degrau que não se conseguiu resolver é o lado mais CARO do intervalo (Directiva 2014/17/UE, Anexo I, Parte II, alínea (d)), e `notas` traz a frase que nomeia os dois lados.
+	Spread  *float64 `json:"spread,omitempty"`
+	Sucesso bool     `json:"sucesso"`
+
+	// Taeg ⚠️ DERIVADA, não medida. Ver `pressupostos`, que é obrigatório sempre que este campo vem preenchido.
+	// A TAEG depende dos encargos (comissões, imposto, seguros) e o seguro de vida depende de quem pede — e a série de mercado é varrida com um titular NEUTRO e fictício, sobre um cenário de referência fixo (§4). Não existe, portanto, TAEG medida para esta pessoa. O que se faz é atribuir a encargos a diferença entre a TAEG e a TAN observadas no ponto de referência, e reamortizar sobre os fluxos deste pedido.
+	// ⚠️ A repartição desses encargos entre comissões, imposto e seguro NÃO está medida: é inferida. Quem lê este número tem de o tratar como indicativo, e a app é obrigada a mostrar `pressupostos` junto dele — é o que o Anexo I e o Anexo II da MCD mandam fazer a um valor que depende de hipóteses declaradas.
+	Taeg *float64 `json:"taeg,omitempty"`
+
+	// Tan Spread do degrau de LTV que contém o rácio pedido, mais a Euribor do tenor aplicável — ambos medidos. Na fixa e na mista, a taxa da fase fixa é a observação do período que o banco pratica.
+	Tan *float64 `json:"tan,omitempty"`
 }
 
 // OfertaErro Estruturado de propósito: `codigo` é para a app decidir, `mensagem` é para a pessoa ler, em português.
@@ -275,13 +269,6 @@ type PedidoFinalidade string
 // PedidoRateType defines model for Pedido.RateType.
 type PedidoRateType string
 
-// PedidoEfectivo ⚠️ O que foi mesmo simulado. Se a quantização alterou o montante para aproveitar a cache, a app mostra o valor efectivo, não o pedido.
-type PedidoEfectivo struct {
-	Montante    float64 `json:"montante"`
-	Quantizado  bool    `json:"quantizado"`
-	ValorImovel float64 `json:"valor_imovel"`
-}
-
 // Point ⚠️ `captured_at` é `string` (sem fuso, formato v1) de propósito. `products` é sempre lista, nunca null. Os números são `number`, não string.
 type Point struct {
 	BankId   string `json:"bank_id"`
@@ -316,12 +303,6 @@ type Produto struct {
 	Id         string `json:"id"`
 	PorOmissao bool   `json:"por_omissao"`
 	Rotulo     string `json:"rotulo"`
-}
-
-// Progresso defines model for Progresso.
-type Progresso struct {
-	Prontos int `json:"prontos"`
-	Total   int `json:"total"`
 }
 
 // RateCatalog defines model for RateCatalog.
@@ -359,37 +340,6 @@ type Scenario struct {
 	ValorImovel float64 `json:"valor_imovel"`
 }
 
-// Simulacao defines model for Simulacao.
-type Simulacao struct {
-	Estado  EstadoSimulacao `json:"estado"`
-	Id      string          `json:"id"`
-	Ofertas []Oferta        `json:"ofertas"`
-
-	// PedidoEfectivo ⚠️ O que foi mesmo simulado. Se a quantização alterou o montante para aproveitar a cache, a app mostra o valor efectivo, não o pedido.
-	PedidoEfectivo PedidoEfectivo `json:"pedido_efectivo"`
-	Progresso      Progresso      `json:"progresso"`
-}
-
-// SimulacaoCriada defines model for SimulacaoCriada.
-type SimulacaoCriada struct {
-	Bancos           []string        `json:"bancos"`
-	DuracaoEstimadaS int             `json:"duracao_estimada_s"`
-	Estado           EstadoSimulacao `json:"estado"`
-
-	// Id Example: 01J8...
-	Id string `json:"id"`
-}
-
-// SimulacaoPedido defines model for SimulacaoPedido.
-type SimulacaoPedido struct {
-	// Bancos Example: ["cgd","novobanco","montepio","bancoctt"]
-	Bancos []string `json:"bancos"`
-	Pedido Pedido   `json:"pedido"`
-
-	// Produtos Produtos escolhidos por banco. Chave = id do banco.
-	Produtos *map[string][]string `json:"produtos,omitempty"`
-}
-
 // Snapshot defines model for Snapshot.
 type Snapshot struct {
 	// CapturedAt ⚠️ Sem fuso, formato v1.
@@ -410,14 +360,11 @@ type Titular struct {
 	RendimentoMensal float64            `json:"rendimento_mensal"`
 }
 
-// DemasiadasEmCurso defines model for DemasiadasEmCurso.
-type DemasiadasEmCurso = RespostaErro
-
-// NaoEncontrado defines model for NaoEncontrado.
-type NaoEncontrado = RespostaErro
-
 // PedidoInvalido defines model for PedidoInvalido.
 type PedidoInvalido = RespostaErro
+
+// SerieIndisponivel defines model for SerieIndisponivel.
+type SerieIndisponivel = RespostaErro
 
 // TectoExcedido defines model for TectoExcedido.
 type TectoExcedido = RespostaErro
@@ -433,8 +380,8 @@ type ObterRateCatalogParams struct {
 	Limit *int    `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
-// CriarSimulacaoJSONRequestBody defines body for CriarSimulacao for application/json ContentType.
-type CriarSimulacaoJSONRequestBody = SimulacaoPedido
+// CompararOfertasJSONRequestBody defines body for CompararOfertas for application/json ContentType.
+type CompararOfertasJSONRequestBody = ComparacaoPedido
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
@@ -447,12 +394,9 @@ type ServerInterface interface {
 	// ListarBancos Tudo o que a app precisa para montar o formulário adaptativo.
 	// (GET /api/v1/bancos)
 	ListarBancos(w http.ResponseWriter, r *http.Request)
-	// CriarSimulacao Abre uma comparação e devolve o identificador para sondar.
-	// (POST /api/v1/simulacoes)
-	CriarSimulacao(w http.ResponseWriter, r *http.Request)
-	// ObterSimulacao O estado e as ofertas até agora. Sondagem, não streaming.
-	// (GET /api/v1/simulacoes/{id})
-	ObterSimulacao(w http.ResponseWriter, r *http.Request, id string)
+	// CompararOfertas Compara as ofertas dos bancos escolhidos. Síncrono.
+	// (POST /api/v1/comparacoes)
+	CompararOfertas(w http.ResponseWriter, r *http.Request)
 	// Saude Sondagem de saúde trivial para a plataforma.
 	// (GET /healthz)
 	Saude(w http.ResponseWriter, r *http.Request)
@@ -480,15 +424,9 @@ func (_ Unimplemented) ListarBancos(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// CriarSimulacao Abre uma comparação e devolve o identificador para sondar.
-// (POST /api/v1/simulacoes)
-func (_ Unimplemented) CriarSimulacao(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// ObterSimulacao O estado e as ofertas até agora. Sondagem, não streaming.
-// (GET /api/v1/simulacoes/{id})
-func (_ Unimplemented) ObterSimulacao(w http.ResponseWriter, r *http.Request, id string) {
+// CompararOfertas Compara as ofertas dos bancos escolhidos. Síncrono.
+// (POST /api/v1/comparacoes)
+func (_ Unimplemented) CompararOfertas(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -620,37 +558,11 @@ func (siw *ServerInterfaceWrapper) ListarBancos(w http.ResponseWriter, r *http.R
 	handler.ServeHTTP(w, r)
 }
 
-// CriarSimulacao operation middleware
-func (siw *ServerInterfaceWrapper) CriarSimulacao(w http.ResponseWriter, r *http.Request) {
+// CompararOfertas operation middleware
+func (siw *ServerInterfaceWrapper) CompararOfertas(w http.ResponseWriter, r *http.Request) {
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.CriarSimulacao(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// ObterSimulacao operation middleware
-func (siw *ServerInterfaceWrapper) ObterSimulacao(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-	_ = err
-
-	// ------------- Path parameter "id" -------------
-	var id string
-
-	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ObterSimulacao(w, r, id)
+		siw.Handler.CompararOfertas(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -791,10 +703,7 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/api/v1/bancos", wrapper.ListarBancos)
 	})
 	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/api/v1/simulacoes", wrapper.CriarSimulacao)
-	})
-	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/api/v1/simulacoes/{id}", wrapper.ObterSimulacao)
+		r.Post(options.BaseURL+"/api/v1/comparacoes", wrapper.CompararOfertas)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/rate-catalog", wrapper.ObterRateCatalog)
