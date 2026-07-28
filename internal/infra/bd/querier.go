@@ -20,6 +20,9 @@ type Querier interface {
 	// uma finalidade ou de um produto é medida no LTV de referência e não afirma
 	// intervalo nenhum (ARQUITETURA.md §4). O LTV dessa observação continua
 	// derivável de montante/valor_imovel, que já vão na linha.
+	// ⚠️ residuo_prestacao é nulo onde não havia o que comparar — linha de falha,
+	// oferta sem plano de fases, ou plano de zero meses (§4, «O resíduo mora numa
+	// coluna»). Nulo não é zero: zero seria uma medição que fechou ao cêntimo.
 	InserirTaxa(ctx context.Context, arg InserirTaxaParams) (int64, error)
 	// ListarPontos serve o points[] do /api/rate-catalog. Os filtros são todos
 	// opcionais (nulo = não filtra); `limite` nulo devolve tudo (LIMIT NULL no PG).

@@ -35,6 +35,7 @@ type CatalogoTaxa struct {
 	LtvMin           pgtype.Numeric
 	LtvMax           pgtype.Numeric
 	SpreadMinimo     pgtype.Numeric
+	ResiduoPrestacao pgtype.Numeric
 }
 
 type Limite struct {

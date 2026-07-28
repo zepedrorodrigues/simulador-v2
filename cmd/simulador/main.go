@@ -139,6 +139,20 @@ func varrimento(ctx context.Context, url string, args []string, saida io.Writer)
 	for _, s := range rel.BancosSaltados {
 		_, _ = fmt.Fprintf(saida, "  banco saltado — %s: %s\n", s.ID, s.Motivo)
 	}
+	// ⚠️ Uma escala não medida é um banco que ficou sem a dimensão do LTV, e não
+	// é um banco saltado: os pontos dele estão gravados. O relatório já a
+	// trazia desde a sétima fatia da KAN-16 e ninguém a imprimia — ou seja, a
+	// corrida em que nenhum banco deu escala nenhuma era, para quem a corria,
+	// indistinguível de uma corrida boa.
+	for _, s := range rel.EscalasNaoMedidas {
+		_, _ = fmt.Fprintf(saida, "  escala de LTV não medida — %s: %s\n", s.ID, s.Motivo)
+	}
+	// O resíduo da §7.4. Se ele cresce, alguma coisa mudou do lado do banco — e
+	// tem de aparecer como número a quem acabou de varrer, não só na coluna.
+	for _, r := range rel.Residuos {
+		_, _ = fmt.Fprintf(saida, "  resíduo — %s: mediana %s €, maior %s € (%d medidos)\n",
+			r.ID, r.Mediano, r.Maior, r.Medidos)
+	}
 	return nil
 }
 

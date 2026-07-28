@@ -17,14 +17,14 @@ INSERT INTO catalogo_taxas (
     varrimento_id, capturado_em, cenario, banco_id, banco_nome, rate_type,
     valor_imovel, montante, prazo_anos, fixed_period_years, euribor_indexante,
     tan, taeg, spread, euribor_valor, prestacao_mensal, mtic,
-    ltv_min, ltv_max, spread_minimo,
+    ltv_min, ltv_max, spread_minimo, residuo_prestacao,
     produtos, aplicado, notas, sucesso, erro
 ) VALUES (
     $1, $2, $3, $4, $5, $6,
     $7, $8, $9, $10, $11,
     $12, $13, $14, $15, $16, $17,
-    $18, $19, $20,
-    $21, $22, $23, $24, $25
+    $18, $19, $20, $21,
+    $22, $23, $24, $25, $26
 )
 RETURNING id
 `
@@ -50,6 +50,7 @@ type InserirTaxaParams struct {
 	LtvMin           pgtype.Numeric
 	LtvMax           pgtype.Numeric
 	SpreadMinimo     pgtype.Numeric
+	ResiduoPrestacao pgtype.Numeric
 	Produtos         []byte
 	Aplicado         []byte
 	Notas            []byte
@@ -66,6 +67,9 @@ type InserirTaxaParams struct {
 // uma finalidade ou de um produto é medida no LTV de referência e não afirma
 // intervalo nenhum (ARQUITETURA.md §4). O LTV dessa observação continua
 // derivável de montante/valor_imovel, que já vão na linha.
+// ⚠️ residuo_prestacao é nulo onde não havia o que comparar — linha de falha,
+// oferta sem plano de fases, ou plano de zero meses (§4, «O resíduo mora numa
+// coluna»). Nulo não é zero: zero seria uma medição que fechou ao cêntimo.
 func (q *Queries) InserirTaxa(ctx context.Context, arg InserirTaxaParams) (int64, error) {
 	row := q.db.QueryRow(ctx, inserirTaxa,
 		arg.VarrimentoID,
@@ -88,6 +92,7 @@ func (q *Queries) InserirTaxa(ctx context.Context, arg InserirTaxaParams) (int64
 		arg.LtvMin,
 		arg.LtvMax,
 		arg.SpreadMinimo,
+		arg.ResiduoPrestacao,
 		arg.Produtos,
 		arg.Aplicado,
 		arg.Notas,
