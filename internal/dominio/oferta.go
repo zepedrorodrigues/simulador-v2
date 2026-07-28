@@ -230,11 +230,12 @@ type Oferta struct {
 	// existir o estado impossível "sucesso com erro".
 	Erro *ErroOferta
 
-	// Não exportados de propósito: só entram por Acrescentar e Anotar, e é
-	// assim que um ajuste sem nota deixa de ser construível a partir de fora
-	// deste pacote.
-	ajustes []Ajuste
-	notas   []string
+	// Não exportados de propósito: só entram por Acrescentar, Anotar e
+	// Pressupor, e é assim que um ajuste sem nota deixa de ser construível a
+	// partir de fora deste pacote.
+	ajustes      []Ajuste
+	notas        []string
+	pressupostos []string
 }
 
 // Falhar constrói uma oferta de falha.
@@ -266,6 +267,36 @@ func (o *Oferta) Anotar(nota string) {
 		return
 	}
 	o.notas = append(o.notas, nota)
+}
+
+// Pressupor regista uma hipótese sob a qual um número desta oferta foi
+// DERIVADO — a TAEG e o MTIC de uma resposta local, hoje.
+//
+// ⚠️ Vive à parte das notas, e o contrato publica-o à parte, porque é outra
+// coisa: uma nota explica o que o banco fez ao pedido, um pressuposto declara em
+// que assunções NOSSAS o número assenta. Misturá-los deixava a pessoa sem saber
+// qual dos números vem do banco e qual sai de um modelo — que é a distinção de
+// que a §4 faz depender toda a honestidade desta resposta.
+//
+// É o Anexo I, Parte II e o Anexo II da MCD: quem serve um valor dependente de
+// hipóteses declara-as junto dele.
+func (o *Oferta) Pressupor(hipoteses ...string) {
+	for _, h := range hipoteses {
+		if h != "" {
+			o.pressupostos = append(o.pressupostos, h)
+		}
+	}
+}
+
+// Pressupostos devolve as hipóteses declaradas.
+//
+// ⚠️ Vazio com a TAEG ou o MTIC preenchidos por derivação é defeito nosso, e
+// quem serializa recusa-o. Vazio com eles medidos pelo banco é o estado normal:
+// aí não há hipótese nenhuma a declarar.
+func (o Oferta) Pressupostos() []string {
+	saida := make([]string, len(o.pressupostos))
+	copy(saida, o.pressupostos)
+	return saida
 }
 
 // Ajustes devolve o que o banco mudou face ao pedido.
