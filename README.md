@@ -1,12 +1,19 @@
 # simulador-v2
 
-Compara ofertas de crédito à habitação dos bancos portugueses, correndo os
-simuladores públicos ao vivo, e publica a série temporal do preçário de mercado.
+Compara ofertas de crédito à habitação dos bancos portugueses e publica a série
+temporal do preçário de mercado. Os simuladores públicos dos bancos correm-se em
+**hora morta**, por varrimento sobre cenários fixos; uma comparação
+responde-se por consulta a essa série e **cálculo local**, sem falar com banco
+nenhum.
 
 **Go · PostgreSQL · chi · pgx/sqlc · OpenAPI.** Serve **apenas JSON**: a
 interface é uma app React Native, em repositório à parte.
 
-> **Estado: em planeamento.** Ainda não há código de negócio — só as fundações.
+> **Estado: em construção.** O lado da escrita corre de ponta a ponta em três
+> bancos — domínio, contrato dos bancos, grelha derivada dos requisitos de cada
+> um, escala de LTV medida e gravação do lote por `simulador varrer`. Falta o
+> lado da leitura: o cálculo local que responde a um cliente, e o servidor HTTP
+> que o serve (KAN-13).
 
 Reescrita do [`simulador-credito-habitacao`](../simulador-credito-habitacao)
 (Python/FastAPI, 10 bancos, a funcionar). O v1 continua a ser a referência
@@ -141,7 +148,11 @@ go test -race -tags rede ./internal/bancos/cgd/
 
 ## Fronteiras
 
-- `GET /api/v1/*` — a app. Versionada, evolui connosco.
+- `/api/v1/*` — a app. Versionada, evolui connosco.
+  `POST /api/v1/comparacoes` responde **síncrono**, num 200: não há trabalho em
+  segundo plano, identificador para sondar nem estado `em_curso`, e nada do
+  pedido é persistido — é por isso que não existe
+  `GET /api/v1/comparacoes/{id}`.
 - `GET /api/rate-catalog` — o `viabilidade-imobiliaria`, autenticado por
   `X-API-Key`. ⚠️ **Congelada e compatível ao byte com o v1**: mudar o formato
   parte o outro repositório.
@@ -155,19 +166,29 @@ postura escondida não é postura.
   os bancos publicam nos seus sites. **Nunca** endpoints de registo de contactos,
   de marcação ou de envio de propostas — não se geram *leads* nem se entrega o
   que quer que seja a um banco em nome de ninguém.
-- **Frequência baixa, e cache a sério.** Cada comparação custa dezenas de
-  segundos de trabalho aos servidores dos bancos, e parte do nosso IP. Por isso
-  há cache com validade ajustada ao custo de cada banco, um *gate* que impede o
-  mesmo banco de ser interrogado em paralelo, e um tecto de pedidos por IP. Não é
-  só protecção nossa — é não ser um peso para quem não pediu nada.
+- **Nenhum pedido de utilizador chega a um banco.** Os simuladores só se
+  interrogam pelo varrimento, em hora morta, sobre cenários fixos — nunca porque
+  alguém abriu a app. Uma comparação lê a série já varrida e calcula localmente.
+  Isto não é uma optimização: é o que faz a carga que pomos nos bancos depender
+  do nosso calendário e não do nosso tráfego. Ao lado disso, um *travão* impede o
+  mesmo banco de ser varrido em paralelo (advisory lock em Postgres, para travar
+  entre processos e não só dentro de um), e uma guarda recusa dois varrimentos
+  seguidos. Não é só protecção nossa — é não ser um peso para quem não pediu
+  nada.
 - **Sem dados pessoais.** As simulações de utilizador **não são guardadas**: são
   corridas e devolvidas. A única coisa persistida a longo prazo é a série de
   mercado, varrida sobre cenários fixos com um titular neutro e fictício. Não há
   contas, sessões, emails nem histórico por pessoa, e não vai haver.
-- **Os valores são indicativos.** São o que o simulador público de cada banco
-  devolveu, na data registada. **Não são propostas, não vinculam o banco e não
-  são aconselhamento financeiro.** Uma proposta a sério vem do banco, por escrito,
-  depois de avaliar quem a pede.
+- **Os valores são indicativos, e não são todos da mesma qualidade.** O spread e
+  a taxa da fase fixa são **medidos** — é o que o simulador público de cada banco
+  devolveu, na data registada, e essa data viaja em cada oferta. A prestação é
+  aritmética exacta sobre eles. Mas a **TAEG e o MTIC são derivados**, não
+  medidos: dependem dos encargos, e o seguro de vida depende de quem pede,
+  enquanto a série é varrida com um titular neutro e fictício. Cada oferta
+  declara em `pressupostos` as hipóteses de que o seu número depende, como o
+  Anexo I e o Anexo II da MCD mandam. **Não são propostas, não vinculam o banco e
+  não são aconselhamento financeiro.** Uma proposta a sério vem do banco, por
+  escrito, depois de avaliar quem a pede.
 - **Há perguntas em aberto, e estão assumidas como tal** — nomeadamente as que
   exigem parecer jurídico antes de isto ser publicado numa loja de aplicações.
   Não estão resolvidas por omissão.
