@@ -1,0 +1,14 @@
+{
+  "$schema": "../../node_modules/@darwin/config/gln-schema.json",
+  "appKey": "key",
+  "appName": "simuladorchspa",
+  "logLevel": 1,
+  "technicalGrouping": "gln-key-simuladorchspa",
+  "app": {
+    "client_id": "CLIENT-ID-REDIGIDO-NA-CAPTURA",
+    "bff_url": "https://api-eeic.apis.santander.pt/santander/eeic/home_simulations",
+    "recaptchaSiteKey": "RECAPTCHA-REDIGIDA-NA-CAPTURA",
+    "enableQualtricsFeedback": false,
+    "enableGtmInEmbedded": true
+  }
+}

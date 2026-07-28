@@ -1,0 +1,97 @@
+{
+  "availableRates": [
+    {
+      "rate": {
+        "type": "VARIABLE",
+        "indexantes": [
+          "6EM"
+        ],
+        "rateDurationYears": null
+      },
+      "promotion": {
+        "code": "VAR05",
+        "description": "SPREAD PROMOCIONAL 0,5%",
+        "spread": 0.5,
+        "minLoanDurationYears": 4
+      }
+    },
+    {
+      "rate": {
+        "type": "MIXED",
+        "indexantes": [
+          "DOZ",
+          "6EM"
+        ],
+        "rateDurationYears": 2
+      },
+      "promotion": {
+        "code": "MM280",
+        "description": "TAXA MISTA FIXA 2 ANOS - 2,80%",
+        "spread": 0,
+        "minLoanDurationYears": 3
+      }
+    },
+    {
+      "rate": {
+        "type": "MIXED",
+        "indexantes": [
+          "M28",
+          "6EM"
+        ],
+        "rateDurationYears": 3
+      },
+      "promotion": {
+        "code": "MS285",
+        "description": "TAXA MISTA FIXA 3 ANOS - 2,85%",
+        "spread": 0,
+        "minLoanDurationYears": 4
+      }
+    },
+    {
+      "rate": {
+        "type": "MIXED",
+        "indexantes": [
+          "290",
+          "6EM"
+        ],
+        "rateDurationYears": 4
+      },
+      "promotion": {
+        "code": "MM290",
+        "description": "TAXA MISTA FIXA 4 ANOS - 2,90%",
+        "spread": 0,
+        "minLoanDurationYears": 5
+      }
+    },
+    {
+      "rate": {
+        "type": "FIXED",
+        "indexantes": [
+          "P10"
+        ],
+        "rateDurationYears": 10
+      },
+      "promotion": null
+    },
+    {
+      "rate": {
+        "type": "FIXED",
+        "indexantes": [
+          "P20"
+        ],
+        "rateDurationYears": 20
+      },
+      "promotion": null
+    },
+    {
+      "rate": {
+        "type": "FIXED",
+        "indexantes": [
+          "P30"
+        ],
+        "rateDurationYears": 30
+      },
+      "promotion": null
+    }
+  ]
+}
