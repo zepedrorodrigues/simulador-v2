@@ -1,0 +1,15 @@
+{
+  "limits": {
+    "minPropertyPrice": 5882.35,
+    "maxPropertyPrice": 15000000,
+    "minAllowedLoanAmount": 5000,
+    "minLoanDurationMonths": 12,
+    "minAge": 18,
+    "maxAge": 80,
+    "youthPlanEligibility": {
+      "minAge": 18,
+      "maxAge": 35,
+      "maxPropertyPrice": 450000
+    }
+  }
+}

@@ -39,8 +39,13 @@ func TestUmPedidoUmaRespostaComTodosOsBancos(t *testing.T) {
 	var c api.Comparacao
 	lerJSON(t, resposta, &c)
 
-	if len(c.Ofertas) != 4 {
-		t.Fatalf("pediram-se quatro bancos e vieram %d ofertas", len(c.Ofertas))
+	// ⚠️ A contagem sai do REGISTO e não é um número fixo. O que este teste
+	// afirma é «um pedido, uma resposta com todos os bancos» — e um banco novo
+	// não é uma regressão disso. Quem apanha um banco que entrou ou saiu sem
+	// ninguém dar por isso é o teste do subcomando, que conta os PONTOS de cada
+	// um: aí o número tem de ser fixo, porque é o custo da corrida.
+	if esperados := len(bancos.Predefinido().IDs()); len(c.Ofertas) != esperados {
+		t.Fatalf("o registo tem %d bancos e a resposta trouxe %d ofertas", esperados, len(c.Ofertas))
 	}
 	if c.CalculadoEm.IsZero() {
 		t.Error("a comparação não diz quando foi calculada")

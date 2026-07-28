@@ -9,6 +9,7 @@ import (
 	"github.com/zepedrorodrigues/simulador-v2/internal/bancos/cgd"
 	"github.com/zepedrorodrigues/simulador-v2/internal/bancos/montepio"
 	"github.com/zepedrorodrigues/simulador-v2/internal/bancos/novobanco"
+	"github.com/zepedrorodrigues/simulador-v2/internal/bancos/santander"
 	"github.com/zepedrorodrigues/simulador-v2/internal/bancos/transporte"
 )
 
@@ -116,9 +117,9 @@ func (r *Registo) Todos(ts Transportes) ([]Banco, error) {
 // A lista é explícita, e não montada por init() com imports cegos: quem lê este
 // ficheiro vê os bancos todos, e acrescentar um é uma linha que aparece no diff.
 //
-// Tem a CGD (KAN-9), o Novo Banco (KAN-10), o Montepio (KAN-11) e o Banco CTT
-// (KAN-12). O Santander (KAN-18) e o Crédito Agrícola (KAN-19) entram cada um
-// aqui, no passo 9 da lista de CONTRATO-BANCO.md §7.
+// Tem a CGD (KAN-9), o Novo Banco (KAN-10), o Montepio (KAN-11), o Banco CTT
+// (KAN-12) e o Santander (KAN-18). O Crédito Agrícola (KAN-19) entra aqui, no
+// passo 9 da lista de CONTRATO-BANCO.md §7.
 //
 // ⚠️ É aqui que se converte a assinatura: cada banco recebe o transporte de que
 // precisa e devolve o seu tipo, e não o bancos.Banco. Se um banco importasse
@@ -134,6 +135,7 @@ func Predefinido() *Registo {
 	registarOuExplodir(r, cgd.BancoID, func(ts Transportes) Banco { return cgd.Novo(ts.HTTP) })
 	registarOuExplodir(r, montepio.BancoID, func(ts Transportes) Banco { return montepio.Novo(ts.ComSessao) })
 	registarOuExplodir(r, novobanco.BancoID, func(ts Transportes) Banco { return novobanco.Novo(ts.HTTP) })
+	registarOuExplodir(r, santander.IDBanco, func(ts Transportes) Banco { return santander.Novo(ts.HTTP) })
 	return r
 }
 

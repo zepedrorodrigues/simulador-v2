@@ -1,0 +1,38 @@
+[
+  {
+    "simulationRate": "FIXED",
+    "indexantes": [
+      "P30"
+    ],
+    "loanDurationYears": 30,
+    "bonifiedPlanDetails": {
+      "installments": [
+        {
+          "firstMonth": 1,
+          "monthlyPayment": 1001.52,
+          "referenceRateCode": "P30",
+          "referenceRateValue": 4.4,
+          "spread": 0.0,
+          "tan": 4.4
+        }
+      ],
+      "taeg": 5.1,
+      "mtic": 384541.08
+    },
+    "nonBonifiedPlanDetails": {
+      "installments": [
+        {
+          "firstMonth": 1,
+          "monthlyPayment": 1001.52,
+          "referenceRateCode": "P30",
+          "referenceRateValue": 4.4,
+          "spread": 0.0,
+          "tan": 4.4
+        }
+      ],
+      "taeg": 5.1,
+      "mtic": 384541.08
+    },
+    "isValid": true
+  }
+]

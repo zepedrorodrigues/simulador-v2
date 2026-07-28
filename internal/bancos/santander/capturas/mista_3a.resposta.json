@@ -1,0 +1,55 @@
+[
+  {
+    "simulationRate": "MIXED",
+    "indexantes": [
+      "M28",
+      "6EM"
+    ],
+    "loanDurationYears": 30,
+    "bonifiedPlanDetails": {
+      "installments": [
+        {
+          "firstMonth": 1,
+          "monthlyPayment": 827.11,
+          "referenceRateCode": "M28",
+          "referenceRateValue": 2.85,
+          "spread": 0.0,
+          "tan": 2.85
+        },
+        {
+          "firstMonth": 37,
+          "monthlyPayment": 881.38,
+          "referenceRateCode": "6EM",
+          "referenceRateValue": 2.596,
+          "spread": 0.8,
+          "tan": 3.396
+        }
+      ],
+      "taeg": 3.9,
+      "mtic": 338546.14
+    },
+    "nonBonifiedPlanDetails": {
+      "installments": [
+        {
+          "firstMonth": 1,
+          "monthlyPayment": 1043.29,
+          "referenceRateCode": "M28",
+          "referenceRateValue": 2.85,
+          "spread": 1.9,
+          "tan": 4.75
+        },
+        {
+          "firstMonth": 37,
+          "monthlyPayment": 1015.15,
+          "referenceRateCode": "6EM",
+          "referenceRateValue": 2.596,
+          "spread": 1.9,
+          "tan": 4.496
+        }
+      ],
+      "taeg": 5.3,
+      "mtic": 390555.92
+    },
+    "isValid": true
+  }
+]

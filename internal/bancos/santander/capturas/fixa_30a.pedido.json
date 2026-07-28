@@ -1,0 +1,22 @@
+{
+  "holderBirthDates": [
+    "1996-01-15"
+  ],
+  "occupationType": "PERMANENT",
+  "simulationPurpose": "HOUSE_PURCHASE",
+  "propertyPrice": 250000,
+  "propertyLocation": "CONTINENT",
+  "loanAmount": 200000,
+  "downPayment": 50000,
+  "loanDurationYears": 30,
+  "rates": [
+    {
+      "type": "FIXED",
+      "indexantes": [
+        "P30"
+      ],
+      "rateDurationYears": 30
+    }
+  ],
+  "youthPlan": false
+}

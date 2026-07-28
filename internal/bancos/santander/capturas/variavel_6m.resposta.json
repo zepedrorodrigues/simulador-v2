@@ -1,0 +1,54 @@
+[
+  {
+    "simulationRate": "VARIABLE",
+    "indexantes": [
+      "6EM"
+    ],
+    "loanDurationYears": 30,
+    "bonifiedPlanDetails": {
+      "installments": [
+        {
+          "firstMonth": 1,
+          "monthlyPayment": 853.6,
+          "referenceRateCode": "6EM",
+          "referenceRateValue": 2.596,
+          "spread": 0.5,
+          "tan": 3.096
+        },
+        {
+          "firstMonth": 37,
+          "monthlyPayment": 883.74,
+          "referenceRateCode": "6EM",
+          "referenceRateValue": 2.596,
+          "spread": 0.8,
+          "tan": 3.396
+        }
+      ],
+      "taeg": 4.0,
+      "mtic": 340291.83
+    },
+    "nonBonifiedPlanDetails": {
+      "installments": [
+        {
+          "firstMonth": 1,
+          "monthlyPayment": 1012.9,
+          "referenceRateCode": "6EM",
+          "referenceRateValue": 2.596,
+          "spread": 1.9,
+          "tan": 4.496
+        },
+        {
+          "firstMonth": 37,
+          "monthlyPayment": 1012.89,
+          "referenceRateCode": "6EM",
+          "referenceRateValue": 2.596,
+          "spread": 1.9,
+          "tan": 4.496
+        }
+      ],
+      "taeg": 5.2,
+      "mtic": 388704.37
+    },
+    "isValid": true
+  }
+]
