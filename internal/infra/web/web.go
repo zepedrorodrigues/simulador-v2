@@ -44,10 +44,17 @@ type Servidor struct {
 	catalogo FonteDoCatalogo
 	registo  *bancos.Registo
 	agora    func() time.Time
+
+	// chaves são as credenciais de máquina do /api/rate-catalog. Vazio deixa a
+	// fronteira aberta — modo de desenvolvimento, com aviso alto no arranque.
+	chaves []string
 }
 
 // Novo monta o servidor. `agora` nulo vale time.Now.
-func Novo(fonte Fonte, catalogo FonteDoCatalogo, registo *bancos.Registo, agora func() time.Time) (*Servidor, error) {
+func Novo(
+	fonte Fonte, catalogo FonteDoCatalogo, registo *bancos.Registo,
+	chaves []string, agora func() time.Time,
+) (*Servidor, error) {
 	if fonte == nil {
 		return nil, errors.New("servidor sem fonte de observações — não haveria com que responder")
 	}
@@ -57,7 +64,7 @@ func Novo(fonte Fonte, catalogo FonteDoCatalogo, registo *bancos.Registo, agora 
 	if agora == nil {
 		agora = time.Now
 	}
-	return &Servidor{fonte: fonte, catalogo: catalogo, registo: registo, agora: agora}, nil
+	return &Servidor{fonte: fonte, catalogo: catalogo, registo: registo, chaves: chaves, agora: agora}, nil
 }
 
 // Rotas devolve o router com tudo montado.
@@ -75,7 +82,7 @@ func (s *Servidor) Rotas() http.Handler {
 	r.Get("/healthz", s.saude)
 	r.Get("/api/v1/bancos", s.listarBancos)
 	r.Post("/api/v1/comparacoes", s.compararOfertas)
-	r.Get("/api/rate-catalog", s.obterRateCatalog)
+	r.Get("/api/rate-catalog", s.exigirChave(s.obterRateCatalog))
 
 	return r
 }
