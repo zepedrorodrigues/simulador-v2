@@ -197,14 +197,48 @@ func semProdutosEntre(obs []varrimento.Observacao) (varrimento.Observacao, bool)
 // encargos identificáveis (ver `dominio.AjustarEncargos`), e inventar uma
 // repartição era exactamente o que essa função existe para recusar.
 func (b *medidoDeUmBanco) ajustarEncargos() {
+	// ⚠️ A ordem é FIXADA antes de ajustar, e não é preciosismo — é um defeito
+	// medido. O `AjustarEncargos` ancora na observação de prazo mais curto e na
+	// de mais longo; quando duas partilham o prazo (a variável e a mista a 30
+	// anos, por exemplo) e têm TAN diferentes, **qual delas é a âncora decide o
+	// resultado**. A iteração de um mapa em Go é aleatória a cada corrida, e
+	// isso fazia a TAEG variar entre execuções do mesmo teste: medido a
+	// 2026-07-28, uma falha em seis corridas, com a TAEG a saltar de 4,4 % para
+	// 5,476 %.
+	//
+	// Uma resposta que muda sem os dados mudarem não é servível, e um teste que
+	// falha uma vez em seis é pior do que um que falha sempre: se ninguém o
+	// tivesse corrido de seguida, entrava assim.
+	cenarios := make([]string, 0, len(b.porCenario))
+	for cenario := range b.porCenario {
+		cenarios = append(cenarios, cenario)
+	}
+	slices.Sort(cenarios)
+
 	var obs []dominio.ObservacaoDeEncargo
-	for _, lista := range b.porCenario {
-		for _, o := range lista {
+	for _, cenario := range cenarios {
+		for _, o := range b.porCenario[cenario] {
 			// ⚠️ Só as linhas SEM produtos. Misturar preços bonificados com
 			// preços de tabela no mesmo ajuste faria o modelo atribuir a
 			// encargos uma diferença que é desconto — e o desconto já está
 			// medido à parte, nos descontos.
 			if len(o.Oferta.ProdutosAplicados) != 0 {
+				continue
+			}
+			// ⚠️ E só a TAXA VARIÁVEL, que é onde a 7.ª família varre os prazos.
+			//
+			// Misturar modalidades parecia inofensivo — os encargos são do banco
+			// e não do produto, e cada observação traz a sua TAN — e não é:
+			// medido a 2026-07-28, com a fixa a 10 anos (TAN 5,55) como âncora
+			// curta e a mista a 30 (TAN 3,1) como longa, o ajuste dava uma TAEG
+			// de 5,476 % sobre uma TAN de 3,8 %. As duas âncoras descrevem
+			// produtos diferentes, e a diferença entre elas não é encargo.
+			//
+			// A consequência fica declarada: aplicar à fixa e à mista os
+			// encargos ajustados na variável assume que eles não mudam com a
+			// modalidade. É hipótese, não medição — e o resíduo contradi-la se
+			// for falsa.
+			if o.Ponto.Pedido.TipoTaxa != dominio.TaxaVariavel {
 				continue
 			}
 			if o.Oferta.TAN == nil || o.Oferta.TAEG == nil {

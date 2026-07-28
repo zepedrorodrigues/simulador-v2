@@ -26,6 +26,7 @@ import (
 
 	"github.com/zepedrorodrigues/simulador-v2/internal/infra/esquema"
 	"github.com/zepedrorodrigues/simulador-v2/internal/infra/varrer"
+	"github.com/zepedrorodrigues/simulador-v2/internal/infra/web"
 )
 
 func main() {
@@ -68,8 +69,7 @@ func executar(ctx context.Context, args []string, saida io.Writer) error {
 		if err := esquema.ExigirEmDia(ctx, db); err != nil {
 			return err
 		}
-		_, _ = fmt.Fprintln(saida, "esquema em dia; servidor HTTP ainda não montado (KAN-13)")
-		return nil
+		return web.Servir(ctx, url, os.Getenv("ENDERECO_HTTP"), saida)
 	case "varrer":
 		// ⚠️ O varrimento exige a base em dia pela mesma razão que o servir: um
 		// varrimento contra um esquema velho grava linhas a que faltam colunas
