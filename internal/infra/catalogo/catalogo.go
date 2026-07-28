@@ -66,8 +66,15 @@ func (p *Postgres) GravarLote(ctx context.Context, obs []varrimento.Observacao) 
 		return "", fmt.Errorf("cunhar o varrimento_id: %w", err)
 	}
 
+	// ⚠️ As escalas de LTV saem do PRÓPRIO lote, e é isso que torna a base da
+	// taxa fixa gravável: ela é a TAN de uma linha menos o spread de OUTRA — a
+	// do degrau em que o LTV dela cai —, e as duas estão aqui. Quem lê para
+	// responder a um cliente lê uma linha só, e é por isso que a subtracção se
+	// faz agora e não lá (§4, «Onde a base vive»).
+	escalas := varrimento.EscalasPorBanco(obs)
+
 	for i, o := range obs {
-		params, err := linha(id, o)
+		params, err := linha(id, o, escalas[o.Oferta.BancoID])
 		if err != nil {
 			return "", fmt.Errorf("observação %d (%s, %s): %w", i+1, o.Oferta.BancoID, o.Ponto.Cenario, err)
 		}
@@ -132,7 +139,7 @@ func indexados(p dominio.Pedido, o dominio.Oferta) []string {
 // degrau da escala. Numa observação de ponto ficam nulos: ela não afirma
 // intervalo de LTV nenhum, e o LTV dela continua derivável de
 // montante/valor_imovel, que vão na linha (§4).
-func linha(id pgtype.UUID, o varrimento.Observacao) (bd.InserirTaxaParams, error) {
+func linha(id pgtype.UUID, o varrimento.Observacao, escala dominio.EscalaDeLTV) (bd.InserirTaxaParams, error) {
 	p, oferta := o.Ponto.Pedido, o.Oferta
 
 	// ⚠️ Sem instante de captura não se grava. A coluna é timestamptz NOT NULL,
@@ -201,6 +208,20 @@ func linha(id pgtype.UUID, o varrimento.Observacao) (bd.InserirTaxaParams, error
 		}
 	}
 
+	// A base da taxa fixa: a TAN menos o spread do degrau em que o LTV desta
+	// observação cai (§4, «O que se guarda por período é a BASE»).
+	//
+	// ⚠️ Fica NULA quando o varrimento não mediu escala deste banco, e isso não
+	// é falha: a linha continua a ser uma medição verdadeira. O que ela deixa de
+	// poder é responder a um cliente noutro LTV — e a §4 diz que nesse caso não
+	// se serve, em vez de se servir a TAN de um degrau que não é o dele.
+	base := pgtype.Numeric{}
+	if sucesso {
+		if b, ok := varrimento.BaseDaTaxaFixa(o, escala); ok {
+			base = numero(b.Decimal())
+		}
+	}
+
 	produtos, err := paraJSON(oferta.ProdutosAplicados, "produtos")
 	if err != nil {
 		return bd.InserirTaxaParams{}, err
@@ -236,6 +257,7 @@ func linha(id pgtype.UUID, o varrimento.Observacao) (bd.InserirTaxaParams, error
 		LtvMax:           ltvMax,
 		SpreadMinimo:     spreadMinimo,
 		ResiduoPrestacao: residuo,
+		BaseFixa:         base,
 		Produtos:         produtos,
 		Aplicado:         aplicado,
 		Notas:            notas,

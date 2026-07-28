@@ -11,19 +11,24 @@
 -- ⚠️ residuo_prestacao é nulo onde não havia o que comparar — linha de falha,
 -- oferta sem plano de fases, ou plano de zero meses (§4, «O resíduo mora numa
 -- coluna»). Nulo não é zero: zero seria uma medição que fechou ao cêntimo.
+--
+-- ⚠️ base_fixa é nula em tudo o que não seja taxa fixa, e também numa linha de
+-- taxa fixa cujo varrimento não mediu escala de LTV nenhuma — aí não há por onde
+-- corrigir a TAN para o LTV de quem pergunta, e a linha grava-se como dado bruto
+-- mas não se serve (§4, «Onde a base vive»).
 -- name: InserirTaxa :one
 INSERT INTO catalogo_taxas (
     varrimento_id, capturado_em, cenario, banco_id, banco_nome, rate_type,
     valor_imovel, montante, prazo_anos, fixed_period_years, euribor_indexante,
     tan, taeg, spread, euribor_valor, prestacao_mensal, mtic,
-    ltv_min, ltv_max, spread_minimo, residuo_prestacao,
+    ltv_min, ltv_max, spread_minimo, residuo_prestacao, base_fixa,
     produtos, aplicado, notas, sucesso, erro
 ) VALUES (
     $1, $2, $3, $4, $5, $6,
     $7, $8, $9, $10, $11,
     $12, $13, $14, $15, $16, $17,
-    $18, $19, $20, $21,
-    $22, $23, $24, $25, $26
+    $18, $19, $20, $21, $22,
+    $23, $24, $25, $26, $27
 )
 RETURNING id;
 

@@ -32,23 +32,24 @@ func TestMigrarCriaTabelasEReverterDesfazAUltima(t *testing.T) {
 		t.Fatal("Migrar devia ter criado catalogo_taxas e limites")
 	}
 
-	// A 00003 acrescenta o intervalo de LTV medido e a 00004 o resíduo da §7.4.
-	for _, coluna := range []string{"ltv_min", "ltv_max", "spread_minimo", "residuo_prestacao"} {
+	// A 00003 acrescenta o intervalo de LTV medido, a 00004 o resíduo da §7.4 e
+	// a 00005 a base da taxa fixa.
+	for _, coluna := range []string{"ltv_min", "ltv_max", "spread_minimo", "residuo_prestacao", "base_fixa"} {
 		if !existeColuna(t, db, "catalogo_taxas", coluna) {
 			t.Errorf("Migrar devia ter criado catalogo_taxas.%s", coluna)
 		}
 	}
 
-	// Down desfaz a última migração aplicada — hoje a 00004_residuo.
+	// Down desfaz a última migração aplicada — hoje a 00005_base_da_taxa_fixa.
 	if err := esquema.Reverter(ctx, db); err != nil {
 		t.Fatalf("Reverter: %v", err)
 	}
-	if existeColuna(t, db, "catalogo_taxas", "residuo_prestacao") {
-		t.Error("Reverter devia ter removido catalogo_taxas.residuo_prestacao")
+	if existeColuna(t, db, "catalogo_taxas", "base_fixa") {
+		t.Error("Reverter devia ter removido catalogo_taxas.base_fixa")
 	}
 	// ⚠️ E só essa. Um Down que levasse a migração anterior atrás apagaria o
 	// intervalo de LTV medido — ~86 pedidos por banco — sem ninguém pedir.
-	for _, coluna := range []string{"ltv_min", "ltv_max", "spread_minimo"} {
+	for _, coluna := range []string{"ltv_min", "ltv_max", "spread_minimo", "residuo_prestacao"} {
 		if !existeColuna(t, db, "catalogo_taxas", coluna) {
 			t.Errorf("Reverter desfez mais do que a última: catalogo_taxas.%s desapareceu", coluna)
 		}
