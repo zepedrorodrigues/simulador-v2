@@ -141,9 +141,9 @@ func (c catalogoEmMemoria) PontosDoCatalogo(
 	return c.pontos, nil
 }
 
-func servidorComCatalogo(t *testing.T, pontos []dominio.PontoDeMercado) *web.Servidor {
+func servidorComCatalogo(t *testing.T, pontos []dominio.PontoDeMercado, chaves ...string) *web.Servidor {
 	t.Helper()
-	s, err := web.Novo(fonteEmMemoria{}, catalogoEmMemoria{pontos: pontos}, bancos.Predefinido(), relogio)
+	s, err := web.Novo(fonteEmMemoria{}, catalogoEmMemoria{pontos: pontos}, bancos.Predefinido(), chaves, relogio)
 	if err != nil {
 		t.Fatalf("Novo: %v", err)
 	}
