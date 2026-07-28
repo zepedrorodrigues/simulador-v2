@@ -470,7 +470,7 @@ func verPrestacaoBateComAFrancesa(t *testing.T, o varrimento.Observacao) {
 	}
 	// A segunda fase amortiza o que sobrou, ao ritmo da taxa nova.
 	primeira, segunda := o.Oferta.Fases[0], o.Oferta.Fases[1]
-	emDivida, err := dominio.CapitalEmDivida(
+	emDivida, err := dominio.SaldoApos(
 		o.Ponto.Pedido.Montante, primeira.Taxa, mesesTotais(o), primeira.AteMes)
 	if err != nil {
 		t.Fatalf("capital em dívida ao fim da fase fixa: %v", err)
