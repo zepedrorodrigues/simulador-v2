@@ -327,3 +327,28 @@ func (p *Postgres) ContarPedido(
 func intervaloDe(d time.Duration) pgtype.Interval {
 	return pgtype.Interval{Microseconds: d.Microseconds(), Valid: true}
 }
+
+// SnapshotsDoCatalogo lista os varrimentos: um por corrida, do mais recente
+// para o mais antigo.
+//
+// ⚠️ Sem filtros e sem limite, ao contrário do `PontosDoCatalogo`. São uma linha
+// por varrimento — algumas dezenas por ano de operação —, e paginar uma lista
+// desse tamanho era desenhar para um consumidor que ainda não existe. Quando a
+// tabela crescer ao ponto de isto doer, o contrato ganha os parâmetros e
+// discute-se então o formato.
+func (p *Postgres) SnapshotsDoCatalogo(ctx context.Context) ([]dominio.Snapshot, error) {
+	linhas, err := bd.New(p.pool).ListarSnapshots(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("listar os varrimentos: %w", err)
+	}
+
+	snapshots := make([]dominio.Snapshot, 0, len(linhas))
+	for _, l := range linhas {
+		snapshots = append(snapshots, dominio.Snapshot{
+			VarrimentoID: uuidTexto(l.VarrimentoID),
+			CapturadoEm:  l.CapturadoEm.Time,
+			Linhas:       int(l.Linhas),
+		})
+	}
+	return snapshots, nil
+}

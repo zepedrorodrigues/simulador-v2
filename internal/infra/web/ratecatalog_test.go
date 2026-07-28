@@ -133,12 +133,20 @@ func TestOsTiposDoRateCatalogSaoOsDoV1(t *testing.T) {
 
 // --- ajudantes ---------------------------------------------------------------------
 
-type catalogoEmMemoria struct{ pontos []dominio.PontoDeMercado }
+type catalogoEmMemoria struct {
+	pontos    []dominio.PontoDeMercado
+	snapshots []dominio.Snapshot
+	erroDeLer error
+}
 
 func (c catalogoEmMemoria) PontosDoCatalogo(
 	context.Context, dominio.FiltroDoCatalogo,
 ) ([]dominio.PontoDeMercado, error) {
 	return c.pontos, nil
+}
+
+func (c catalogoEmMemoria) SnapshotsDoCatalogo(context.Context) ([]dominio.Snapshot, error) {
+	return c.snapshots, c.erroDeLer
 }
 
 func servidorComCatalogo(t *testing.T, pontos []dominio.PontoDeMercado, chaves ...string) *web.Servidor {

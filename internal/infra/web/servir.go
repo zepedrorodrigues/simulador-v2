@@ -69,6 +69,16 @@ func Servir(ctx context.Context, url, endereco string, saida io.Writer) error {
 		return fmt.Errorf("ler os proxies de confiança: %w", err)
 	}
 
+	// ⚠️ Uma origem mal escrita **falha o arranque**, e não é severidade a mais.
+	// Uma entrada com barra final ou com caminho nunca casa com o `Origin` que o
+	// browser envia: o CORS fica ligado, a configuração parece correcta, e a app
+	// recebe erros que não nomeiam nada. Recusar aqui é o único sítio onde ainda
+	// há quem leia a mensagem.
+	origens, err := OrigensDe(os.Getenv("ORIGENS_PERMITIDAS"))
+	if err != nil {
+		return fmt.Errorf("ler as origens permitidas: %w", err)
+	}
+
 	cat := catalogo.NovoPostgres(pool)
 	servidor, err := Novo(cat, cat, bancos.Predefinido(), chaves, time.Now)
 	if err != nil {
@@ -77,6 +87,14 @@ func Servir(ctx context.Context, url, endereco string, saida io.Writer) error {
 	// ⚠️ O tecto liga-se sempre. Sem proxies declarados ele conta pelo endereço
 	// da ligação, que é o comportamento seguro: é atrás de um proxy que ele
 	// precisa de ajuda para saber quem é quem, e é aí que o v1 se enganou.
+	servidor = servidor.
+		ComDiario(DiarioDeOmissao(saida)).
+		ComOrigens(origens)
+	if len(origens) == 0 {
+		_, _ = fmt.Fprintln(saida,
+			"CORS desligado (nenhuma ORIGENS_PERMITIDAS declarada): só a mesma origem chama esta API")
+	}
+
 	servidor = servidor.ComTecto(cat, Tecto{
 		Pedidos:            PedidosOmissao,
 		Janela:             JanelaOmissao,

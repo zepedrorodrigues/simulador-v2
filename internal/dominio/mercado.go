@@ -57,3 +57,22 @@ type PontoDeMercado struct {
 	// caros por lhes faltar o desconto, não por cobrarem mais.
 	Produtos []string
 }
+
+// Snapshot é um varrimento visto de fora: quando correu e quantas linhas
+// deixou.
+//
+// ⚠️ É o que o `/api/rate-catalog/snapshots` publica, e serve para uma pergunta
+// que os pontos não respondem: **de quando é a série que estou a ler, e está
+// completa?** Um varrimento com 40 linhas onde os outros têm 96 é um varrimento
+// em que metade dos bancos falhou — e isso não se vê nos pontos que sobraram,
+// porque esses estão todos certos.
+type Snapshot struct {
+	VarrimentoID string
+	CapturadoEm  time.Time
+
+	// Linhas é a contagem de observações do varrimento, de sucesso e de falha.
+	// ⚠️ Conta as duas de propósito: é o total que diz se a corrida foi inteira,
+	// e uma contagem só de sucessos escondia precisamente a corrida em que
+	// metade dos bancos caiu.
+	Linhas int
+}
