@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -55,8 +56,16 @@ func Servir(ctx context.Context, url, endereco string, saida io.Writer) error {
 	}
 	defer pool.Close()
 
+	chaves, err := ChavesDe(os.Getenv("API_KEYS"))
+	if err != nil {
+		return fmt.Errorf("ler as chaves de API: %w", err)
+	}
+	if len(chaves) == 0 {
+		avisoDeChaveAberta(saida)
+	}
+
 	cat := catalogo.NovoPostgres(pool)
-	servidor, err := Novo(cat, cat, bancos.Predefinido(), time.Now)
+	servidor, err := Novo(cat, cat, bancos.Predefinido(), chaves, time.Now)
 	if err != nil {
 		return fmt.Errorf("montar o servidor: %w", err)
 	}

@@ -101,7 +101,7 @@ func TestUmaOfertaSemDataDoVarrimentoNaoEServida(t *testing.T) {
 // TestSemVarrimentoNaoSeCulpaOsBancos: o serviço não ter dados é diferente de os
 // bancos estarem em baixo, e a resposta tem de o distinguir.
 func TestSemVarrimentoNaoSeCulpaOsBancos(t *testing.T) {
-	s, err := web.Novo(fonteVazia{}, nil, bancos.Predefinido(), relogio)
+	s, err := web.Novo(fonteVazia{}, nil, bancos.Predefinido(), nil, relogio)
 	if err != nil {
 		t.Fatalf("Novo: %v", err)
 	}
@@ -222,7 +222,7 @@ func (fonteVazia) UltimoVarrimento(context.Context) ([]varrimento.Observacao, er
 
 func servidor(t *testing.T, obs []varrimento.Observacao) *web.Servidor {
 	t.Helper()
-	s, err := web.Novo(fonteEmMemoria{obs: obs}, nil, bancos.Predefinido(), relogio)
+	s, err := web.Novo(fonteEmMemoria{obs: obs}, nil, bancos.Predefinido(), nil, relogio)
 	if err != nil {
 		t.Fatalf("Novo: %v", err)
 	}
