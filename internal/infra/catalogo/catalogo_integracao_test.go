@@ -556,6 +556,145 @@ func TestOResiduoENuloOndeNaoHaviaOQueComparar(t *testing.T) {
 	}
 }
 
+// A base da taxa fixa na coluna. ⚠️ Mede-se contra a base a sério porque o que
+// se afirma é a diferença entre um número gravado e um NULO, e porque o CHECK
+// `base_so_na_taxa_fixa` só existe lá.
+
+// TestUmaLinhaDeTaxaFixaGravaABaseEnaoATAN é o critério de pronto da KAN-41.
+//
+// A observação é medida num degrau e servida a quem cai noutro: guardar a TAN
+// dava-lhe o preço do degrau errado — 0,70 p.p. na CGD, medido no cartesiano.
+func TestUmaLinhaDeTaxaFixaGravaABaseEnaoATAN(t *testing.T) {
+	pool := subirBase(t)
+	cat := catalogo.NovoPostgres(pool)
+
+	// Um lote como o varrimento o produz: os degraus da escala, mais a
+	// observação de taxa fixa medida a 67 % — dentro do degrau de spread 2,050.
+	lote := append(degrausDaCGD(t), fixaDaCGD(t))
+
+	if _, err := cat.GravarLote(t.Context(), lote); err != nil {
+		t.Fatalf("gravar o lote: %v", err)
+	}
+
+	base := lerBaseFixa(t, pool)
+	if !base.Valid {
+		t.Fatal("a linha de taxa fixa ficou sem base, e o lote trazia a escala do banco")
+	}
+	// TAN 5,550 medida no degrau de spread 2,050 → base 3,500.
+	if got := numeroTexto(t, base); got != "3.500" {
+		t.Errorf("base_fixa = %s, e 5,550 menos o spread 2,050 do degrau dá 3.500", got)
+	}
+}
+
+func TestSemEscalaMedidaALinhaDeTaxaFixaFicaSemBase(t *testing.T) {
+	pool := subirBase(t)
+	cat := catalogo.NovoPostgres(pool)
+
+	// O mesmo lote, sem os degraus: o varrimento não mediu a escala deste banco.
+	if _, err := cat.GravarLote(t.Context(), []varrimento.Observacao{fixaDaCGD(t)}); err != nil {
+		t.Fatalf("gravar: %v", err)
+	}
+
+	// ⚠️ A linha grava-se — a TAN é um número real que o banco devolveu — mas
+	// sem base. Nula é «não há por onde corrigir para o LTV de quem pergunta»,
+	// e quem responde não a serve. Zero seria dizer que a base é zero.
+	if base := lerBaseFixa(t, pool); base.Valid {
+		t.Errorf("gravou-se base %s num varrimento que não mediu escala nenhuma", numeroTexto(t, base))
+	}
+	if n := contarLinhas(t, pool); n != 1 {
+		t.Errorf("a linha devia gravar-se na mesma: ficaram %d", n)
+	}
+}
+
+func TestSoATaxaFixaTemBase(t *testing.T) {
+	pool := subirBase(t)
+	cat := catalogo.NovoPostgres(pool)
+
+	// A observação de prova é variável, e vai com os degraus da escala ao lado.
+	lote := append(degrausDaCGD(t), observacaoDeProva())
+
+	if _, err := cat.GravarLote(t.Context(), lote); err != nil {
+		t.Fatalf("gravar: %v", err)
+	}
+
+	// ⚠️ Na variável o spread é publicado à parte e a identidade fecha com a
+	// Euribor: subtrair o spread à TAN seria subtrair duas vezes o mesmo número.
+	var comBase int
+	err := pool.QueryRow(t.Context(),
+		`SELECT count(*) FROM catalogo_taxas WHERE base_fixa IS NOT NULL AND rate_type <> 'fixa'`).Scan(&comBase)
+	if err != nil {
+		t.Fatalf("contar: %v", err)
+	}
+	if comBase != 0 {
+		t.Errorf("%d linha(s) que não são de taxa fixa ficaram com base", comBase)
+	}
+}
+
+// degrausDaCGD são os quatro degraus medidos a 2026-07-28, como o varrimento os
+// grava: cada um com a observação que traz o spread servido.
+func degrausDaCGD(t *testing.T) []varrimento.Observacao {
+	t.Helper()
+
+	medidos := []struct{ de, ate, spread string }{
+		{"0.30", "0.333125", "1.950"},
+		{"0.333125", "0.6665625", "2.000"},
+		{"0.6665625", "0.6775", "2.050"},
+		{"0.6775", "0.90", "1.350"},
+	}
+
+	obs := make([]varrimento.Observacao, 0, len(medidos))
+	for _, m := range medidos {
+		spread := taxaDe(m.spread)
+		o := observacaoDeProva()
+		o.Oferta.Spread = &spread
+		o.Degrau = &dominio.DegrauLTV{De: racioDe(m.de), Ate: racioDe(m.ate), Spread: spread}
+		obs = append(obs, o)
+	}
+	return obs
+}
+
+// fixaDaCGD é a observação de taxa fixa a 10 anos, medida a 67 % de LTV — TAN
+// 5,550, dentro do degrau de spread 2,050.
+func fixaDaCGD(t *testing.T) varrimento.Observacao {
+	t.Helper()
+
+	tan, taeg := taxaDe("5.550"), taxaDe("5.900")
+	prestacao, mtic := dinheiroDe(2_900), dinheiroDe(350_000)
+	return varrimento.Observacao{
+		Ponto: varrimento.Ponto{
+			Cenario: "fixa/10/propria",
+			Pedido: dominio.Pedido{
+				ValorImovel: dominio.DinheiroDeInteiro(400_000),
+				Montante:    dominio.DinheiroDeInteiro(268_000), // LTV 0,67
+				PrazoAnos:   10,
+				TipoTaxa:    dominio.TaxaFixa,
+				Finalidade:  dominio.FinalidadePropria,
+				Localizacao: dominio.LocalizacaoContinente,
+			},
+		},
+		Oferta: dominio.Oferta{
+			BancoID:     "cgd",
+			BancoNome:   "Caixa Geral de Depósitos",
+			TAN:         &tan,
+			TAEG:        &taeg,
+			Prestacao:   &prestacao,
+			MTIC:        &mtic,
+			CapturadoEm: time.Now(),
+		},
+	}
+}
+
+func lerBaseFixa(t *testing.T, pool *pgxpool.Pool) pgtype.Numeric {
+	t.Helper()
+	var base pgtype.Numeric
+	err := pool.QueryRow(t.Context(),
+		`SELECT base_fixa FROM catalogo_taxas WHERE rate_type = 'fixa'`).Scan(&base)
+	if err != nil {
+		t.Fatalf("ler a base: %v", err)
+	}
+	return base
+}
+
 func lerResiduo(t *testing.T, pool *pgxpool.Pool) pgtype.Numeric {
 	t.Helper()
 	var residuo pgtype.Numeric

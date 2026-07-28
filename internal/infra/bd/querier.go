@@ -23,6 +23,11 @@ type Querier interface {
 	// ⚠️ residuo_prestacao é nulo onde não havia o que comparar — linha de falha,
 	// oferta sem plano de fases, ou plano de zero meses (§4, «O resíduo mora numa
 	// coluna»). Nulo não é zero: zero seria uma medição que fechou ao cêntimo.
+	//
+	// ⚠️ base_fixa é nula em tudo o que não seja taxa fixa, e também numa linha de
+	// taxa fixa cujo varrimento não mediu escala de LTV nenhuma — aí não há por onde
+	// corrigir a TAN para o LTV de quem pergunta, e a linha grava-se como dado bruto
+	// mas não se serve (§4, «Onde a base vive»).
 	InserirTaxa(ctx context.Context, arg InserirTaxaParams) (int64, error)
 	// ListarPontos serve o points[] do /api/rate-catalog. Os filtros são todos
 	// opcionais (nulo = não filtra); `limite` nulo devolve tudo (LIMIT NULL no PG).
