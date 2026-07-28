@@ -1,0 +1,88 @@
+# O serviço no Fly (KAN-22).
+#
+# ⚠️ **Este ficheiro não cria nada.** A app e a base de dados criam-se à mão, uma
+# vez, com os comandos que estão no `README.md`. O que aqui está é o que o
+# `fly deploy` lê — e é versionado precisamente para o deploy não depender de
+# ninguém se lembrar de uma opção na linha de comandos.
+#
+# ⚠️ **Nada de segredos aqui.** O `DATABASE_URL` e as `API_KEYS` entram por
+# `fly secrets set`, que os guarda encriptados e nunca os escreve no
+# repositório. O que está em `[env]` é configuração pública: quem a ler não
+# ganha acesso a nada.
+
+app = "simulador-v2"
+primary_region = "mad"          # Madrid — o mais perto de Lisboa que o Fly tem
+
+[build]
+  dockerfile = "Dockerfile"
+
+# ⚠️ **As migrações correm ANTES de a versão nova receber tráfego**, e é isto que
+# faz a §4 continuar verdadeira em produção: «não há auto-migração». O binário
+# recusa-se a servir uma base por migrar — medido: `simulador servir` contra uma
+# base limpa sai com «base de dados por migrar — corre `simulador migrar` antes
+# de servir» —, portanto isto não é conveniência, é a única forma de a versão
+# nova arrancar.
+#
+# Se falhar, o Fly aborta o release e a versão antiga continua a servir. É o
+# comportamento que se quer: uma migração que não passa não deve levar o serviço
+# à frente.
+[deploy]
+  release_command = "/simulador migrar"
+
+[env]
+  # ⚠️ Também está no Dockerfile, e é de propósito: quem correr a imagem sem este
+  # ficheiro — em Docker local, noutra plataforma — tem de a ver a servir na
+  # mesma. O default do binário é o loopback, e dentro de um contentor isso não
+  # recebe nada.
+  ENDERECO_HTTP = "0.0.0.0:8080"
+
+  # As origens da app web. ⚠️ Vazio desliga o CORS, e é o default seguro: preenche
+  # isto quando a app web tiver domínio. `*` é recusado ao arranque.
+  # ORIGENS_PERMITIDAS = "https://simulador-v2-app.fly.dev"
+
+  # ⚠️ **POR MEDIR, e não se adivinha.** O tecto por IP precisa de saber quem
+  # está à frente dele. Deixado vazio, conta pelo endereço da LIGAÇÃO — que aqui
+  # é o proxy do Fly, igual para toda a gente: o tecto do site inteiro passa a
+  # ser 60 pedidos por 10 minutos, e o primeiro visitante tranca os restantes.
+  # **É literalmente o bug de produção do v1** (ARQUITETURA.md §7).
+  #
+  # O erro contrário é pior: declarar uma rede larga de mais deixa quem estiver
+  # nela escolher o seu IP no `X-Forwarded-For` e contornar o tecto de vez.
+  #
+  # Mede-se no primeiro deploy, com um pedido a sério, e escreve-se aqui a rede
+  # exacta de onde o proxy fala. Até estar medido fica vazio — o tecto apertado
+  # de mais é um problema visível, e o tecto contornável não é.
+  # PROXIES_DE_CONFIANCA = ""
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+
+  # ⚠️ Adormece sem tráfego e acorda no primeiro pedido. Um serviço que responde
+  # de uma consulta a Postgres arranca em milissegundos, e isto é a diferença
+  # entre pagar uma máquina sempre a andar e pagar o que se usa.
+  #
+  # ⚠️ **E `min_machines_running = 0` não afecta o varrimento**, que corre noutra
+  # máquina, agendada (ver o README). Se um dia o varrimento passasse a viver
+  # neste processo, isto tinha de mudar — uma máquina adormecida não varre.
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+  [[http_service.checks]]
+    # ⚠️ O `/healthz` não toca na base de propósito: é um sinal de «o processo
+    # está de pé», e não «o mundo está bem». Um health check que consulta
+    # Postgres derruba o serviço inteiro quando a base tem um soluço, em vez de
+    # deixar as rotas que não precisam dela continuar a responder.
+    path = "/healthz"
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "10s"
+
+[[vm]]
+  # O perfil mais pequeno. ⚠️ Escolhido por ser o mais barato e não por medição:
+  # o que este serviço faz por pedido é uma consulta e aritmética, e a §1 diz que
+  # custa milissegundos — mas isso **não está medido em produção**. Se as
+  # respostas ficarem lentas, o número a olhar primeiro é este.
+  size = "shared-cpu-1x"
+  memory = "512mb"
