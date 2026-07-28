@@ -48,6 +48,21 @@ type Servidor struct {
 	// chaves são as credenciais de máquina do /api/rate-catalog. Vazio deixa a
 	// fronteira aberta — modo de desenvolvimento, com aviso alto no arranque.
 	chaves []string
+
+	// contador e tecto são o limite de pedidos por IP. Contador nulo, ou tecto a
+	// zero, desliga-o.
+	contador Contador
+	tecto    Tecto
+}
+
+// ComTecto liga o limite de pedidos por IP.
+//
+// ⚠️ É um método e não um parâmetro do Novo porque o tecto é opcional: os testes
+// da tradução e das guardas não precisam dele, e obrigá-los a passá-lo fazia
+// cada um decidir um número que não está a medir.
+func (s *Servidor) ComTecto(contador Contador, tecto Tecto) *Servidor {
+	s.contador, s.tecto = contador, tecto
+	return s
 }
 
 // Novo monta o servidor. `agora` nulo vale time.Now.
@@ -78,6 +93,10 @@ func (s *Servidor) Rotas() http.Handler {
 	r.Use(middleware.RequestID)
 	r.Use(devolverRequestID)
 	r.Use(middleware.Recoverer)
+	// ⚠️ O tecto entra DEPOIS do RequestID e do Recoverer: um 429 tem de levar o
+	// identificador como qualquer outra resposta, e um pânico dentro do tecto não
+	// pode fechar a ligação sem uma palavra.
+	r.Use(s.limitar)
 
 	r.Get("/healthz", s.saude)
 	r.Get("/api/v1/bancos", s.listarBancos)
