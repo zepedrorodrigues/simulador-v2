@@ -157,6 +157,68 @@ go test -race -tags rede ./internal/bancos/cgd/
   `X-API-Key`. ⚠️ **Congelada e compatível ao byte com o v1**: mudar o formato
   parte o outro repositório.
 
+## Pôr de pé
+
+A imagem é uma só, e serve os quatro subcomandos — `servir`, `varrer`, `migrar`,
+`reverter`. Sem Chromium: **24,3 MB**, a correr como `nonroot`, sobre
+`distroless/static` (sem shell, sem gestor de pacotes).
+
+```bash
+docker build -t simulador-v2 .
+docker run --rm -e DATABASE_URL=… simulador-v2 migrar
+docker run --rm -p 8080:8080 -e DATABASE_URL=… simulador-v2 servir
+```
+
+⚠️ **O `migrar` não é opcional, e o binário obriga.** `servir` contra uma base
+por migrar recusa-se, com «base de dados por migrar — corre `simulador migrar`
+antes de servir». É a §4 do `ARQUITETURA.md` («não há auto-migração») a valer em
+produção, e é a razão de o `fly.toml` ter `release_command`.
+
+### No Fly
+
+Uma vez, à mão — o `fly.toml` não cria recursos:
+
+```bash
+fly auth login
+fly apps create simulador-v2
+fly postgres create --name simulador-v2-bd --region mad
+fly postgres attach simulador-v2-bd --app simulador-v2   # escreve o DATABASE_URL
+fly secrets set API_KEYS="$(openssl rand -base64 32 | tr -d '=+/' | cut -c1-32)"
+fly deploy
+```
+
+**O varrimento é uma máquina à parte, agendada de hora a hora:**
+
+```bash
+fly machine run --schedule hourly --app simulador-v2 \
+   registry.fly.io/simulador-v2:latest varrer
+```
+
+⚠️ **De hora a hora, e a decisão de varrer é do subcomando, não do agendador.**
+As agendas do Fly são grosseiras (`hourly`, `daily`, sem hora à escolha), e o
+`varrer` já traz a guarda: `--se-antigo`, com omissão de **6 horas**. A máquina
+acorda 24 vezes por dia, e em 20 delas sai a dizer «varrimento saltado» com
+código 0 — não com erro, porque um subcomando cíclico que saísse com 1 por não
+ter de correr enchia o log de falhas que não são falhas, e quem as visse deixava
+de as ler. Dá ~4 varrimentos por dia, que é o «cíclico ao longo do dia» da §7.3.
+
+⚠️ **E dois arranques em cima um do outro não fazem mal**: o travão
+(`pg_try_advisory_lock`) impede dois varrimentos do mesmo banco em paralelo, e
+vive na base e não no processo — precisamente para travar entre máquinas.
+
+### Duas coisas por medir no primeiro deploy
+
+1. **`PROXIES_DE_CONFIANCA`.** Vazio, o tecto por IP conta pelo endereço da
+   ligação — que atrás do Fly é o proxy, **igual para toda a gente**: o tecto do
+   site inteiro passa a ser o de um utilizador, e o primeiro visitante tranca os
+   restantes. É o bug de produção do v1. O erro contrário é pior: uma rede larga
+   de mais deixa quem estiver nela escolher o seu IP num cabeçalho e contornar o
+   tecto. Mede-se a rede exacta e escreve-se; até lá fica vazio, porque um tecto
+   apertado de mais é visível e um tecto contornável não é.
+2. **O primeiro varrimento.** Uma base acabada de migrar não tem série nenhuma, e
+   `POST /api/v1/comparacoes` devolve **503** — que é o comportamento certo, e
+   não uma avaria. Só depois do primeiro `varrer` é que há o que comparar.
+
 ## Uso responsável
 
 O documento completo é interno; esta parte fica pública de propósito, porque uma

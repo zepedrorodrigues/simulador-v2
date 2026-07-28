@@ -1,0 +1,36 @@
+# O que NÃO entra no contexto de build.
+#
+# ⚠️ Isto não é só velocidade. O contexto é enviado inteiro para o daemon do
+# Docker, e o que lá for pode acabar numa camada da imagem — incluindo o `.env`,
+# que tem credenciais, e o `.git`, que tem o histórico todo. Uma imagem publicada
+# com o `.git` lá dentro publica tudo o que alguma vez esteve no repositório.
+
+# Segredos e configuração local. ⚠️ O `.env.example` fica de fora desta regra de
+# propósito: é documentação e não tem segredo nenhum — mas também não faz falta
+# na imagem, por isso não se excepciona.
+.env
+.env.*
+
+# O histórico. Grande, e não é preciso para compilar.
+.git
+.gitignore
+
+# ⚠️ Os documentos NÃO estão aqui porque já estão no `.gitignore` desde 652eda2 —
+# vivem no disco e no Confluence, e nunca chegam a um clone. Se um dia voltarem
+# ao repositório, voltam também a esta lista: um `CLAUDE.md` dentro da imagem é
+# uma descrição da arquitectura entregue a quem a receba.
+docs/
+CLAUDE.md
+RESUME.md
+PLAN.md
+
+# O toolchain do openapi-typescript. O gerado (`api/tipos-app.d.ts`) está
+# versionado, e o build da imagem não regenera nada.
+node_modules/
+
+# Ambiente de desenvolvimento e artefactos.
+docker-compose.yml
+Dockerfile
+.dockerignore
+*.log
+fly.toml
