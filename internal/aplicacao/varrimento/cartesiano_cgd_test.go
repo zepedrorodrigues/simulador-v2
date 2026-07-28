@@ -185,13 +185,52 @@ func TestCartesianoDaCGD(t *testing.T) {
 		verEscalaReproduzOSpread(t, descoberta.Escala, pontos)
 	})
 
-	t.Run("H2: a taxa da fase fixa sai só do período", func(t *testing.T) {
-		verTaxaFixaNaoDependeDoLTV(t, pontos)
+	t.Run("H2: a taxa da fase fixa é a base do período mais o spread do LTV", func(t *testing.T) {
+		verTaxaFixaEBaseMaisSpread(t, descoberta.Escala, pontos)
 	})
 
 	t.Run("a prestação sai por cálculo local", func(t *testing.T) {
 		verPrestacaoSaiDaFrancesa(t, pontos)
 	})
+}
+
+// TestAFixaDaCGDEBaseMaisSpreadDoLTV é a H2 sozinha, e custa ~100 pedidos em vez
+// dos 1 210 do cartesiano.
+//
+//	go test -race -tags rede -timeout 20m -run FixaDaCGD -v ./internal/aplicacao/varrimento/
+//
+// Existe porque a relação que ela afirma foi **descoberta** pelo cartesiano de
+// 2026-07-28, e uma relação descoberta tem de passar a ser vigiada: se a CGD
+// deixar de preçar a fixa assim, isto falha por 100 pedidos e não por 1 210.
+//
+// Mede um LTV dentro de cada degrau da escala — é onde a relação se pode partir,
+// e amostrar mais dentro do mesmo degrau só repetia o mesmo preço.
+func TestAFixaDaCGDEBaseMaisSpreadDoLTV(t *testing.T) {
+	ctx := context.Background()
+	hoje := dominio.DataDeInstante(time.Now())
+	banco := cgd.Novo(transporte.NovoCliente(nil))
+
+	descoberta, err := grelha.DescobrirBanco(ctx, banco, grelha.Referencia{}, hoje, grelha.Config{}, time.Now)
+	if err != nil {
+		t.Fatalf("medir a escala de LTV da CGD: %v", err)
+	}
+
+	// Um ponto por degrau: o extremo de cima, que é onde o spread do degrau foi
+	// efectivamente observado.
+	var ltvs []dominio.Racio
+	for _, d := range descoberta.Escala.Degraus() {
+		ltvs = append(ltvs, d.Ate)
+	}
+	t.Logf("escala: %d degraus, %d amostras", len(ltvs), descoberta.Amostras)
+
+	familias := []familia{
+		{"fixa/10a", dominio.TaxaFixa, nil, 10},
+		{"fixa/20a", dominio.TaxaFixa, nil, 20},
+		{"fixa/30a", dominio.TaxaFixa, nil, 30},
+	}
+
+	pontos := correrCartesiano(ctx, t, banco, hoje, ltvs, familias)
+	verTaxaFixaEBaseMaisSpread(t, descoberta.Escala, pontos)
 }
 
 // verEscalaReproduzOSpread é a H1: para cada ponto observado, o spread que a
@@ -254,40 +293,69 @@ func verEscalaReproduzOSpread(t *testing.T, escala dominio.EscalaDeLTV, pontos [
 	}
 }
 
-// verTaxaFixaNaoDependeDoLTV é a H2: dentro de cada família de taxa fixa, a TAN
-// tem de ser a mesma em todos os LTV.
+// verTaxaFixaEBaseMaisSpread é a H2, reescrita pelo que a corrida de 2026-07-28
+// mediu.
 //
-// ⚠️ Se não for, a §4 está errada ao dizer que «basta uma observação por período
-// da lista», e a taxa fixa passa a precisar da dimensão do LTV — o que multiplica
-// a grelha pelo número de degraus.
-func verTaxaFixaNaoDependeDoLTV(t *testing.T, pontos []ponto) {
+// ⚠️ **A hipótese original estava errada, e o cartesiano matou-a.** A §4 dizia
+// que «basta uma observação por período da lista» porque a taxa fixa era «a curva
+// de funding do banco sobre o período fixo». Não é só isso: na CGD, a TAN da fixa
+// **muda com o LTV**, e muda nas MESMAS fronteiras da variável e com a MESMA
+// altura de degrau.
+//
+// O que se mediu, nos 121 LTV × 3 prazos de fixa:
+//
+//	                 LTV 0,30   0,335    0,67    0,68
+//	escala (spread)     1,950   2,000   2,050   1,350
+//	fixa a 10 anos      5,450   5,500   5,550   4,850   → base 3,500
+//	fixa a 20 anos      5,600   5,650   5,700   5,000   → base 3,650
+//	fixa a 30 anos      5,850   5,900   5,950   5,250   → base 3,900
+//
+// **TAN_fixa(período, ltv) = base(período) + spread(ltv)**, e a base é constante
+// ao cêntimo em todos os degraus. A queda de 0,70 p.p. aos 68 % é a mesma altura
+// de degrau que a variável tem no mesmo sítio.
+//
+// ⚠️ Consequência para a grelha, e é boa notícia: **não multiplica**. O que se
+// guarda por período continua a ser UMA observação — mas o que dela se extrai é
+// a BASE, e não a TAN. Quem responde soma o spread do intervalo do cliente, tal
+// como já faz na variável com a Euribor. Uma grelha que guardasse a TAN servia o
+// preço do LTV a que a mediu a toda a gente.
+func verTaxaFixaEBaseMaisSpread(t *testing.T, escala dominio.EscalaDeLTV, pontos []ponto) {
 	t.Helper()
 
 	type referencia struct {
-		tan dominio.Taxa
-		ltv dominio.Racio
+		base decimal.Decimal
+		ltv  dominio.Racio
 	}
 	primeira := map[string]referencia{}
+	medidos := map[string]int{}
 
 	for _, p := range pontos {
 		if p.familia.tipo != dominio.TaxaFixa || !p.ok() || p.oferta.TAN == nil {
 			continue
 		}
+		spread, _, err := escala.SpreadEm(p.ltv)
+		if err != nil {
+			continue // fora da escala: não há spread com que descontar
+		}
+
+		base := p.oferta.TAN.Decimal().Sub(spread.Decimal())
+		medidos[p.familia.nome]++
+
 		ref, visto := primeira[p.familia.nome]
 		if !visto {
-			primeira[p.familia.nome] = referencia{tan: *p.oferta.TAN, ltv: p.ltv}
+			primeira[p.familia.nome] = referencia{base: base, ltv: p.ltv}
 			continue
 		}
-		if !p.oferta.TAN.Equal(ref.tan) {
-			t.Errorf("%s: TAN %s em LTV %s e TAN %s em LTV %s — a taxa fixa depende do LTV, "+
-				"e a §4 diz que basta uma observação por período",
-				p.familia.nome, ref.tan, ref.ltv, p.oferta.TAN, p.ltv)
-			// Uma vez por família chega: o que interessa é o facto, não a lista.
+		if !base.Equal(ref.base) {
+			t.Errorf("%s: TAN menos spread dá %s em LTV %s e %s em LTV %s — "+
+				"a taxa fixa deixou de ser base + spread do LTV, e a grelha passa a precisar de mais uma dimensão",
+				p.familia.nome, ref.base.StringFixed(3), ref.ltv, base.StringFixed(3), p.ltv)
 			delete(primeira, p.familia.nome)
 		}
 	}
+
 	for nome, ref := range primeira {
-		t.Logf("H2: %s tem TAN %s em todos os LTV medidos", nome, ref.tan)
+		t.Logf("H2: %s tem base %s p.p. constante em %d LTV medidos", nome, ref.base.StringFixed(3), medidos[nome])
 	}
 }
 
