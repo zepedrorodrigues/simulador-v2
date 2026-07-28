@@ -1,6 +1,7 @@
 package grelha_test
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -26,9 +27,9 @@ func TestPontosSaemDosRequisitosDeCadaBanco(t *testing.T) {
 		pontos  int
 		conta   string
 	}{
-		{"cgd", 18, "1 referência + 7 períodos × 2 (fixa e mista) + 0 tenores (impõe 6M) + 2 finalidades + 1 produto"},
-		{"novobanco", 27, "1 + 9 períodos × 2 + 3 tenores + 2 finalidades + 2 produtos + 1 com todos"},
-		{"montepio", 21, "1 + 7 períodos × 2 + 3 tenores + 2 finalidades + 1 produto"},
+		{"cgd", 20, "1 referência + 7 períodos × 2 (fixa e mista) + 0 tenores (impõe 6M) + 2 finalidades + 1 produto + 2 prazos"},
+		{"novobanco", 29, "1 + 9 períodos × 2 + 3 tenores + 2 finalidades + 2 produtos + 1 com todos + 2 prazos"},
+		{"montepio", 23, "1 + 7 períodos × 2 + 3 tenores + 2 finalidades + 1 produto + 2 prazos"},
 	} {
 		t.Run(caso.bancoID, func(t *testing.T) {
 			t.Parallel()
@@ -93,9 +94,16 @@ func TestNaoHaDoisPontosIndistinguiveis(t *testing.T) {
 	t.Parallel()
 
 	// Duas linhas do mesmo varrimento distinguem-se pelo cenário, pelos
-	// produtos e pelo tenor — as três coisas que a §4 guarda, entre a chave e
-	// as colunas. Dois pontos iguais nas três são um pedido gasto a medir o que
-	// já se mediu, e duas linhas que ninguém sabe distinguir na leitura.
+	// produtos, pelo tenor e pelo prazo — o que a §4 guarda, entre a chave e as
+	// colunas tipadas. Dois pontos iguais em todas são um pedido gasto a medir o
+	// que já se mediu, e duas linhas que ninguém sabe distinguir na leitura.
+	//
+	// ⚠️ O prazo entrou nesta identidade com a família 7. É legítimo pela mesma
+	// regra que já valia para os produtos e o tenor: `prazo_anos` é coluna
+	// TIPADA de catalogo_taxas, e a §4 diz expressamente que duas linhas podem
+	// partilhar o `cenario` e distinguir-se só por essas colunas. O que não seria
+	// legítimo era empacotar o prazo na chave do cenário — a chave tem três
+	// segmentos e uma dimensão a mais parte-a em silêncio.
 	for _, id := range []string{"cgd", "novobanco", "montepio"} {
 		pontos, err := grelha.Pontos(requisitosDe(t, id), grelha.Referencia{}, hoje)
 		if err != nil {
@@ -104,7 +112,7 @@ func TestNaoHaDoisPontosIndistinguiveis(t *testing.T) {
 
 		vistos := map[string]bool{}
 		for _, p := range pontos {
-			identidade := p.Cenario + "|" + string(p.Pedido.Indexante) + "|"
+			identidade := fmt.Sprintf("%s|%s|%da|", p.Cenario, p.Pedido.Indexante, p.Pedido.PrazoAnos)
 			for _, produto := range p.Pedido.Produtos {
 				identidade += produto + ","
 			}
@@ -215,6 +223,72 @@ func TestUmPedidoSemPeriodoEscolhidoNaoTemCenario(t *testing.T) {
 	}
 	if _, err := grelha.CenarioDe(p); err == nil {
 		t.Fatal("um pedido de taxa fixa sem período escolhido deu cenário")
+	}
+}
+
+func TestAFamiliaDoPrazoVarreOsExtremosQueOBancoServe(t *testing.T) {
+	t.Parallel()
+
+	// ⚠️ É a distância entre os prazos que separa o encargo antecipado do
+	// recorrente. Este teste afirma que a grelha vai aos EXTREMOS e não a dois
+	// prazos quaisquer: com pontos próximos o sistema fica mal condicionado e o
+	// ruído da medição aparece na repartição — que é a assunção disfarçada de
+	// medição que a família 7 existe para não deixar acontecer.
+	for _, id := range []string{"cgd", "novobanco", "montepio"} {
+		t.Run(id, func(t *testing.T) {
+			t.Parallel()
+
+			r := requisitosDe(t, id)
+			pontos, err := grelha.Pontos(r, grelha.Referencia{}, hoje)
+			if err != nil {
+				t.Fatalf("Pontos: %v", err)
+			}
+
+			// O que o banco serve ao titular neutro de 30 anos.
+			chao := r.PrazoMin
+			tecto := min(r.PrazoMax, r.IdadeMaximaFim-grelha.IdadeOmissao, dominio.PrazoMaximoAnos)
+
+			vistos := map[int]bool{}
+			for _, p := range pontos {
+				vistos[p.Pedido.PrazoAnos] = true
+			}
+
+			for _, esperado := range []int{chao, tecto, grelha.PrazoOmissao} {
+				if !vistos[esperado] {
+					t.Errorf("nenhum ponto com prazo de %d anos; prazos vistos: %v", esperado, vistos)
+				}
+			}
+
+			// E nada fora do que o banco aceita: um prazo recusado gasta um
+			// pedido para receber um erro nosso, e grava uma falha com o nome do
+			// banco (KAN-30 pelo lado da grelha).
+			for prazo := range vistos {
+				if prazo < chao || prazo > tecto {
+					t.Errorf("ponto com prazo de %d anos, fora do servível [%d, %d]", prazo, chao, tecto)
+				}
+			}
+		})
+	}
+}
+
+func TestUmBancoSemPrazoServivelNaoGeraPontosDePrazo(t *testing.T) {
+	t.Parallel()
+
+	// ⚠️ Não é caso hipotético: basta um IdadeMaximaFim baixo com o titular de
+	// referência. O que não se faz é gerar um ponto inválido — a alternativa a
+	// não medir o prazo é gastar um pedido para receber uma recusa.
+	r := requisitosMinimos()
+	r.IdadeMaximaFim = grelha.IdadeOmissao + 1 // deixa 1 ano de prazo
+	r.PrazoMin = 20                            // ...e o banco exige 20
+
+	pontos, err := grelha.Pontos(r, grelha.Referencia{}, hoje)
+	if err != nil {
+		t.Fatalf("Pontos: %v", err)
+	}
+	for _, p := range pontos {
+		if p.Pedido.PrazoAnos != grelha.PrazoOmissao {
+			t.Errorf("ponto com prazo %d: um banco sem prazo servível não devia gerar família de prazo", p.Pedido.PrazoAnos)
+		}
 	}
 }
 

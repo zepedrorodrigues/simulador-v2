@@ -2,6 +2,7 @@ package grelha
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/zepedrorodrigues/simulador-v2/internal/aplicacao/varrimento"
 	"github.com/zepedrorodrigues/simulador-v2/internal/dominio"
@@ -30,6 +31,11 @@ import (
 // de pontos fixos, é uma descoberta adaptativa que depende do que o banco
 // responde. Vive no escala.go, e o seu custo (~86 pedidos na CGD) soma-se ao
 // destes.
+//
+// ⚠️ E há uma família — o prazo, a 7.ª — que NÃO existe para medir o spread, ao
+// contrário de todas as outras. Existe porque a TAEG, essa, depende do prazo: é
+// dela que se separa o encargo antecipado do recorrente, e com uma observação só
+// os dois seriam indistinguíveis. Ver o comentário da família 7.
 
 // Referencia é o pedido a partir do qual todas as famílias variam.
 //
@@ -218,7 +224,81 @@ func Pontos(r dominio.Requisitos, ref Referencia, hoje dominio.Data) ([]varrimen
 		}
 	}
 
+	// 7 — o prazo, para os ENCARGOS serem mensuráveis e não assumidos.
+	//
+	// ⚠️ Esta família não existe para medir o spread. Está medido que o spread
+	// NÃO depende do prazo — é o que o comentário no topo deste ficheiro
+	// registou na CGD a 2026-07-26, e é o que justifica a grelha somar-se em vez
+	// de se multiplicar. Sobre o spread, estes pontos são redundantes de
+	// propósito, e essa redundância é útil: contradiz a medição se ela deixar de
+	// valer.
+	//
+	// O que estes pontos existem para medir é a TAEG, que ao contrário do spread
+	// depende do prazo — e é daí que sai a única coisa que uma comparação local
+	// não consegue derivar do resto da grelha. A TAEG excede a TAN pelos
+	// encargos, e os encargos têm duas naturezas que se comportam ao contrário
+	// uma da outra quando o prazo muda:
+	//
+	//   · um encargo ANTECIPADO (comissões, imposto do selo do crédito) é um
+	//     valor único, e diluir-se por mais anos APROXIMA a TAEG da TAN;
+	//   · um encargo RECORRENTE (o prémio do seguro de vida, sobretudo) renova-se
+	//     todos os meses, e alongar o prazo mantém — ou agrava — a distância.
+	//
+	// ⚠️ Com uma observação só, as duas naturezas são INDISTINGUÍVEIS: qualquer
+	// repartição entre elas reproduz exactamente a mesma TAEG naquele prazo, e a
+	// escolha entre repartições seria assunção nossa disfarçada de medição. É o
+	// modo de falha da §7.4 — um número errado com ar de certo — e num campo que
+	// a MCD trata como o número de comparação por excelência. Com observações em
+	// prazos diferentes, a repartição passa a ser identificável, e o que era
+	// hipótese vira ajuste com resíduo.
+	//
+	// ⚠️ E são os EXTREMOS que o banco serve, não dois prazos quaisquer perto da
+	// referência. A separação das duas naturezas lê-se na distância entre os
+	// prazos: pontos próximos dariam um sistema mal condicionado, onde o ruído da
+	// medição se amplifica na repartição. Dois pontos bastam para identificar
+	// dois parâmetros; com a referência são três, e o terceiro é o resíduo que
+	// diz se o modelo de encargos descreve o banco ou não.
+	//
+	// Custa dois pedidos por banco, sobre dezenas — e é o que transforma a TAEG
+	// de valor assumido em valor medido.
+	for _, anos := range prazosExtremos(r, ref, base.PrazoAnos) {
+		p := base
+		p.PrazoAnos = anos
+		if err := junta(variavel, p); err != nil {
+			return nil, err
+		}
+	}
+
 	return pontos, nil
+}
+
+// prazosExtremos devolve o prazo mais curto e o mais longo que o banco serve ao
+// titular neutro, sem repetir o de referência.
+//
+// ⚠️ O tecto é o mais baixo entre o que o banco aceita, o que a idade do titular
+// neutro deixa e o tecto absoluto do domínio. Pedir um prazo que o banco recusa
+// gasta um pedido para receber um erro nosso e escreve no catálogo uma falha com
+// o nome dele — é a KAN-30 pelo lado da grelha, e é a mesma razão por que toda
+// esta grelha sai dos Requisitos.
+func prazosExtremos(r dominio.Requisitos, ref Referencia, referencia int) []int {
+	tecto := min(r.PrazoMax, r.IdadeMaximaFim-ref.IdadeAnos, dominio.PrazoMaximoAnos)
+	chao := max(r.PrazoMin, 1)
+
+	// Um banco cujos limites não deixem prazo nenhum de pé não gera pontos, em
+	// vez de gerar um inválido. Não é caso hipotético: basta um IdadeMaximaFim
+	// baixo com um titular de referência mais velho.
+	if chao > tecto {
+		return nil
+	}
+
+	var saida []int
+	for _, anos := range []int{chao, tecto} {
+		if anos == referencia || slices.Contains(saida, anos) {
+			continue
+		}
+		saida = append(saida, anos)
+	}
+	return saida
 }
 
 // pedido monta o pedido de referência.
