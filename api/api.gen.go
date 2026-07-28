@@ -277,10 +277,12 @@ type Point struct {
 	// CapturedAt ⚠️ Sem fuso, formato v1 (ex.: 2026-07-22T05:00:11). NÃO é date-time.
 	//
 	// Example: 2026-07-22T05:00:11
-	CapturedAt       string   `json:"captured_at"`
-	EuriborIndexante string   `json:"euribor_indexante"`
-	EuriborValor     float64  `json:"euribor_valor"`
-	FixedPeriodYears int      `json:"fixed_period_years"`
+	CapturedAt       string  `json:"captured_at"`
+	EuriborIndexante string  `json:"euribor_indexante"`
+	EuriborValor     float64 `json:"euribor_valor"`
+
+	// FixedPeriodYears ⚠️ Nulo na taxa variável, como o v1 o envia. Ver o Scenario.
+	FixedPeriodYears *int     `json:"fixed_period_years"`
 	Montante         float64  `json:"montante"`
 	Mtic             float64  `json:"mtic"`
 	PrazoAnos        int      `json:"prazo_anos"`
@@ -326,7 +328,8 @@ type Saude struct {
 
 // Scenario defines model for Scenario.
 type Scenario struct {
-	FixedPeriodYears int `json:"fixed_period_years"`
+	// FixedPeriodYears ⚠️ **Nulo na taxa variável**, e é assim que o v1 o envia — medido a 2026-07-28 contra o v1 a correr. Um inteiro não-nulo em Go serializa `0`, e o `viabilidade-imobiliaria` receberia zero anos de período fixo onde espera «não se aplica».
+	FixedPeriodYears *int `json:"fixed_period_years"`
 
 	// Key Example: ltv80_mista_30a
 	Key string `json:"key"`

@@ -1,0 +1,80 @@
+{
+  "count": 2,
+  "points": [
+    {
+      "bank_id": "cgd",
+      "bank_name": "Caixa Geral de Depósitos",
+      "captured_at": "2026-07-22T05:00:11",
+      "euribor_indexante": "6m",
+      "euribor_valor": 2.596,
+      "fixed_period_years": 5,
+      "montante": 200000.0,
+      "mtic": 361670.15,
+      "prazo_anos": 30,
+      "prestacao_mensal": 948.61,
+      "products": [],
+      "rate_type": "mista",
+      "scenario_key": "ltv80_mista_30a",
+      "snapshot_id": "amostra-v1",
+      "spread": 1.35,
+      "taeg": 4.5,
+      "tan": 3.946,
+      "valor_imovel": 250000.0
+    },
+    {
+      "bank_id": "novobanco",
+      "bank_name": "Novo Banco",
+      "captured_at": "2026-07-22T05:00:11",
+      "euribor_indexante": "6m",
+      "euribor_valor": 2.596,
+      "fixed_period_years": 5,
+      "montante": 200000.0,
+      "mtic": 361670.15,
+      "prazo_anos": 30,
+      "prestacao_mensal": 948.61,
+      "products": [
+        "novobanco:primeiro_banco",
+        "novobanco:protecao"
+      ],
+      "rate_type": "mista",
+      "scenario_key": "ltv80_mista_30a",
+      "snapshot_id": "amostra-v1",
+      "spread": 1.35,
+      "taeg": 5.5,
+      "tan": 4.946,
+      "valor_imovel": 250000.0
+    }
+  ],
+  "scenarios": [
+    {
+      "fixed_period_years": 5,
+      "key": "ltv80_mista_30a",
+      "label": "LTV 80% · mista · 30 anos",
+      "ltv": 80.0,
+      "montante": 200000,
+      "prazo_anos": 30,
+      "rate_type": "mista",
+      "valor_imovel": 250000
+    },
+    {
+      "fixed_period_years": 5,
+      "key": "ltv90_mista_30a",
+      "label": "LTV 90% · mista · 30 anos",
+      "ltv": 90.0,
+      "montante": 225000,
+      "prazo_anos": 30,
+      "rate_type": "mista",
+      "valor_imovel": 250000
+    },
+    {
+      "fixed_period_years": null,
+      "key": "ltv80_variavel_30a",
+      "label": "LTV 80% · variável · 30 anos",
+      "ltv": 80.0,
+      "montante": 200000,
+      "prazo_anos": 30,
+      "rate_type": "variavel",
+      "valor_imovel": 250000
+    }
+  ]
+}

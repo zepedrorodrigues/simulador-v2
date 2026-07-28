@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -214,4 +215,90 @@ func listaDeJSON(b []byte) ([]string, error) {
 		return nil, nil
 	}
 	return lista, nil
+}
+
+// PontosDoCatalogo lê a série de mercado que o `/api/rate-catalog` publica.
+//
+// ⚠️ É a leitura da fronteira CONGELADA, e por isso usa a `ListarPontos` — a
+// query antiga, com o subconjunto de colunas que o v1 publicava — e não a
+// `ObservacoesDoVarrimento`. As duas parecem-se e servem coisas diferentes:
+// aquela alimenta a resposta ao cliente e precisa da escala e da base; esta
+// devolve o que o `viabilidade-imobiliaria` lê há meses.
+func (p *Postgres) PontosDoCatalogo(
+	ctx context.Context, filtro dominio.FiltroDoCatalogo,
+) ([]dominio.PontoDeMercado, error) {
+	params := bd.ListarPontosParams{Limite: pgtype.Int4{Int32: int32Ou(filtro.Limite), Valid: true}}
+	if filtro.Banco != "" {
+		params.BancoID = pgtype.Text{String: filtro.Banco, Valid: true}
+	}
+	if filtro.Cenario != "" {
+		params.Cenario = pgtype.Text{String: filtro.Cenario, Valid: true}
+	}
+	if filtro.TipoTaxa != "" {
+		params.RateType = pgtype.Text{String: filtro.TipoTaxa, Valid: true}
+	}
+	if filtro.Desde != "" {
+		// ⚠️ Um `since` que não se percebe é erro de quem pergunta, e sai como
+		// erro. Ignorá-lo devolvia a série inteira com ar de resposta filtrada.
+		desde, err := time.Parse(time.RFC3339, filtro.Desde)
+		if err != nil {
+			desde, err = time.Parse("2006-01-02", filtro.Desde)
+			if err != nil {
+				return nil, fmt.Errorf("`since` inválido %q: usa ISO, por exemplo 2026-07-01", filtro.Desde)
+			}
+		}
+		params.Desde = pgtype.Timestamptz{Time: desde, Valid: true}
+	}
+
+	linhas, err := bd.New(p.pool).ListarPontos(ctx, params)
+	if err != nil {
+		return nil, fmt.Errorf("ler a série de mercado: %w", err)
+	}
+
+	pontos := make([]dominio.PontoDeMercado, 0, len(linhas))
+	for _, l := range linhas {
+		produtos, err := listaDeJSON(l.Produtos)
+		if err != nil {
+			return nil, fmt.Errorf("produtos do ponto %s/%s: %w", l.BancoID, l.Cenario, err)
+		}
+		ponto := dominio.PontoDeMercado{
+			VarrimentoID: uuidTexto(l.VarrimentoID),
+			CapturadoEm:  l.CapturadoEm.Time,
+			Cenario:      l.Cenario,
+			BancoID:      l.BancoID,
+			BancoNome:    l.BancoNome,
+			TipoTaxa:     l.RateType,
+			ValorImovel:  dinheiroDe(l.ValorImovel),
+			Montante:     dinheiroDe(l.Montante),
+			PrazoAnos:    int(l.PrazoAnos),
+			TAN:          taxaDe(l.Tan),
+			TAEG:         taxaDe(l.Taeg),
+			Spread:       taxaDe(l.Spread),
+			EuriborValor: taxaDe(l.EuriborValor),
+			Prestacao:    montanteDe(l.PrestacaoMensal),
+			MTIC:         montanteDe(l.Mtic),
+			Produtos:     produtos,
+		}
+		if l.FixedPeriodYears.Valid {
+			anos := int(l.FixedPeriodYears.Int32)
+			ponto.PeriodoFixoAnos = &anos
+		}
+		if l.EuriborIndexante.Valid {
+			ponto.Indexante = l.EuriborIndexante.String
+		}
+		pontos = append(pontos, ponto)
+	}
+	return pontos, nil
+}
+
+// int32Ou converte o limite, com o tecto do v1.
+func int32Ou(n int) int32 {
+	const omissao, maximo = 2000, 10000
+	if n < 1 {
+		n = omissao
+	}
+	if n > maximo {
+		n = maximo
+	}
+	return int32(n) //nolint:gosec // preso entre 1 e 10000 acima
 }
