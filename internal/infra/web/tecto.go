@@ -167,6 +167,23 @@ func (s *Servidor) limitar(seguinte http.Handler) http.Handler {
 			return
 		}
 
+		// ⚠️ **O preflight não conta, e sem isto o CORS partia o tecto ao meio.**
+		// Um browser manda um `OPTIONS` antes de cada `POST /api/v1/comparacoes`
+		// — o `Content-Type: application/json` obriga-o —, portanto cada
+		// comparação feita da app custaria **dois** do tecto, enquanto a mesma
+		// comparação feita por `curl` custa um. O tecto passava a medir o cliente
+		// e não o uso.
+		//
+		// E não abre buraco: um preflight não toca na base nem calcula nada,
+		// responde 204 com cabeçalhos, e só é reconhecido como tal se trouxer o
+		// `Access-Control-Request-Method` (ver `ehPreflight`). Quem quisesse usar
+		// isto para escapar ao tecto teria de mandar pedidos que não fazem
+		// trabalho nenhum.
+		if ehPreflight(r) {
+			seguinte.ServeHTTP(w, r)
+			return
+		}
+
 		janela := s.tecto.Janela
 		if janela <= 0 {
 			janela = JanelaOmissao

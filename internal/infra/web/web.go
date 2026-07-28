@@ -15,6 +15,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -53,6 +54,29 @@ type Servidor struct {
 	// zero, desliga-o.
 	contador Contador
 	tecto    Tecto
+
+	// diario escreve uma linha por pedido. Nulo desliga-o.
+	//
+	// ⚠️ Chama-se `diario` e não `registo` porque `registo` já é o registo de
+	// BANCOS, três campos acima. Dois significados no mesmo nome, dentro da
+	// mesma struct, é como se escreve um erro que compila.
+	diario *slog.Logger
+
+	// origens são as que podem chamar `/api/v1/*` e o `/healthz` de dentro de um
+	// browser. Vazio desliga o CORS — e desligado quer dizer «só a mesma
+	// origem», não «toda a gente». ⚠️ O `/api/rate-catalog` fica sempre de fora:
+	// autentica-se por chave, e uma chave num browser é pública (§6).
+	origens []string
+}
+
+// ComOrigens liga o CORS à lista dada.
+//
+// ⚠️ Método e não parâmetro do `Novo`, pela mesma razão do `ComTecto`: é
+// opcional, e obrigar os testes da tradução a escolher uma lista fazia-os
+// declarar uma política que não estão a medir.
+func (s *Servidor) ComOrigens(origens []string) *Servidor {
+	s.origens = origens
+	return s
 }
 
 // ComTecto liga o limite de pedidos por IP.
@@ -92,16 +116,39 @@ func (s *Servidor) Rotas() http.Handler {
 	// `/api/rate-catalog` autentica-se por `X-API-Key`.
 	r.Use(middleware.RequestID)
 	r.Use(devolverRequestID)
+	// ⚠️ O registo entra a seguir ao RequestID — precisa dele — e **antes** do
+	// Recoverer, para que um pânico apareça na linha com o estatuto 500 que o
+	// cliente levou. Depois dele, o pedido que rebentou era o único que não
+	// deixava rasto.
+	r.Use(s.registar)
 	r.Use(middleware.Recoverer)
 	// ⚠️ O tecto entra DEPOIS do RequestID e do Recoverer: um 429 tem de levar o
 	// identificador como qualquer outra resposta, e um pânico dentro do tecto não
 	// pode fechar a ligação sem uma palavra.
 	r.Use(s.limitar)
 
-	r.Get("/healthz", s.saude)
-	r.Get("/api/v1/bancos", s.listarBancos)
-	r.Post("/api/v1/comparacoes", s.compararOfertas)
+	// ⚠️ **Duas superfícies com políticas de acesso diferentes**, e a separação é
+	// literal: o que está dentro deste grupo responde a browsers; o que está
+	// fora, não. A §6 explica porquê — o `/api/rate-catalog` autentica-se por
+	// `X-API-Key`, e uma chave dentro de um bundle de browser é uma chave
+	// pública. Juntá-los num router só abria a porta do catálogo à app.
+	r.Group(func(g chi.Router) {
+		g.Use(s.permitirOrigens)
+
+		g.Get("/healthz", s.saude)
+		g.Get("/api/v1/bancos", s.listarBancos)
+		g.Post("/api/v1/comparacoes", s.compararOfertas)
+
+		// ⚠️ O preflight precisa de rota registada. Sem ela o chi responde 405
+		// antes de o middleware correr, o browser não vê a permissão, e a app
+		// falha com um erro de CORS que não nomeia nada. Os cabeçalhos vêm do
+		// middleware; este handler só fecha a resposta com 204.
+		g.Options("/api/v1/bancos", preflight)
+		g.Options("/api/v1/comparacoes", preflight)
+	})
+
 	r.Get("/api/rate-catalog", s.exigirChave(s.obterRateCatalog))
+	r.Get("/api/rate-catalog/snapshots", s.exigirChave(s.obterSnapshots))
 
 	return r
 }

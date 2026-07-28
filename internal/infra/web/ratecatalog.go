@@ -31,6 +31,7 @@ import (
 // FonteDoCatalogo é a leitura da série de mercado.
 type FonteDoCatalogo interface {
 	PontosDoCatalogo(ctx context.Context, filtro dominio.FiltroDoCatalogo) ([]dominio.PontoDeMercado, error)
+	SnapshotsDoCatalogo(ctx context.Context) ([]dominio.Snapshot, error)
 }
 
 // formatoDoInstanteV1 é o que o v1 serializava: ISO sem fuso e sem `Z`.
@@ -168,4 +169,47 @@ func cenariosDeReferencia() []api.Scenario {
 			RateType: "variavel", FixedPeriodYears: nil,
 		},
 	}
+}
+
+// obterSnapshots serve os varrimentos disponíveis (KAN-44).
+//
+// ⚠️ Esteve no `openapi.yaml` **sem handler nenhum** desde que o contrato
+// existe, e nada o apanhou: o portão verifica que o código gerado está em dia
+// com o spec, não que o servido está. Uma rota declarada e não servida atravessa
+// o `make verificar` inteiro sem uma palavra. O travão contra a classe toda é o
+// `TestTodaARotaDoSpecTemHandler`.
+//
+// ⚠️ Leva a mesma guarda de chave do `/api/rate-catalog`, e não é simetria por
+// simetria: sem ela publicava-se a **cadência de varrimento** — a que horas
+// corremos, quantas vezes, e quando falhámos — a quem não tem chave. É
+// informação sobre nós, não sobre o mercado.
+func (s *Servidor) obterSnapshots(w http.ResponseWriter, r *http.Request) {
+	if s.catalogo == nil {
+		erro(w, http.StatusServiceUnavailable, "sem_serie",
+			"A série de mercado não está disponível neste serviço.")
+		return
+	}
+
+	snapshots, err := s.catalogo.SnapshotsDoCatalogo(r.Context())
+	if err != nil {
+		erro(w, http.StatusInternalServerError, "serie_indisponivel",
+			"Não se conseguiu ler a lista de varrimentos.")
+		return
+	}
+
+	saida := make([]api.Snapshot, 0, len(snapshots))
+	for _, s := range snapshots {
+		saida = append(saida, api.Snapshot{
+			SnapshotId: s.VarrimentoID,
+			// ⚠️ O mesmo formato sem fuso do resto deste endpoint. Escrever `Z`
+			// aqui e não nos pontos era servir dois formatos na mesma API.
+			CapturedAt: s.CapturadoEm.Format(formatoDoInstanteV1),
+			Rows:       s.Linhas,
+		})
+	}
+
+	// ⚠️ Lista vazia e não nula: uma base sem varrimentos responde `[]`, que quem
+	// lê distingue de «não sei». É a terceira armadilha de compatibilidade do
+	// `API.md` §2, aplicada aqui.
+	escrever(w, http.StatusOK, api.SnapshotsResposta{Snapshots: saida})
 }
