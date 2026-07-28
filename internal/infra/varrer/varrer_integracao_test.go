@@ -76,13 +76,17 @@ func TestOSubcomandoContaOsPontosDeCadaBancoAntesDeCorrer(t *testing.T) {
 	// ele não depende do prazo — mas a TAEG depende, e é da distância entre dois
 	// prazos que a repartição dos encargos se torna identificável. Dois pedidos
 	// por banco é o que separa uma TAEG medida de uma TAEG assumida.
-	const esperados = 14 + 20 + 23 + 29
+	// ⚠️ O Santander (KAN-18) traz 10: uma variável, três mistas, três fixas, a
+	// finalidade que ele não usa e os dois extremos de prazo. É o segundo mais
+	// barato, e a razão é a mesma do Banco CTT — leque curto e indexante
+	// imposto.
+	const esperados = 14 + 20 + 23 + 29 + 10
 	if rel.Pontos != esperados {
 		t.Errorf("%d pontos, esperava %d — se um banco ganhou período fixo ou produto, é aqui que se vê",
 			rel.Pontos, esperados)
 	}
-	if len(rel.Bancos) != 4 {
-		t.Errorf("bancos = %v, esperava os quatro registados", rel.Bancos)
+	if len(rel.Bancos) != 5 {
+		t.Errorf("bancos = %v, esperava os cinco registados", rel.Bancos)
 	}
 }
 

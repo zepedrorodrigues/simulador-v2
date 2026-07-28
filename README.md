@@ -130,7 +130,7 @@ que só escuta no socket unix e é desligado a seguir. A razão está comentada 
 | Novo Banco | `novobanco` | HTTP simples | implementado, confrontado ao vivo a 2026-07-26 |
 | Montepio | `montepio` | HTTP com sessão | implementado, confrontado ao vivo a 2026-07-27 |
 | Banco CTT | `bancoctt` | HTTP simples | implementado, confrontado ao vivo a 2026-07-28 |
-| Santander | `santander` | HTTP simples | por fazer |
+| Santander | `santander` | HTTP simples, config em runtime | implementado, confrontado ao vivo a 2026-07-28 |
 | Crédito Agrícola | `creditoagricola` | HTTP simples | por fazer |
 | ActivoBank, Millennium BCP | — | browser para credencial | fase 3 |
 | Bankinter, BPI | — | browser como cliente | fase 3 |
