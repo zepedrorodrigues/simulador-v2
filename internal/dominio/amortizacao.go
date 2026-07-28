@@ -75,6 +75,16 @@ type Plano struct {
 	// pagamento com a sua data. Uma fase diz «1 234,56 € durante 120 meses»,
 	// o que basta para mostrar, e não basta para actualizar.
 	Fluxos []Dinheiro
+
+	// Saldos é o capital em dívida DEPOIS de cada prestação, pela ordem. Tem o
+	// mesmo comprimento que os Fluxos, e o último é zero.
+	//
+	// ⚠️ Existe para o encargo recorrente poder incidir sobre o capital que
+	// resta, que é como o prémio do seguro de vida de um crédito à habitação se
+	// comporta: decresce com a dívida. Um encargo sobre o capital INICIAL seria
+	// mais simples de somar e sobrestimaria o custo dos últimos anos — e é
+	// precisamente na cauda que um prazo longo tem os seus meses.
+	Saldos []Dinheiro
 }
 
 // Meses é a duração total do plano.
@@ -158,6 +168,7 @@ func PlanoFrances(capital Dinheiro, trechos []Trecho) (Plano, error) {
 	plano := Plano{
 		Fases:  make([]Fase, 0, len(trechos)),
 		Fluxos: make([]Dinheiro, 0, total),
+		Saldos: make([]Dinheiro, 0, total),
 	}
 
 	saldo := capital.v
@@ -187,6 +198,7 @@ func PlanoFrances(capital Dinheiro, trechos []Trecho) (Plano, error) {
 
 			saldo = saldo.Add(juro).Sub(pago)
 			plano.Fluxos = append(plano.Fluxos, DinheiroDeDecimal(pago))
+			plano.Saldos = append(plano.Saldos, DinheiroDeDecimal(saldo.Round(centimos)))
 		}
 
 		acumulado += t.Meses
