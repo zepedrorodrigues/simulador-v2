@@ -317,7 +317,8 @@ export interface components {
             montante: number;
             prazo_anos: number;
             rate_type: string;
-            fixed_period_years: number;
+            /** @description ⚠️ **Nulo na taxa variável**, e é assim que o v1 o envia — medido a 2026-07-28 contra o v1 a correr. Um inteiro não-nulo em Go serializa `0`, e o `viabilidade-imobiliaria` receberia zero anos de período fixo onde espera «não se aplica». */
+            fixed_period_years: number | null;
         };
         /** @description ⚠️ `captured_at` é `string` (sem fuso, formato v1) de propósito. `products` é sempre lista, nunca null. Os números são `number`, não string. */
         Point: {
@@ -336,7 +337,8 @@ export interface components {
             /** Format: double */
             montante: number;
             prazo_anos: number;
-            fixed_period_years: number;
+            /** @description ⚠️ Nulo na taxa variável, como o v1 o envia. Ver o Scenario. */
+            fixed_period_years: number | null;
             /** Format: double */
             tan: number;
             /** Format: double */

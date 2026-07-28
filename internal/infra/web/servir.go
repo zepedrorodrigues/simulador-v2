@@ -55,7 +55,8 @@ func Servir(ctx context.Context, url, endereco string, saida io.Writer) error {
 	}
 	defer pool.Close()
 
-	servidor, err := Novo(catalogo.NovoPostgres(pool), bancos.Predefinido(), time.Now)
+	cat := catalogo.NovoPostgres(pool)
+	servidor, err := Novo(cat, cat, bancos.Predefinido(), time.Now)
 	if err != nil {
 		return fmt.Errorf("montar o servidor: %w", err)
 	}

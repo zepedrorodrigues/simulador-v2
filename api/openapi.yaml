@@ -732,6 +732,12 @@ components:
           type: string
         fixed_period_years:
           type: integer
+          nullable: true
+          description: >-
+            ⚠️ **Nulo na taxa variável**, e é assim que o v1 o envia — medido a
+            2026-07-28 contra o v1 a correr. Um inteiro não-nulo em Go serializa
+            `0`, e o `viabilidade-imobiliaria` receberia zero anos de período
+            fixo onde espera «não se aplica».
 
     Point:
       type: object
@@ -785,6 +791,8 @@ components:
           type: integer
         fixed_period_years:
           type: integer
+          nullable: true
+          description: ⚠️ Nulo na taxa variável, como o v1 o envia. Ver o Scenario.
         tan:
           type: number
           format: double
