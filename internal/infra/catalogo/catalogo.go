@@ -184,6 +184,23 @@ func linha(id pgtype.UUID, o varrimento.Observacao) (bd.InserirTaxaParams, error
 	// de ltv_min a ltv_max sem haver preço nenhum medido.
 	ltvMin, ltvMax, spreadMinimo := intervalo(o.Degrau, sucesso)
 
+	// O resíduo da §7.4, medido aqui e não transportado na observação.
+	//
+	// ⚠️ É uma função pura sobre a observação inteira, e é por isso que os
+	// degraus da escala também o trazem: eles não passam pelo `simular` — o
+	// amostrador chama o `b.Simular` directamente —, e um campo a preencher em
+	// dois caminhos esquece-se num deles. Foi assim que o `capturado_em` quase
+	// ficou a zero em todas as linhas de degrau.
+	//
+	// ⚠️ Mede-se sobre o `sucesso` já corrigido acima: uma resposta incompleta
+	// desceu a falha, e a linha dela não afirma resíduo nenhum.
+	residuo := pgtype.Numeric{}
+	if sucesso {
+		if r, ok := varrimento.Residuo(o); ok {
+			residuo = numero(r.Decimal())
+		}
+	}
+
 	produtos, err := paraJSON(oferta.ProdutosAplicados, "produtos")
 	if err != nil {
 		return bd.InserirTaxaParams{}, err
@@ -218,6 +235,7 @@ func linha(id pgtype.UUID, o varrimento.Observacao) (bd.InserirTaxaParams, error
 		LtvMin:           ltvMin,
 		LtvMax:           ltvMax,
 		SpreadMinimo:     spreadMinimo,
+		ResiduoPrestacao: residuo,
 		Produtos:         produtos,
 		Aplicado:         aplicado,
 		Notas:            notas,

@@ -65,6 +65,16 @@ func (d Dinheiro) Equal(o Dinheiro) bool { return d.v.Equal(o.v) }
 // Cmp devolve -1, 0 ou 1, como o strings.Compare.
 func (d Dinheiro) Cmp(o Dinheiro) int { return d.v.Cmp(o.v) }
 
+// Sub subtrai dois montantes, e o resultado pode ser negativo.
+//
+// É a aritmética do resíduo da §7.4: a prestação do banco menos a que a
+// francesa dá. ⚠️ O sinal é informação — diz de que lado se está a divergir — e
+// por isso não se embrulha num valor absoluto aqui.
+func (d Dinheiro) Sub(o Dinheiro) Dinheiro { return Dinheiro{v: d.v.Sub(o.v)} }
+
+// Abs é o módulo, para quem compara uma diferença contra uma tolerância.
+func (d Dinheiro) Abs() Dinheiro { return Dinheiro{v: d.v.Abs()} }
+
 // Positivo diz se o montante é estritamente maior do que zero. É a pergunta
 // que a validação do Pedido faz, e a que evita uma divisão por zero.
 func (d Dinheiro) Positivo() bool { return d.v.IsPositive() }

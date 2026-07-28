@@ -449,6 +449,122 @@ func TestUmDegrauCujoSpreadDiscordaDaSuaObservacaoNaoSeGrava(t *testing.T) {
 	}
 }
 
+// O resíduo da §7.4 na coluna. ⚠️ Mede-se contra a base a sério pela mesma
+// razão que o intervalo: o que se afirma é a diferença entre um número gravado e
+// um NULO, e essa distinção não existe fora dela — em Go, um Dinheiro por
+// preencher e um resíduo de zero são o mesmo valor.
+
+func TestUmaObservacaoComPlanoDeFasesGravaOSeuResiduo(t *testing.T) {
+	pool := subirBase(t)
+	cat := catalogo.NovoPostgres(pool)
+
+	// 320 000 € a 4,50 % em 360 meses dão 1 621,3929… € de prestação francesa. A
+	// oferta de prova publica 1 600 €, logo o resíduo é -21,3929…, e a coluna
+	// numeric(12,2) guarda -21.39. ⚠️ É a base a arredondar, não nós: o resíduo
+	// nasce com a precisão do decimal e só perde casas na escrita.
+	obs := observacaoDeProva()
+	obs.Oferta.Fases = []dominio.Fase{{AteMes: 360, Taxa: taxaDe("4.500"), Prestacao: dinheiroDe(1_600)}}
+
+	if _, err := cat.GravarLote(t.Context(), []varrimento.Observacao{obs}); err != nil {
+		t.Fatalf("gravar: %v", err)
+	}
+
+	residuo := lerResiduo(t, pool)
+	if !residuo.Valid {
+		t.Fatal("uma observação com plano de fases gravou o resíduo a nulo — a §7.4 exige que a diferença se guarde")
+	}
+	if got := numeroTexto(t, residuo); got != "-21.39" {
+		t.Errorf("residuo_prestacao = %s, e 320 000 € a 4,5 %% em 360 meses contra 1 600 € dão -21.39", got)
+	}
+}
+
+// TestUmDegrauTambemGravaOSeuResiduo é a afirmação que o caminho da escala
+// existe.
+//
+// ⚠️ Os degraus não passam pelo `simular` — o amostrador chama o `b.Simular`
+// directamente —, e foi exactamente por aí que o `capturado_em` quase ficou a
+// zero em todas as linhas de degrau. Se o resíduo fosse um campo preenchido por
+// quem constrói a observação, a escala ficava sem travão nenhum e ninguém dava
+// por isso.
+func TestUmDegrauTambemGravaOSeuResiduo(t *testing.T) {
+	pool := subirBase(t)
+	cat := catalogo.NovoPostgres(pool)
+
+	obs := observacaoDeProva()
+	obs.Oferta.Fases = []dominio.Fase{{AteMes: 360, Taxa: taxaDe("4.500"), Prestacao: dinheiroDe(1_600)}}
+	obs.Degrau = &dominio.DegrauLTV{De: racioDe("0.30"), Ate: racioDe("0.80"), Spread: taxaDe("1.350")}
+
+	if _, err := cat.GravarLote(t.Context(), []varrimento.Observacao{obs}); err != nil {
+		t.Fatalf("gravar o degrau: %v", err)
+	}
+
+	if residuo := lerResiduo(t, pool); !residuo.Valid {
+		t.Error("a linha de degrau ficou sem resíduo: a dimensão do LTV não tem o travão da §7.4")
+	}
+}
+
+func TestOResiduoENuloOndeNaoHaviaOQueComparar(t *testing.T) {
+	casos := []struct {
+		nome string
+		obs  func() varrimento.Observacao
+	}{
+		{
+			// A §5 permite uma oferta sem plano: um banco não publica a fase que
+			// não descreveu.
+			nome: "sem plano de fases",
+			obs:  observacaoDeProva,
+		},
+		{
+			nome: "observação de falha",
+			obs: func() varrimento.Observacao {
+				o := observacaoDeProva()
+				o.Oferta = dominio.Falhar("cgd", "Caixa Geral de Depósitos", &dominio.ErroOferta{
+					Codigo: dominio.ErroBancoIndisponivel, Mensagem: "o banco não respondeu",
+				})
+				o.Oferta.CapturadoEm = time.Now()
+				return o
+			},
+		},
+		{
+			// A linha desce a falha por lhe faltar o TAEG, e uma linha de falha
+			// não afirma resíduo — como não afirma intervalo de LTV.
+			nome: "resposta incompleta que desceu a falha",
+			obs: func() varrimento.Observacao {
+				o := observacaoDeProva()
+				o.Oferta.Fases = []dominio.Fase{{AteMes: 360, Taxa: taxaDe("4.500"), Prestacao: dinheiroDe(1_600)}}
+				o.Oferta.TAEG = nil
+				return o
+			},
+		},
+	}
+
+	for _, c := range casos {
+		t.Run(c.nome, func(t *testing.T) {
+			pool := subirBase(t)
+			cat := catalogo.NovoPostgres(pool)
+
+			if _, err := cat.GravarLote(t.Context(), []varrimento.Observacao{c.obs()}); err != nil {
+				t.Fatalf("gravar: %v", err)
+			}
+
+			// ⚠️ Nulo e não zero. Zero leria-se como «comparou-se e bateu ao
+			// cêntimo», que é o oposto do que aconteceu.
+			if residuo := lerResiduo(t, pool); residuo.Valid {
+				t.Errorf("gravou-se um resíduo de %s onde não havia o que comparar", numeroTexto(t, residuo))
+			}
+		})
+	}
+}
+
+func lerResiduo(t *testing.T, pool *pgxpool.Pool) pgtype.Numeric {
+	t.Helper()
+	var residuo pgtype.Numeric
+	if err := pool.QueryRow(t.Context(), `SELECT residuo_prestacao FROM catalogo_taxas`).Scan(&residuo); err != nil {
+		t.Fatalf("ler o resíduo: %v", err)
+	}
+	return residuo
+}
+
 func lerIntervalo(t *testing.T, pool *pgxpool.Pool) (min, max, minimo pgtype.Numeric) {
 	t.Helper()
 	err := pool.QueryRow(t.Context(),

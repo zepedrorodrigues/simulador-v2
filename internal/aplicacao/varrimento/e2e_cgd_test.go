@@ -451,78 +451,50 @@ func verTANEEuriborMaisSpread(t *testing.T, o varrimento.Observacao) {
 func verPrestacaoBateComAFrancesa(t *testing.T, o varrimento.Observacao) {
 	t.Helper()
 
-	capital := o.Ponto.Pedido.Montante.Decimal()
-	primeira := o.Oferta.Fases[0]
-	esperada := prestacaoFrancesa(capital, primeira.Taxa.Decimal(), mesesTotais(o))
-
-	desvio := primeira.Prestacao.Decimal().Sub(esperada).Abs()
-	if desvio.GreaterThan(decimal.NewFromFloat(0.05)) {
-		t.Errorf("a primeira prestação é %s e a francesa dá %s (desvio de %s €)",
-			primeira.Prestacao, esperada.StringFixed(2), desvio.StringFixed(2))
+	// ⚠️ A primeira fase mede-se pelo varrimento.Residuo — o mesmo código que
+	// grava a coluna residuo_prestacao em cada linha do catálogo. Até 2026-07-28
+	// esta conta existia só aqui, atrás de `//go:build rede`, e era por isso que
+	// a §7.4 não tinha travão nenhum: a comparação que decide se um banco mudou
+	// só corria quando alguém corria os testes de rede desse banco.
+	residuo, ok := varrimento.Residuo(o)
+	if !ok {
+		t.Fatal("a observação não deu resíduo nenhum, e tem plano de fases")
+	}
+	if residuo.Abs().Decimal().GreaterThan(decimal.NewFromFloat(0.05)) {
+		t.Errorf("a primeira prestação é %s e diverge da francesa em %s €",
+			o.Oferta.Fases[0].Prestacao, residuo.Decimal().StringFixed(2))
 	}
 
 	if len(o.Oferta.Fases) < 2 {
 		return
 	}
 	// A segunda fase amortiza o que sobrou, ao ritmo da taxa nova.
-	segunda := o.Oferta.Fases[1]
-	emDivida := capitalEmDivida(capital, primeira.Taxa.Decimal(), mesesTotais(o), primeira.AteMes)
-	esperadaSegunda := prestacaoFrancesa(emDivida, segunda.Taxa.Decimal(), segunda.AteMes-primeira.AteMes)
+	primeira, segunda := o.Oferta.Fases[0], o.Oferta.Fases[1]
+	emDivida, err := dominio.CapitalEmDivida(
+		o.Ponto.Pedido.Montante, primeira.Taxa, mesesTotais(o), primeira.AteMes)
+	if err != nil {
+		t.Fatalf("capital em dívida ao fim da fase fixa: %v", err)
+	}
+	esperadaSegunda, err := dominio.PrestacaoFrancesa(
+		emDivida, segunda.Taxa, segunda.AteMes-primeira.AteMes)
+	if err != nil {
+		t.Fatalf("prestação da fase indexada: %v", err)
+	}
 
-	desvioSegunda := segunda.Prestacao.Decimal().Sub(esperadaSegunda).Abs()
+	desvioSegunda := segunda.Prestacao.Sub(esperadaSegunda).Abs()
 	// Tolerância maior: o banco amortiza com a prestação já arredondada aos
 	// cêntimos, e sessenta meses desse arredondamento movem o capital em dívida.
-	if desvioSegunda.GreaterThan(decimal.NewFromInt(2)) {
+	// É por isso que o resíduo da §7.4 é o da PRIMEIRA fase e não o desta.
+	if desvioSegunda.Decimal().GreaterThan(decimal.NewFromInt(2)) {
 		t.Errorf("a prestação da fase indexada é %s e a francesa sobre %s € dá %s (desvio de %s €)",
-			segunda.Prestacao, emDivida.StringFixed(2), esperadaSegunda.StringFixed(2), desvioSegunda.StringFixed(2))
+			segunda.Prestacao, emDivida.Decimal().StringFixed(2),
+			esperadaSegunda.Decimal().StringFixed(2), desvioSegunda.Decimal().StringFixed(2))
 	}
 }
 
 // mesesTotais é o prazo que o banco aplicou, lido do plano — e não o pedido.
 func mesesTotais(o varrimento.Observacao) int {
 	return o.Oferta.Fases[len(o.Oferta.Fases)-1].AteMes
-}
-
-// prestacaoFrancesa é a prestação constante que amortiza `capital` em
-// `mesesDoPlano` meses à taxa anual dada, em pontos percentuais.
-//
-// ⚠️ Numa mista, a prestação da fase fixa calcula-se sobre o prazo **todo** e
-// não sobre a duração da fase — é o que faz dela uma fase de um plano e não um
-// empréstimo de cinco anos. Daí os dois parâmetros de meses.
-func prestacaoFrancesa(capital, taxaAnual decimal.Decimal, mesesDoPlano int) decimal.Decimal {
-	i := taxaAnual.Div(decimal.NewFromInt(1200))
-	if i.IsZero() {
-		return capital.Div(decimal.NewFromInt(int64(mesesDoPlano)))
-	}
-	fator := potencia(decimal.NewFromInt(1).Add(i), mesesDoPlano)
-	return capital.Mul(i).Div(decimal.NewFromInt(1).Sub(decimal.NewFromInt(1).Div(fator)))
-}
-
-// capitalEmDivida é o que falta pagar ao fim de `pagos` meses de um plano de
-// `meses`, à taxa anual dada.
-func capitalEmDivida(capital, taxaAnual decimal.Decimal, meses, pagos int) decimal.Decimal {
-	i := taxaAnual.Div(decimal.NewFromInt(1200))
-	um := decimal.NewFromInt(1)
-	if i.IsZero() {
-		return capital.Mul(decimal.NewFromInt(int64(meses - pagos))).Div(decimal.NewFromInt(int64(meses)))
-	}
-	fatorTotal := potencia(um.Add(i), meses)
-	fatorPagos := potencia(um.Add(i), pagos)
-	return capital.Mul(fatorTotal.Sub(fatorPagos)).Div(fatorTotal.Sub(um))
-}
-
-// potencia eleva a um expoente inteiro por multiplicação sucessiva.
-//
-// ⚠️ Não passa por float64. Podia — é um teste —, mas a §4 proíbe vírgula
-// flutuante em dinheiro e taxas precisamente porque o erro aparece como
-// cêntimos que ninguém explica. Um resíduo medido com float seria um resíduo
-// com ruído nosso lá dentro, e é o resíduo que decide se o banco mudou.
-func potencia(base decimal.Decimal, expoente int) decimal.Decimal {
-	resultado := decimal.NewFromInt(1)
-	for range expoente {
-		resultado = resultado.Mul(base)
-	}
-	return resultado
 }
 
 // descontoDosPacks extrai da nota quanto valem os packs.
