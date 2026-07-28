@@ -207,12 +207,12 @@ func (b *medidoDeUmBanco) ajustarEncargos() {
 			if len(o.Oferta.ProdutosAplicados) != 0 {
 				continue
 			}
-			if o.Oferta.TAN == nil || o.Oferta.TAEG == nil || len(o.Oferta.Fases) == 0 {
+			if o.Oferta.TAN == nil || o.Oferta.TAEG == nil {
 				continue
 			}
 			obs = append(obs, dominio.ObservacaoDeEncargo{
 				Capital:    o.Ponto.Pedido.Montante,
-				PrazoMeses: o.Oferta.Fases[len(o.Oferta.Fases)-1].AteMes,
+				PrazoMeses: varrimento.PrazoAplicado(o),
 				TAN:        *o.Oferta.TAN,
 				TAEG:       *o.Oferta.TAEG,
 			})
@@ -261,7 +261,7 @@ func (b *medidoDeUmBanco) observacaoDe(cenario string, prazoMeses int) (varrimen
 	}
 
 	for _, o := range semProdutos {
-		if len(o.Oferta.Fases) > 0 && o.Oferta.Fases[len(o.Oferta.Fases)-1].AteMes == prazoMeses {
+		if varrimento.PrazoAplicado(o) == prazoMeses {
 			return o, true
 		}
 	}
