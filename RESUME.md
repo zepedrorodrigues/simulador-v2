@@ -68,7 +68,7 @@ Correu-se em local o que um servidor vai correr: a imagem do `Dockerfile`, Postg
 
 ## Próximo passo
 
-1. **Fundir o PR #70** — e antes disso decidir se o corpo se reescreve ou se a documentação sai para um PR próprio.
+1. **Fundir a documentação** — o ramo `docs/trazer-para-o-repo-e-compactar`.
 2. **Acabar os comentários do código.** Ficou o padrão e a regra (ver «Comentários» no `CLAUDE.md`), não o trabalho: são **4083 linhas de comentário para 8313 de código, 32%**, com **~140 blocos de 8+ linhas seguidas** por rever. Os maiores estão em `dominio/` (taeg, encargos, oferta, dinheiro), `grelha/` e `bancos/`. ⚠️ A pergunta a fazer a cada um é «isto sobrevive noutro sítio?», e agora a maioria sobrevive — os documentos ficaram compactos e precisos de propósito, primeiro.
 3. `KAN-47` — o `make teste-rede` mistura confirmação de parsers com medição de desenho: não pode passar (10 min contra os 90 pedidos) e dispara o cartesiano sem guarda.
 4. `KAN-46` — os cabeçalhos de defesa que a `API.md` §3 prometia e ninguém emite. ⚠️ O documento já não promete; a falta continua.
