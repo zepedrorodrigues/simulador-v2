@@ -2,7 +2,9 @@
 
 Estado actual e próximos passos. ⚠️ **Sem changelog** — o relato de sessões não vive aqui. O `RESUME.md` do v1 chegou a 1317 linhas antes de ser esvaziado à força.
 
-**Actualizado:** 2026-08-01
+**Actualizado:** 2026-08-02
+
+⚠️ **Há trabalho por fundir no ramo `feat/sonda-de-confirmacao-da-grelha`** — oito commits, PR [#70](https://github.com/zepedrorodrigues/simulador-v2/pull/70). O corpo do PR descreve só a sonda; os sete de documentação entraram depois e ou se reescreve o corpo, ou se separam.
 
 ## Onde estamos
 
@@ -61,12 +63,16 @@ Correu-se em local o que um servidor vai correr: a imagem do `Dockerfile`, Postg
 - ⚠️ **A grelha confirma-se por sondagem barata** (§7, decisão 6). ~4 pedidos por banco contra 96. Uma sonda por degrau, logo **abaixo do `Ate`**: apanha fronteira que desce, falha a que sobe — e o erro que fica é servir o spread mais alto, que é a direcção que a MCD manda presumir. Tolerância **lida do degrau**, não escolhida. Na divergência: servir o antigo com fiabilidade reduzida **e** revarrer aquele banco, seguro só por causa do travão em Postgres. PR #70, por fundir.
 - ⚠️ **ALOJAMENTO ADIADO** (2026-08-01), revogando o Fly de 28-07. Não é o fornecedor: é que o primeiro ensaio a sério encontrou dois defeitos numa tarde, e pôr no ar antes de saber o que mais está assim seria escolher a data em vez do estado.
 - ⚠️ **A documentação voltou ao repositório** (2026-08-01), revogando o `652eda2`. O Confluence deixou de ser usado. A razão não foi o argumento — o código continua aberto de propósito — foi o custo: duas moradas sem sincronização produziram divergência a sério (485 contra 505 linhas no `ARQUITETURA.md`).
+- ⚠️ **Os documentos foram compactados a 39 %** (3055 → 1845 linhas), com o critério: estado actual, decisões do passado que importem **e que o código não explique**, e futuro. **Todos os cortes grandes foram cópias de artefactos que já existem** — maquetas de ecrãs construídos, exemplos JSON de um esquema executável, a interface `Banco` copiada para dentro de um documento, medições repetidas em dois ficheiros. Nenhum foi prosa a mais. ⚠️ O `DOSSIE-BANCOS` fica intacto de propósito: 468 linhas de factos medidos banco a banco, nenhum no código e nenhum duplicado.
+- ⚠️ **Os comentários do código seguem a mesma regra** (ver `CLAUDE.md`): o mais curto que se perceba, e só se for estritamente necessário. Se o porquê já vive num documento, **remete em vez de repetir** — a cópia da interface `Banco` no `CONTRATO-BANCO.md` tinha perdido os parágrafos do `ctx` sem ninguém dar por isso.
 
 ## Próximo passo
 
-1. `KAN-47` — o `make teste-rede` mistura confirmação de parsers com medição de desenho: não pode passar (10 min contra os 90 pedidos) e dispara o cartesiano sem guarda.
-2. `KAN-46` — os cabeçalhos de defesa que a `API.md` §3 promete e ninguém emite.
-3. **Fundir o PR #70** e ligar o subcomando da sonda.
+1. **Fundir o PR #70** — e antes disso decidir se o corpo se reescreve ou se a documentação sai para um PR próprio.
+2. **Acabar os comentários do código.** Ficou o padrão e a regra (ver «Comentários» no `CLAUDE.md`), não o trabalho: são **4083 linhas de comentário para 8313 de código, 32%**, com **~140 blocos de 8+ linhas seguidas** por rever. Os maiores estão em `dominio/` (taeg, encargos, oferta, dinheiro), `grelha/` e `bancos/`. ⚠️ A pergunta a fazer a cada um é «isto sobrevive noutro sítio?», e agora a maioria sobrevive — os documentos ficaram compactos e precisos de propósito, primeiro.
+3. `KAN-47` — o `make teste-rede` mistura confirmação de parsers com medição de desenho: não pode passar (10 min contra os 90 pedidos) e dispara o cartesiano sem guarda.
+4. `KAN-46` — os cabeçalhos de defesa que a `API.md` §3 prometia e ninguém emite. ⚠️ O documento já não promete; a falta continua.
+5. **Ligar o subcomando da sonda:** ler a escala guardada, correr contra os bancos, e na divergência servir com fiabilidade reduzida e revarrer aquele banco.
 4. **Confirmar a app contra o servidor já com a `KAN-45`** — a confirmação da A5 é anterior à correcção.
 5. A app, A6 e A7. ⚠️ Ver o ramo `wip/estados-a6-descartado` antes de começar a A6.
 6. `KAN-19` — Crédito Agrícola. ⚠️ O `reference_rate_value` é o **spread**, não a Euribor, apesar de o `rateIndexType` dizer `EUR12TM`.
@@ -103,7 +109,7 @@ Correu-se em local o que um servidor vai correr: a imagem do `Dockerfile`, Postg
 - ⚠️ **O `make verificar` não corre em PowerShell** (sintaxe POSIX no alvo `gerado`). Corre-se em Git Bash. O alvo `gerado` compara com o **committado**: gerar, committar, verificar.
 - ⚠️ **No Git Bash, um caminho absoluto num comando `docker` é reescrito** — `/simulador` vira `C:/Program Files/Git/simulador`. Prefixar `MSYS_NO_PATHCONV=1`.
 - ⚠️ **A porta 5432 desta máquina é de um PostgreSQL nativo**, não dos contentores. Testar «a base está exposta?» pelo porto do host dá falso positivo — ver com `docker port <contentor>`.
-- ⚠️ Ler respostas em Python nesta máquina precisa de `PYTHONIOENCODING=utf-8`, senão os acentos saem como `?` e parece corrupção de dados.
+- ⚠️ Ler respostas em Python nesta máquina precisa de `PYTHONIOENCODING=utf-8`, senão os acentos saem como `?` e parece corrupção de dados. ⚠️ E uma barra invertida dentro de um heredoc `<<'PY'` é comida antes de o Python a ver — `f.replace(os.sep, "/")` em vez de escapar à mão, ou o script num ficheiro.
 - ⚠️ O `postgres:18` recusa o mount do v1: nas imagens 18+ é `/var/lib/postgresql`. E `pg_isready` sem `-h 127.0.0.1` dá pronto cedo demais.
 - ⚠️ **Testes de rede por banco (2026-08-01):** novobanco 65 s, santander 119 s, cgd 147 s, bancoctt 185 s, montepio 530 s.
 - ⚠️ **Na app:** o `openapi-typescript` 7 rebenta com o TypeScript 7 — fica no `~5.9`. O `@testing-library/react-native` traz matchers embutidos desde a v12.4; apontar-lhe o `extend-expect` faz o Jest recusar arrancar. O `expo start` reescreve o `tsconfig.json` sozinho — confirmar o `git diff` antes de commitar.
