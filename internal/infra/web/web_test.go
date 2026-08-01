@@ -128,6 +128,91 @@ func TestSemVarrimentoNaoSeCulpaOsBancos(t *testing.T) {
 	}
 }
 
+// TestUmBancoPedidoSemSerieVemNaRespostaComoRecusa é a KAN-45 à fronteira,
+// reproduzindo a medição da issue: varrimento de dois bancos, pedido de todos.
+//
+// ⚠️ **Este teste é o que faltava para o defeito ser visível daqui.** A resposta
+// filtrava-se à saída, e filtrar só sabe TIRAR: um banco que a grelha não tinha
+// nunca chegava à lista para poder ser filtrado, e saía sem uma palavra. Medido
+// a 2026-07-29 contra a base migrada de raiz — pediram-se 5, vieram 2.
+//
+// A reversão é no `Comparar` e não aqui: pô-lo a percorrer `c.Bancos()` outra
+// vez. Esta afirmação falha a nomear os bancos que se evaporaram — medido, os
+// três que ficaram por varrer.
+//
+// ⚠️ Reverter só o lado do `web` — passar `nil` ao `Comparar` e voltar a filtrar
+// à saída — **não** faz este teste falhar, e isso é informação e não um defeito
+// do teste: com a lista vazia a valer «todos os conhecidos», o `Comparar` já
+// devolve os cinco e o filtro não tem o que tirar. Quem partir isto outra vez
+// parte-o no `Comparar`, que é onde este teste aperta.
+func TestUmBancoPedidoSemSerieVemNaRespostaComoRecusa(t *testing.T) {
+	todos := bancos.Predefinido().IDs()
+	if len(todos) < 3 {
+		t.Skipf("o registo tem %d bancos e este teste precisa de pelo menos 3", len(todos))
+	}
+	varridos, porVarrer := todos[:2], todos[2:]
+
+	var obs []varrimento.Observacao
+	for _, id := range varridos {
+		obs = append(obs, observacoesDeUmBanco(t, id)...)
+	}
+	s := servidor(t, obs)
+
+	resposta := comparar(t, s, corpoDePedido(todos))
+	if resposta.Code != http.StatusOK {
+		t.Fatalf("estado %d, esperava 200: %s", resposta.Code, resposta.Body.String())
+	}
+
+	var comparacao api.Comparacao
+	lerJSON(t, resposta, &comparacao)
+
+	vieram := map[string]api.Oferta{}
+	for _, o := range comparacao.Ofertas {
+		vieram[o.BancoId] = o
+	}
+	for _, id := range todos {
+		if _, veio := vieram[id]; !veio {
+			t.Errorf("pediu-se o %q e ele não vem na resposta, nem sequer como recusa", id)
+		}
+	}
+	if t.Failed() {
+		t.FailNow()
+	}
+
+	// Os varridos respondem; os que ninguém varreu recusam, e dizem de quem é a
+	// falta — nossa. Culpá-los levava quem lê a concluir que estão em baixo.
+	for _, id := range porVarrer {
+		o := vieram[id]
+		if o.Sucesso {
+			t.Errorf("o %q não foi varrido e ainda assim deu oferta", id)
+			continue
+		}
+		if o.Erro == nil || o.Erro.Codigo != "sem_serie" {
+			t.Errorf("o %q veio com %+v, e a KAN-45 pede o código sem_serie", id, o.Erro)
+		}
+	}
+}
+
+// TestUmIdQueNaoEBancoNenhumEUm400: «ainda não temos preços deste banco» e «não
+// há tal banco» são coisas diferentes, e a segunda é erro de quem pergunta.
+func TestUmIdQueNaoEBancoNenhumEUm400(t *testing.T) {
+	s := servidor(t, observacoesDeQuatroBancos(t))
+
+	resposta := comparar(t, s, corpoDePedido([]string{"banco-que-nunca-existiu"}))
+	if resposta.Code != http.StatusBadRequest {
+		t.Fatalf("estado %d, esperava 400: %s", resposta.Code, resposta.Body.String())
+	}
+
+	var erro api.RespostaErro
+	lerJSON(t, resposta, &erro)
+	if erro.Erro.Campo == nil || *erro.Erro.Campo != "bancos" {
+		t.Errorf("o erro não aponta ao campo bancos: %+v", erro.Erro)
+	}
+	if !strings.Contains(erro.Erro.Mensagem, "banco-que-nunca-existiu") {
+		t.Errorf("a mensagem não diz qual o id que não existe: %q", erro.Erro.Mensagem)
+	}
+}
+
 func TestUmPedidoInvalidoNomeiaOCampo(t *testing.T) {
 	s := servidor(t, observacoesDeQuatroBancos(t))
 

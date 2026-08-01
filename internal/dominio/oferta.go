@@ -124,6 +124,17 @@ const (
 	ErroBancoIndisponivel CodigoErro = "banco_indisponivel"
 	// ErroRespostaIlegivel: respondeu, e o que veio não se consegue ler.
 	ErroRespostaIlegivel CodigoErro = "resposta_ilegivel"
+	// ErroSemSerie: não há preços varridos deste banco. Ninguém lhe perguntou.
+	//
+	// ⚠️ **Não é o** ErroBancoIndisponivel, **e a distinção é o ponto** (KAN-45):
+	// esse quer dizer que se foi lá e o banco não respondeu; este quer dizer que
+	// não se foi lá. O banco não teve culpa nenhuma, e culpá-lo mandava a pessoa
+	// tirar sobre ele uma conclusão que os dados não sustentam. É a mesma
+	// distinção que a KAN-30 faz para os pânicos nossos.
+	//
+	// ⚠️ E também não é o ErroProdutoIndisponivel: esse é «foi varrido e não
+	// mediu ESTE cenário», que é sobre o pedido; este é sobre o banco inteiro.
+	ErroSemSerie CodigoErro = "sem_serie"
 )
 
 // ErroOferta é a falha de um banco, estruturada.

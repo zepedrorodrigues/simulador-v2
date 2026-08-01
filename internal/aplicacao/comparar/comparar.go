@@ -332,8 +332,9 @@ func (c *Catalogo) Bancos() []string {
 	return ordenados(ids)
 }
 
-// Comparar responde ao pedido com uma oferta por banco.
+// Comparar responde com uma oferta por banco PEDIDO — e não por banco medido.
 //
+// `pedidos` são os ids que quem pergunta nomeou; lista vazia quer dizer todos.
 // `requisitos` são os do registo — é deles que saem os períodos que cada banco
 // pratica e os limites de prazo, e é por isso que os ajustes se fazem aqui e não
 // na leitura da base.
@@ -342,25 +343,87 @@ func (c *Catalogo) Bancos() []string {
 // uma falha nomeada é informação, e omitir o banco da lista fazia-o parecer
 // inexistente. É a mesma regra do varrimento — um banco avariado não derruba a
 // comparação (§5).
+//
+// ⚠️ **Percorrer os pedidos e não os medidos é a correcção da KAN-45**, e a
+// distinção não é académica: até 2026-08-01 percorria-se `c.Bancos()`, que são
+// os ids de que se LERAM observações, e um banco escolhido sem série nenhuma
+// não vinha como recusa — não vinha de todo. Medido nesse dia com a base
+// migrada de raiz e um varrimento só de dois bancos, pediram-se cinco e vieram
+// dois, sem uma palavra sobre os três em falta. O `ECRAS.md` §3 di-lo ao
+// contrário: «um banco que desaparece parece um esquecimento».
+//
+// ⚠️ Um id pedido que não existe em lado nenhum é `ErrPedidoInvalido`, e não uma
+// linha de recusa: «ainda não temos preços deste banco» e «não há tal banco» são
+// coisas diferentes, e responder à segunda com a primeira ensinava o cliente que
+// um id que escreveu mal é um banco que existe.
 func (c *Catalogo) Comparar(
-	p dominio.Pedido, requisitos map[string]dominio.Requisitos, hoje dominio.Data,
+	p dominio.Pedido, pedidos []string, requisitos map[string]dominio.Requisitos, hoje dominio.Data,
 ) ([]dominio.Oferta, error) {
 	if err := p.Validar(hoje); err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrPedidoInvalido, err)
 	}
 
-	ofertas := make([]dominio.Oferta, 0, len(c.porBanco))
-	for _, id := range c.Bancos() {
+	conhecidos := c.conhecidos(requisitos)
+	if len(pedidos) == 0 {
+		pedidos = conhecidos
+	}
+	for _, id := range pedidos {
+		if !slices.Contains(conhecidos, id) {
+			return nil, fmt.Errorf("%w: %w", ErrPedidoInvalido, &dominio.ErroValidacao{
+				Campo:    "bancos",
+				Mensagem: fmt.Sprintf("Não há nenhum banco com o identificador %q.", id),
+			})
+		}
+	}
+
+	ofertas := make([]dominio.Oferta, 0, len(pedidos))
+	for _, id := range ordenados(slices.Clone(pedidos)) {
 		ofertas = append(ofertas, c.ofertaDe(id, p, requisitos[id], hoje))
 	}
 	return ofertas, nil
+}
+
+// conhecidos são os bancos sobre que se pode dizer alguma coisa: os do registo
+// mais os que a grelha mediu.
+//
+// ⚠️ É a UNIÃO dos dois e não só o registo, e isso resolve dois casos de uma vez
+// sem um ramo de excepção: quem chama sem registo nenhum (o handler devolve um
+// mapa vazio se o registo não se montar) continua a responder pelo que mediu, em
+// vez de responder por nada; e um banco medido que já saiu do registo continua a
+// aparecer, em vez de se evaporar — que é exactamente o defeito que esta issue
+// corrige, só que pela outra ponta.
+func (c *Catalogo) conhecidos(requisitos map[string]dominio.Requisitos) []string {
+	ids := make([]string, 0, len(requisitos)+len(c.porBanco))
+	for id := range requisitos {
+		ids = append(ids, id)
+	}
+	for id := range c.porBanco {
+		if _, jaLa := requisitos[id]; !jaLa {
+			ids = append(ids, id)
+		}
+	}
+	return ordenados(ids)
 }
 
 // ofertaDe monta a resposta de um banco.
 func (c *Catalogo) ofertaDe(
 	id string, p dominio.Pedido, req dominio.Requisitos, hoje dominio.Data,
 ) dominio.Oferta {
-	banco := c.porBanco[id]
+	banco, medido := c.porBanco[id]
+	if !medido {
+		// ⚠️ O banco existe e não foi varrido. A recusa nomeia-o e diz de quem é
+		// a falta — nossa —, porque o contrário fazia a pessoa concluir que o
+		// banco está em baixo. E é `sem_serie` e não `produto_indisponivel`: esse
+		// é «varreu-se e não se mediu ESTE cenário», que é outra frase e outra
+		// decisão para quem lê.
+		nome := nomeNoRegisto(id, req)
+		return dominio.Falhar(id, nome, &dominio.ErroOferta{
+			Codigo: dominio.ErroSemSerie,
+			Mensagem: fmt.Sprintf(
+				"Ainda não há preços varridos do %s, e por isso não se lhe conhece oferta para este "+
+					"pedido. O banco não foi consultado — a falta é nossa e não dele.", nome),
+		})
+	}
 	nome := banco.nome
 
 	// 1. Os ajustes que o pedido leva para caber no que este banco pratica. São
@@ -426,6 +489,19 @@ func (c *Catalogo) ofertaDe(
 	// 5. A TAEG e o MTIC, derivados — e os pressupostos que os sustentam.
 	derivarTAEG(&oferta, banco, pedido, nome)
 	return oferta
+}
+
+// nomeNoRegisto dá o nome por que a pessoa conhece o banco, quando a grelha não
+// o tem para dar.
+//
+// ⚠️ Cai para o id quando o registo também não o traz. É feio de propósito: o id
+// numa frase em português denuncia o buraco a quem lê a resposta, e um «este
+// banco» genérico escondia-o.
+func nomeNoRegisto(id string, req dominio.Requisitos) string {
+	if req.BancoNome != "" {
+		return req.BancoNome
+	}
+	return id
 }
 
 // encaixar aplica ao pedido os limites do banco, devolvendo os ajustes.
