@@ -1,6 +1,7 @@
 package comparar_test
 
 import (
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -26,6 +27,14 @@ const (
 	bancoID   = "provabank"
 	bancoNome = "Banco de Prova"
 
+	// O segundo é varrido; o terceiro está no registo e nunca foi varrido. É a
+	// assimetria que a KAN-45 mede, e a razão de os ids serem alfabéticos por
+	// esta ordem — a resposta sai ordenada e os testes contam com isso.
+	segundoID    = "qprovabank"
+	segundoNome  = "Segundo Banco de Prova"
+	terceiroID   = "rprovabank"
+	terceiroNome = "Terceiro Banco de Prova"
+
 	produtoOrdenado = "provabank:ordenado"
 	produtoSeguros  = "provabank:seguros"
 )
@@ -41,7 +50,7 @@ func TestUmaOfertaSaiDaEscalaEDaEuriborMedidas(t *testing.T) {
 	cat := catalogoDeProva(t)
 
 	// LTV 80 % cai no segundo degrau, de spread 1,350. A Euribor medida é 2,450.
-	ofertas, err := cat.Comparar(pedido(t, "320000", 30, dominio.TaxaVariavel), requisitos(), hoje())
+	ofertas, err := cat.Comparar(pedido(t, "320000", 30, dominio.TaxaVariavel), nil, requisitos(), hoje())
 	if err != nil {
 		t.Fatalf("Comparar: %v", err)
 	}
@@ -300,7 +309,7 @@ func TestUmPedidoInvalidoNaoChegaAOlharParaBancoNenhum(t *testing.T) {
 	p := pedido(t, "320000", 30, dominio.TaxaVariavel)
 	p.Montante = dinheiro(t, "500000") // acima do valor do imóvel
 
-	if _, err := cat.Comparar(p, requisitos(), hoje()); err == nil {
+	if _, err := cat.Comparar(p, nil, requisitos(), hoje()); err == nil {
 		t.Fatal("um pedido inválido passou")
 	}
 }
@@ -308,6 +317,157 @@ func TestUmPedidoInvalidoNaoChegaAOlharParaBancoNenhum(t *testing.T) {
 func TestSemObservacoesNaoHaCatalogo(t *testing.T) {
 	if _, err := comparar.NovoCatalogo(nil); err == nil {
 		t.Fatal("construiu-se um catálogo sem observações")
+	}
+}
+
+// TestUmBancoPedidoSemSerieVemComoRecusaENaoDesaparece é a KAN-45.
+//
+// ⚠️ **O catálogo tem dois bancos e o pedido nomeia três**, e é essa diferença
+// que faz o teste. Todos os testes deste ficheiro construíam o catálogo e o
+// pedido com o mesmo conjunto, portanto os dois coincidiam sempre e o defeito
+// não tinha por onde aparecer — o que é o caso normal em produção depois de o
+// varrimento estabilizar, e por isso é que isto só se via numa base nova, num
+// banco novo, ou num banco cujo varrimento falhou.
+//
+// A reversão: pôr o `Comparar` a percorrer `c.Bancos()` outra vez. O `terceiro`
+// deixa de vir, e a falha nomeia-o.
+func TestUmBancoPedidoSemSerieVemComoRecusaENaoDesaparece(t *testing.T) {
+	cat := catalogoDeDoisBancos(t)
+
+	pedidos := []string{bancoID, segundoID, terceiroID}
+	ofertas, err := cat.Comparar(pedido(t, "320000", 30, dominio.TaxaVariavel), pedidos, requisitosDeTres(), hoje())
+	if err != nil {
+		t.Fatalf("Comparar: %v", err)
+	}
+
+	// ⚠️ A falha nomeia quem falta, e não só a contagem. «esperava 3, vieram 2»
+	// manda quem lê procurar qual dos três — que é a pergunta a que o teste devia
+	// responder sozinho.
+	vieram := map[string]dominio.Oferta{}
+	for _, o := range ofertas {
+		vieram[o.BancoID] = o
+	}
+	for _, id := range pedidos {
+		if _, veio := vieram[id]; !veio {
+			t.Errorf("pediu-se o %q e ele não vem na resposta, nem sequer como recusa", id)
+		}
+	}
+	if t.Failed() {
+		t.FailNow()
+	}
+
+	if len(ofertas) != 3 {
+		t.Fatalf("pediram-se 3 bancos e vieram %d ofertas", len(ofertas))
+	}
+
+	// Os dois medidos respondem; o terceiro recusa, e diz porquê.
+	for _, id := range []string{bancoID, segundoID} {
+		if !vieram[id].Sucesso() {
+			t.Errorf("o %q foi varrido e mesmo assim não deu oferta: %s", id, vieram[id].Erro.Mensagem)
+		}
+	}
+
+	semSerie := vieram[terceiroID]
+	if semSerie.Sucesso() {
+		t.Fatalf("o %q não tem observações nenhumas e ainda assim deu oferta", terceiroID)
+	}
+	if semSerie.Erro.Codigo != dominio.ErroSemSerie {
+		t.Errorf("o banco sem série veio como %q, e a KAN-45 pede %q",
+			semSerie.Erro.Codigo, dominio.ErroSemSerie)
+	}
+	// A mensagem nomeia o banco por que a pessoa perguntou, e não o id.
+	if !strings.Contains(semSerie.Erro.Mensagem, terceiroNome) {
+		t.Errorf("a recusa do banco sem série não o nomeia: %q", semSerie.Erro.Mensagem)
+	}
+}
+
+// TestNaoSeConfundeNaoTerSidoVarridoComNaoTerEsteCenario afirma a distinção que
+// a KAN-45 exige: as duas recusas não podem ser a mesma frase nem o mesmo
+// código.
+//
+// ⚠️ São decisões diferentes para quem lê. «Ainda não varremos este banco»
+// resolve-se correndo o varrimento; «varreu-se e não mede mista a 5 anos»
+// resolve-se mudando o pedido, ou não se resolve. Empacotar as duas na mesma
+// frase mandava a pessoa esperar por uma coisa que não vai acontecer, ou mudar
+// um pedido que estava bem.
+func TestNaoSeConfundeNaoTerSidoVarridoComNaoTerEsteCenario(t *testing.T) {
+	// O segundo banco só tem a variável: pedir-lhe uma fixa é «varrido, sem este
+	// cenário». O terceiro não tem observação nenhuma: é «sem série».
+	cat := catalogoDeDoisBancos(t, soVariavel)
+
+	ofertas, err := cat.Comparar(
+		pedido(t, "320000", 10, dominio.TaxaFixa),
+		[]string{segundoID, terceiroID}, requisitosDeTres(), hoje())
+	if err != nil {
+		t.Fatalf("Comparar: %v", err)
+	}
+	// ⚠️ Procuram-se pelo id e não pela posição: se a correcção se perder, o que
+	// se quer ler na falha é «o banco tal não veio», e não um desencontro de
+	// índices que manda quem lê contar ofertas à mão.
+	semCenario, temSegundo := ofertaDe(ofertas, segundoID)
+	semSerie, temTerceiro := ofertaDe(ofertas, terceiroID)
+	if !temSegundo {
+		t.Fatalf("pediu-se o %q, que foi varrido sem este cenário, e ele não vem", segundoID)
+	}
+	if !temTerceiro {
+		t.Fatalf("pediu-se o %q, que nunca foi varrido, e ele não vem — nem sequer como recusa", terceiroID)
+	}
+	if semCenario.Sucesso() || semSerie.Sucesso() {
+		t.Fatal("esperava as duas recusadas")
+	}
+
+	if semCenario.Erro.Codigo == semSerie.Erro.Codigo {
+		t.Errorf("as duas recusas têm o mesmo código %q, e são coisas diferentes", semCenario.Erro.Codigo)
+	}
+	if semCenario.Erro.Mensagem == semSerie.Erro.Mensagem {
+		t.Errorf("as duas recusas dizem a mesma frase: %q", semSerie.Erro.Mensagem)
+	}
+	if semCenario.Erro.Codigo != dominio.ErroProdutoIndisponivel {
+		t.Errorf("«varrido e sem este cenário» veio como %q, esperava %q",
+			semCenario.Erro.Codigo, dominio.ErroProdutoIndisponivel)
+	}
+	if semSerie.Erro.Codigo != dominio.ErroSemSerie {
+		t.Errorf("«nunca varrido» veio como %q, esperava %q", semSerie.Erro.Codigo, dominio.ErroSemSerie)
+	}
+}
+
+// TestUmIdQueNaoEBancoNenhumERecusadoNoPedido: «ainda não temos preços deste
+// banco» e «não há tal banco» são coisas diferentes, e a segunda é erro de quem
+// pergunta. Dar-lhe uma linha de recusa ensinava o cliente que um id que
+// escreveu mal é um banco que existe.
+func TestUmIdQueNaoEBancoNenhumERecusadoNoPedido(t *testing.T) {
+	cat := catalogoDeDoisBancos(t)
+
+	_, err := cat.Comparar(
+		pedido(t, "320000", 30, dominio.TaxaVariavel),
+		[]string{bancoID, "banco-que-nunca-existiu"}, requisitosDeTres(), hoje())
+	if err == nil {
+		t.Fatal("um id que não é banco nenhum passou como se fosse")
+	}
+
+	var validacao *dominio.ErroValidacao
+	if !errors.As(err, &validacao) {
+		t.Fatalf("a recusa não nomeia o campo do pedido: %v", err)
+	}
+	if validacao.Campo != "bancos" {
+		t.Errorf("a recusa aponta ao campo %q, esperava %q", validacao.Campo, "bancos")
+	}
+	if !strings.Contains(validacao.Mensagem, "banco-que-nunca-existiu") {
+		t.Errorf("a recusa não diz qual o id que não existe: %q", validacao.Mensagem)
+	}
+}
+
+// TestSemBancosNoPedidoRespondeSePelosDoRegisto: lista vazia quer dizer todos, e
+// «todos» é o registo — não é «todos os que por acaso foram varridos».
+func TestSemBancosNoPedidoRespondeSePelosDoRegisto(t *testing.T) {
+	cat := catalogoDeDoisBancos(t)
+
+	ofertas, err := cat.Comparar(pedido(t, "320000", 30, dominio.TaxaVariavel), nil, requisitosDeTres(), hoje())
+	if err != nil {
+		t.Fatalf("Comparar: %v", err)
+	}
+	if len(ofertas) != 3 {
+		t.Fatalf("o registo tem 3 bancos e vieram %d ofertas a um pedido sem bancos nomeados", len(ofertas))
 	}
 }
 
@@ -467,6 +627,90 @@ func semFamiliaDoPrazo(obs []varrimento.Observacao) []varrimento.Observacao {
 
 // --- ajudantes -------------------------------------------------------------------
 
+// ofertaDe procura a oferta de um banco na resposta, pelo id.
+func ofertaDe(ofertas []dominio.Oferta, id string) (dominio.Oferta, bool) {
+	for _, o := range ofertas {
+		if o.BancoID == id {
+			return o, true
+		}
+	}
+	return dominio.Oferta{}, false
+}
+
+// catalogoDeDoisBancos constrói o catálogo do banco de prova mais um segundo,
+// deixando o terceiro do registo POR VARRER. É a assimetria que a KAN-45 mede.
+//
+// Os `filtros` aplicam-se só às observações do segundo banco, para se poder
+// distinguir «não varrido» de «varrido e sem este cenário».
+func catalogoDeDoisBancos(t *testing.T, filtros ...func([]varrimento.Observacao) []varrimento.Observacao) *comparar.Catalogo {
+	t.Helper()
+
+	obs := observacoesDeProva(t)
+	doSegundo := doBanco(observacoesDeProva(t), segundoID, segundoNome)
+	for _, filtro := range filtros {
+		doSegundo = filtro(doSegundo)
+	}
+
+	c, err := comparar.NovoCatalogo(append(obs, doSegundo...))
+	if err != nil {
+		t.Fatalf("NovoCatalogo: %v", err)
+	}
+	return c
+}
+
+// doBanco reetiqueta observações para outro banco.
+//
+// ⚠️ Reetiqueta o `Ponto.Pedido.Produtos` também: os ids de produto trazem o
+// banco no prefixo (`provabank:ordenado`), e deixá-los como estavam dava um
+// segundo banco cujos descontos pertencem ao primeiro — uma incoerência que o
+// `ProdutosDoBanco` apanharia mais tarde e mais longe daqui.
+func doBanco(obs []varrimento.Observacao, id, nome string) []varrimento.Observacao {
+	saida := make([]varrimento.Observacao, 0, len(obs))
+	for _, o := range obs {
+		o.Oferta.BancoID, o.Oferta.BancoNome = id, nome
+		o.Oferta.ProdutosAplicados = renomearProdutos(o.Oferta.ProdutosAplicados, id)
+		o.Ponto.Pedido.Produtos = renomearProdutos(o.Ponto.Pedido.Produtos, id)
+		saida = append(saida, o)
+	}
+	return saida
+}
+
+func renomearProdutos(produtos []string, id string) []string {
+	if produtos == nil {
+		return nil
+	}
+	saida := make([]string, 0, len(produtos))
+	for _, p := range produtos {
+		saida = append(saida, id+":"+strings.TrimPrefix(p, bancoID+":"))
+	}
+	return saida
+}
+
+// soVariavel deixa passar só as observações de taxa variável — um banco varrido
+// que não tem preço de fixa nem de mista.
+func soVariavel(obs []varrimento.Observacao) []varrimento.Observacao {
+	saida := make([]varrimento.Observacao, 0, len(obs))
+	for _, o := range obs {
+		if o.Ponto.Pedido.TipoTaxa == dominio.TaxaVariavel {
+			saida = append(saida, o)
+		}
+	}
+	return saida
+}
+
+// requisitosDeTres é o registo com três bancos — um a mais do que os que a
+// grelha mediu.
+func requisitosDeTres() map[string]dominio.Requisitos {
+	todos := requisitos()
+	base := todos[bancoID]
+	for id, nome := range map[string]string{segundoID: segundoNome, terceiroID: terceiroNome} {
+		r := base
+		r.BancoID, r.BancoNome = id, nome
+		todos[id] = r
+	}
+	return todos
+}
+
 func requisitos() map[string]dominio.Requisitos {
 	return map[string]dominio.Requisitos{
 		bancoID: {
@@ -507,7 +751,7 @@ func comFixa(p dominio.Pedido, periodo int) dominio.Pedido {
 
 func ofertaUnica(t *testing.T, c *comparar.Catalogo, p dominio.Pedido) dominio.Oferta {
 	t.Helper()
-	ofertas, err := c.Comparar(p, requisitos(), hoje())
+	ofertas, err := c.Comparar(p, nil, requisitos(), hoje())
 	if err != nil {
 		t.Fatalf("Comparar: %v", err)
 	}

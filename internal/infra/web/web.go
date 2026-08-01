@@ -231,7 +231,11 @@ func (s *Servidor) compararOfertas(w http.ResponseWriter, r *http.Request) {
 	}
 
 	hoje := dominio.DataDeInstante(s.agora())
-	ofertas, err := catalogo.Comparar(pedido, requisitosDe(s.registo), hoje)
+	// ⚠️ Os bancos pedidos vão para dentro do `Comparar`, e não se filtram à
+	// saída. Filtrar à saída era o que se fazia até 2026-08-01, e só conseguia
+	// tirar da lista — um banco pedido que a grelha não tinha nunca lá chegava
+	// para ser tirado, e desaparecia sem uma palavra (KAN-45).
+	ofertas, err := catalogo.Comparar(pedido, corpo.Bancos, requisitosDe(s.registo), hoje)
 	if err != nil {
 		var validacao *dominio.ErroValidacao
 		if errors.As(err, &validacao) {
@@ -242,34 +246,14 @@ func (s *Servidor) compararOfertas(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	escolhidos := escolher(ofertas, corpo.Bancos)
 	resposta := api.Comparacao{
 		CalculadoEm: s.agora().UTC(),
-		Ofertas:     make([]api.Oferta, 0, len(escolhidos)),
+		Ofertas:     make([]api.Oferta, 0, len(ofertas)),
 	}
-	for _, o := range escolhidos {
+	for _, o := range ofertas {
 		resposta.Ofertas = append(resposta.Ofertas, ofertaDe(o))
 	}
 	escrever(w, http.StatusOK, resposta)
-}
-
-// escolher filtra as ofertas pelos bancos que o pedido nomeou. Lista vazia quer
-// dizer todos — é o caso comum, e é o que a app faz no primeiro ecrã.
-func escolher(ofertas []dominio.Oferta, ids []string) []dominio.Oferta {
-	if len(ids) == 0 {
-		return ofertas
-	}
-	querido := make(map[string]bool, len(ids))
-	for _, id := range ids {
-		querido[id] = true
-	}
-	saida := make([]dominio.Oferta, 0, len(ids))
-	for _, o := range ofertas {
-		if querido[o.BancoID] {
-			saida = append(saida, o)
-		}
-	}
-	return saida
 }
 
 func requisitosDe(r *bancos.Registo) map[string]dominio.Requisitos {
