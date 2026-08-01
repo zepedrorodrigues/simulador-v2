@@ -116,8 +116,6 @@ Três decisões pequenas, e cada uma fecha um modo de falha:
 - **redonda.** `Cenario → chave → Cenario` e `Pedido → Cenario` são funções do `internal/aplicacao/grelha`, e há teste que fecha o ciclo. É o que sustenta a frase «derivável do pedido»: sem a volta completa, a chave é um rótulo bonito e a pergunta de um cliente não encontra a linha.
 
 ⚠️ **O que NÃO entra na chave**, e é deliberado: o LTV (colunas `ltv_min`/`ltv_max`), o **tenor da Euribor** (coluna `euribor_indexante`) e os **produtos** (coluna `produtos`). São colunas tipadas, não texto empacotado, pela razão da Decisão 2 da `ANALISE-KAN-35.md`. Consequência prática, e é preciso tê-la presente: **duas linhas do mesmo varrimento podem partilhar o `cenario`** e distinguir-se só por essas colunas — a linha com produtos e a linha sem eles, por exemplo. É assim que o desvio de cada produto se deriva na leitura, como esta secção já dizia em «Porque é que não há uma terceira tabela».
-- **O `/api/rate-catalog` continua compatível ao byte** (§6). Ele já filtra por `scenario`, e os cenários de referência antigos passam a ser um subconjunto da grelha nova. O `viabilidade-imobiliaria` não vê diferença — e há o teste de contrato para o afirmar.
-
 | coluna | tipo | nota |
 | --- | --- | --- |
 | `id` | `bigserial` PK |  |
@@ -125,7 +123,7 @@ Três decisões pequenas, e cada uma fecha um modo de falha:
 | `capturado_em` | `timestamptz` | ⚠️ **com** fuso |
 | `cenario` | `text` | ⚠️ chave **estruturada** do ponto da grelha, derivável do pedido: `<tipo>/<periodo>/<finalidade>`, três segmentos sempre. **Sem LTV** — ver as duas colunas seguintes |
 | `ltv_min`, `ltv_max` | `numeric(9,8)` | ⚠️ o intervalo de LTV com as fronteiras **medidas**, não uma banda de passo fixo. **Nulos** numa linha que não é um degrau da escala — ver «O que estas três colunas descrevem» |
-| `spread_minimo` | `numeric(6,3)` | o lado **barato** de um degrau por resolver; **nulo** quando o degrau está resolvido. Substitui o `ltv_resolvido` que esta tabela declarava até 2026-07-27 |
+| `spread_minimo` | `numeric(6,3)` | o lado **barato** de um degrau por resolver; **nulo** quando resolvido |
 | `banco_id`, `banco_nome` | `text` |  |
 | `rate_type` | `text` | `variavel` \| `fixa` \| `mista` |
 | `valor_imovel`, `montante` | `numeric(12,2)` | ⚠️ **não** vírgula flutuante |
@@ -141,7 +139,7 @@ Três decisões pequenas, e cada uma fecha um modo de falha:
 | `sucesso` | `bool` |  |
 | `erro` | `text` |  |
 
-Índices: `(cenario, banco_id, ltv_min, capturado_em desc)` e `(capturado_em desc)`. ⚠️ O `ltv_min` entra no índice porque a consulta deixou de ser uma igualdade e passou a ser um intervalo que contém o LTV do cliente; a forma final confirma-se contra a consulta real na KAN-16. ⚠️ O índice antigo `(cenario, banco_id, capturado_em desc)` **fica** ao lado dele: não é prefixo do novo — o `ltv_min` entra ao meio —, e é ele que serve o `/api/rate-catalog`, que não filtra por LTV. Numa tabela escrita uma vez por varrimento, o custo de escrita de um índice a mais não é argumento.
+Índices: `(cenario, banco_id, ltv_min, capturado_em desc)` e `(capturado_em desc)`. ⚠️ O `ltv_min` entra no índice porque a consulta é um **intervalo que contém** o LTV do cliente, e não uma igualdade. O índice `(cenario, banco_id, capturado_em desc)` **fica** ao lado: não é prefixo do novo (o `ltv_min` entra ao meio) e é ele que serve o `/api/rate-catalog`, que não filtra por LTV. Numa tabela escrita uma vez por varrimento, o custo de um índice a mais não é argumento.
 
 ### ⚠️ O que estas três colunas descrevem, e quando são nulas
 
@@ -183,7 +181,7 @@ Lado a lado, o que saía era 1,350 da CGD contra 0,900 do Novo Banco: **o Novo B
 
 ### ⚠️ O resíduo mora numa coluna, e é uma só
 
-**Escrito a 2026-07-28 (KAN-16), ao executar a §7.4.** A §7.4 diz desde 2026-07-25 que «cada varrimento mede o seu próprio resíduo» e que a diferença **se guarda**, e não dizia onde. Guarda-se aqui, em `residuo_prestacao`, e não numa tabela nova: o resíduo é uma medição **por observação**, e uma observação já é uma linha desta tabela. Uma tabela à parte seria a terceira, com a obrigação de a manter de acordo com esta e sem nada em troca.
+O resíduo da §7.4 guarda-se em `residuo_prestacao`, **e não numa tabela nova**: é uma medição por observação, e uma observação já é uma linha desta tabela. Uma tabela à parte seria a terceira, a manter de acordo com esta e sem nada em troca.
 
 **O que a coluna contém:** a prestação que o banco devolveu **menos** a que a amortização francesa dá sobre o plano que o próprio banco descreveu. Em euros, com sinal — o sinal diz de que lado se está a divergir, e um valor absoluto perdia-o sem poupar nada.
 
@@ -199,25 +197,9 @@ Lado a lado, o que saía era 1,350 da CGD contra 0,900 do Novo Banco: **o Novo B
 
 **Decidido a 2026-07-26 (KAN-35)**, e está medido que uma banda de passo fixo não representa o preço. As medições e a base legal estão em [`ANALISE-KAN-35.md`](ANALISE-KAN-35.md); o que se segue são os números que decidem esta secção.
 
-**O que se mediu.** Imóvel fixo em 400 000 € e montante a variar de 1 000 €, para que cada passo seja exactamente 0,25 p.p. de LTV. Variável, 30 anos, habitação própria.
+Três coisas saem da medição, e cada uma mata uma solução: **duas fronteiras da CGD não caem em LTV inteiro** (afinar para 1 p.p. tem o mesmo defeito, só mais pequeno); **afinar o passo não reduz o erro, reduz a exposição** — quem cai do lado errado erra a altura do degrau, 0,70 p.p. na CGD, ~79 €/mês em 200 000 € a 30 anos; e **o preço não é monótono**, o que mata a bissecção. Os números estão na [`ANALISE-KAN-35.md`](ANALISE-KAN-35.md).
 
-| fronteira observada | cai no intervalo | contém LTV inteiro? |
-| --- | --- | --- |
-| CGD, 2,000 → 2,050 | (66,50 ; 66,75] | **não** |
-| CGD, 1,950 → 2,000 | (33,00 ; 33,50] | **não** |
-| CGD, 2,050 → 1,350 | (67,75 ; 68,00] | sim — 68 |
-| Novo Banco, 0,75 → 0,80 | (50,00 ; 50,25] | não |
-| Novo Banco, 0,90 → 0,95 | (80,00 ; 80,25] | não |
-
-Três coisas saem daqui, e cada uma mata uma solução:
-
-1. **Duas fronteiras da CGD não estão em LTV inteiro.** Afinar a grelha para 1 p.p. não as representa — o defeito é o mesmo, só mais pequeno.
-2. **Afinar o passo não reduz o erro, reduz a exposição.** Numa grelha de passo fixo, a banda que contém uma fronteira serve um só spread aos dois lados dela; quem cai do lado errado erra **a altura do degrau**, seja qual for o passo. Na banda 70 da CGD isso são **0,70 p.p.**, a 5 p.p. como a 1 p.p. — cerca de **79 € por mês** em 200 000 € a 30 anos, mais do que a diferença entre bancos que este projecto existe para comparar.
-3. **O preço não é monótono no LTV.** O 2,050 da CGD é um patamar isolado de ~1,25 p.p. entre dois mais largos. Qualquer descoberta de fronteiras por bissecção que assuma monotonia salta-o.
-
-⚠️ **E os dois bancos discordam sobre a forma da coisa.** O Novo Banco muda de preço exactamente nos múltiplos de 5 com a fronteira fechada em cima — «até 50 %», «até 80 %» —, que é o que o `BandaLTV` fazia; a CGD não. **Logo a resolução não pode ser uma constante do domínio: tem de ser medida banco a banco.** Um banco não chegava para decidir isto.
-
-⚠️ **O terceiro banco confirma-o pelo extremo oposto (KAN-11, 2026-07-27):** no Montepio o LTV **não muda o preço de todo** — spread 1,500 de 50 % a 100 %. São três bancos e três formas diferentes: uma que desce e quebra fora dos inteiros, uma que sobe e quebra nos múltiplos de 5, e uma que é constante. A grelha por intervalos representa as três com o número de linhas que cada uma precisa — uma só, no caso do Montepio.
+⚠️ **E os bancos discordam sobre a forma da coisa, o que é o argumento decisivo.** O Novo Banco muda nos múltiplos de 5, com a fronteira fechada em cima; a CGD não; e o **Montepio não muda de todo** — spread 1,500 de 50 % a 100 % (KAN-11). Três bancos, três formas: uma que quebra fora dos inteiros, uma que quebra nos múltiplos de 5, e uma constante. **Logo a resolução não pode ser uma constante do domínio — tem de ser medida banco a banco**, e um banco não chegava para decidir isto. A grelha por intervalos representa as três com as linhas que cada uma precisa: uma só, no caso do Montepio.
 
 **O que fica decidido:**
 
