@@ -81,31 +81,21 @@ testes/              jest + a fábrica de bancos de teste
 
 ## 5. Fases
 
-⚠️ **Escrito para arrancar «em paralelo com a fase 1 do backend, assim que o `openapi.yaml` existir». Não foi o que aconteceu**, e a app arranca a 2026-07-28 com a fase 1 do backend fechada: cinco bancos, a grelha medida e a fronteira HTTP a servir. O esquema existe há dias e os tipos já se geram dele na app (`api/api.d.ts`). ⚠️ Dizia aqui `api/tipos-app.d.ts`, que é um ficheiro que nunca existiu (corrigido a 2026-07-29) — é a mesma classe de defeito que a lição do `RESUME.md` regista: o portão compara o gerado com o esquema, e nunca os documentos com nenhum dos dois.
-
-O que isso muda é para melhor — a app constrói-se contra um servidor **a sério**, e não contra um falso. O que não muda é a regra do §2: os tipos vêm do esquema, não de ler as respostas.
-
 | # | trabalho |
 | --- | --- |
-| A1 | ✅ Esqueleto Expo + expo-router + tokens e tema claro/escuro, com um ecrã a provar os dois |
+| A1 | ✅ Esqueleto Expo + expo-router + tokens e tema claro/escuro |
 | A2 | ✅ Geração e sincronização do `api.d.ts` + verificação no CI |
-| A3 | ✅ Os três passos do pedido, com a loja Zustand e o formulário adaptativo alimentado por `GET /api/v1/bancos` (2026-07-29) |
-| A5 | ✅ Ofertas e detalhe, incluindo o gráfico de fases, as notas de ajuste e os **pressupostos** da TAEG — **confirmada contra o servidor a sério** a 2026-07-29 |
-| A6 | Estados que não são o caminho feliz: sem rede, servidor em baixo, tecto por IP atingido, todos os bancos falharam |
-| A7 | Acessibilidade e alvo web (o que substitui o site do v1) |
+| A3 | ✅ Os três passos do pedido, com a loja Zustand e o formulário adaptativo |
+| A5 | ✅ Ofertas e detalhe, com o gráfico de fases, as notas de ajuste e os pressupostos — **confirmada contra o servidor a sério** |
+| A6 | Estados que não são o caminho feliz: sem rede, servidor em baixo, tecto atingido, todos os bancos falharam |
+| A7 | Acessibilidade e alvo web |
 | A8 | EAS Build e submissão — ⚠️ **bloqueado pelas perguntas de** `USO-RESPONSAVEL.md` §3 |
 
-⚠️ **A A4 saiu a 2026-07-28, e a numeração fica com o buraco de propósito.** Era «ecrã de espera: sondagem com TanStack Query, resultados progressivos, cancelamento», e não há espera nenhuma desde a inversão da §1 (2026-07-25): a comparação é uma consulta a Postgres e aritmética local. Renumerar as outras apagava o vestígio de que se planeou uma coisa que o desenho deixou de precisar — e a A4 era **um quinto do trabalho da app**. O ecrã correspondente sai do `ECRAS.md` pela mesma razão e na mesma data.
+⚠️ **A A4 não existe, e o buraco fica de propósito.** Era «ecrã de espera: sondagem, resultados progressivos, cancelamento», e não há espera nenhuma desde a inversão da §1 — a comparação é uma consulta e aritmética local. Renumerar apagava o vestígio de que se planeou uma coisa que o desenho deixou de precisar, e a A4 era **um quinto do trabalho da app**. Com ela saiu a rota `comparar/[id].tsx`, cujo `[id]` **nem existe no contrato**: uma rota dinâmica sobre uma chave inexistente teria falhado no primeiro build.
 
-⚠️ **E o alvo web deixou de ser o fim da lista.** A A7 dizia «acessibilidade e alvo web (o que substitui o site do v1)» como se fosse polimento; passa a ser **o primeiro alvo a publicar**, porque é o único que se aloja num serviço de hosting — as lojas continuam bloqueadas pela `KAN-24`. A ordem de execução é A1, A2, A3, A5, A6, A7; a A8 fica onde está.
+⚠️ **O alvo web não é polimento — é o primeiro alvo a publicar.** É o único que se aloja sem passar por uma loja, e as lojas estão bloqueadas pela `KAN-24`. A ordem é A1, A2, A3, A5, A6, A7; a A8 fica onde está.
 
-⚠️ **A A3 fechou a 2026-07-29, e três coisas do desenho mudaram ao construí-la** — estão no `ECRAS.md`, e resumem-se assim: saiu o «dentro dos limites de todos» sob o LTV (não há campo de limite de LTV no contrato), o rendimento passou a perguntar-se só quando algum banco escolhido o usa (é um em cinco), e as idades da caixa do passo 2 passaram a sair do `idade_maxima_fim` em vez de estarem escritas à mão. ⚠️ Nenhuma das três se descobriu a correr a app: descobriram-se a ler o contrato com o desenho ao lado, que é a mesma forma como se apanhou o ecrã de espera que já não fazia sentido.
-
-⚠️ **A A5 fechou no mesmo dia e foi confirmada nesse dia, e a confirmação valeu a pena.** Correu-se o ciclo inteiro em local — Postgres em contentor, `simulador migrar`, `simulador varrer -bancos cgd,novobanco` (57 observações de 49 pontos, reais), `simulador servir`, e a app web contra ele. Bateu certo o que estava assumido: o `ate_mes` é mesmo acumulado (60 e 360 → «Anos 1-5» e «Anos 6-30»), os `pressupostos` vêm com a TAEG, o `aplicado` e as `notas` vêm **omitidos** e não `null`, e as idades da caixa do passo 2 saem a «70-80 anos» dos cinco bancos reais.
-
-⚠️ **E encontrou dois defeitos que nenhum teste de tipos apanharia.** Um da app, corrigido: com uma só oferta com preço, o cartão dela apanhava as **cinco** estrelas — cada uma verdadeira e o conjunto falso, porque a melhor de um conjunto de um não é informação. Outro do servidor, registado na `KAN-45`: pediram-se cinco bancos e a resposta trouxe dois, porque o `Comparar` itera os bancos do **catálogo** e não os do pedido. **É a razão de a confirmação existir como passo próprio** — os dois só se vêem com dados a sério no ecrã.
-
-⚠️ **A6 não é polimento.** Uma app que só se testou com quatro bancos a responderem bem é uma app que ninguém sabe como se comporta quando não respondem — e eles não respondem com regularidade. Tem de estar coberto por ecrãs desenhados, não por um alerta genérico.
+⚠️ **A A6 também não é polimento.** Uma app que só se testou com bancos a responderem bem é uma app que ninguém sabe como se comporta quando não respondem — e eles não respondem com regularidade. Tem de ter ecrãs desenhados, não um alerta genérico.
 
 ## 6. O que a app não faz
 

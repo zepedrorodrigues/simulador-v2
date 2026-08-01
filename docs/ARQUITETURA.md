@@ -15,32 +15,11 @@ O `simulador-v2` faz **duas** coisas e mais nenhuma:
 
 A série temporal de mercado (`GET /api/rate-catalog`, §6) não é uma terceira coisa: é a publicação do que o ponto 1 já guardou.
 
-O que **não** faz, e não passa a fazer sem uma decisão nova registada aqui: contas de utilizador, histórico por pessoa, relatórios por email, backup próprio, `doctor`, `market-diff`, `cadence`, envio de leads a bancos.
-
 Este repositório serve **JSON e mais nada** — sem templates, sem HTML, sem ficheiros estáticos. A restrição é deliberada: no v1 não havia fronteira entre UI e servidor, e a lógica de apresentação acabou espalhada pelo servidor.
 
 ⚠️ **Consequência prática, executada a 2026-07-28 (KAN-22): a app web é um SERVIÇO À PARTE.** O `expo export` produz estáticos, e servi-los deste binário seria a primeira excepção a esta regra — que é como as regras deste género morrem. São dois serviços no mesmo alojamento, e o repositório Go continua a servir só JSON.
 
-### ⚠️ Porque é que isto é assim, e não ao vivo (invertido a 2026-07-25)
-
-O desenho anterior comparava **ao vivo**, e estava construído em cima de um número medido — 52,2 s para dez bancos — aceite como inevitável. Não é: **uma comparação não precisa de falar com os bancos.** O que os bancos vendem é uma função de preço de poucas dimensões e todos devolvem os parâmetros explicitamente (o `spread` vem nomeado na resposta dos dez). Varrida essa função em hora morta, comparar passa a ser aritmética local.
-
-Duas consequências que ainda decidem trabalho futuro: **os bancos de browser voltam a ser possíveis** — o BPI a 52 s era inaceitável dentro de um pedido e é irrelevante às 4 da manhã (§5 deixa de os tratar como risco de latência) — e o custo por comparação passa a ser uma consulta a Postgres, o que faz desaparecer o tecto de ~20 comparações/hora.
-
-⚠️ **E o que se perde:** os números são tão frescos quanto o último varrimento, e onde o preço depende da pessoa um varrimento com titular neutro não consegue dar tudo. Ver «O limite: onde o preço depende da pessoa», na §4.
-
-## 2. De onde vêm estas regras
-
-Quatro dores concretas do v1. Cada uma produz uma regra **verificável** — não um princípio, uma regra que um portão automático reprova.
-
-| Dor do v1 | Evidência | Regra do v2 |
-| --- | --- | --- |
-| Modelo de dados entulhado | 3 tabelas, uma delas (`auth_throttle`) com o nome de uma funcionalidade apagada; 7 migrações, 3 a criar e destruir autenticação; `raw_json`/`applied_json`/`notes_json` como `Text` | **§4**: duas tabelas. `jsonb`, nunca `text` com JSON dentro. Sem colunas herdadas de funcionalidades mortas. |
-| Sem arquitectura; tudo vazava | Lógica de negócio em `web/`, `cli.py`, `reporting/` e `scrapers/` ao mesmo tempo; `scripts/` com 50+ ficheiros ad-hoc | **§3**: quatro camadas com uma regra de dependência **imposta pelo linter**. Sem pasta de scripts. |
-| Scrapers frágeis e inconsistentes | Cada scraper reimplementa o seu transporte; o BPI recorta `innerText` com regex e falhava \~1 em 3 corridas; os 4 de browser não tinham forma de ser testados offline | **§5**: parsing puro, separado do transporte, sempre contra capturas reais versionadas. Quatro estratégias de transporte, não dez. |
-| Frontend complicado | Um `dashboard.html` de 874 linhas com CSS e JS embutidos, formulário e resultados na mesma janela (issue #2 do v1: «visually too much information + just crap») | **§6**: o servidor não conhece apresentação. Fluxo em ecrãs separados (ver `ECRAS.md`). |
-
-## 3. Camadas
+## 2. Camadas
 
 ```
 cmd/

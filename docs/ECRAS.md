@@ -12,14 +12,6 @@ O v1 tinha um formulário de \~25 campos e a tabela de resultados na mesma pági
 
 ## Mapa
 
-```
-  Pedido (3 passos)  ─►  Ofertas  ─►  Detalhe da oferta
-        │                   │
-        └──► Bancos: o     └──► Comparar duas lado a lado
-             que cada um
-             precisa
-```
-
 ⚠️ **Havia aqui um ecrã «A comparar» entre o pedido e as ofertas, e saiu a 2026-07-28** — ver a §2, que fica no lugar dele.
 
 E, à parte, `Mercado` — a série do `rate-catalog`. Fica para depois de a app funcionar (fase 5), mas o desenho já a prevê no separador inferior.
@@ -32,34 +24,6 @@ Um passo por ecrã, com barra de progresso. Nada de acordeões nem de secções 
 
 ### 1.1 O imóvel e o empréstimo
 
-```
-┌──────────────────────────────┐
-│ ●○○            O imóvel      │
-├──────────────────────────────┤
-│  Valor do imóvel             │
-│  ┌────────────────────────┐  │
-│  │            250 000 €   │  │
-│  └────────────────────────┘  │
-│  Quanto quer financiar       │
-│  ┌────────────────────────┐  │
-│  │            200 000 €   │  │
-│  └────────────────────────┘  │
-│  LTV 80,0 %                  │
-│  ████████████████░░░░░░░░░░  │
-│  O preço muda por patamares  │
-│  de LTV, e cada banco tem os │
-│  seus.                       │
-│                              │
-│  Prazo                       │
-│  [ − ]     30 anos     [ + ] │
-│                              │
-│  Finalidade                  │
-│  [Própria][Secundária][Arr.] │
-│                              │
-│            [ Seguinte → ]    │
-└──────────────────────────────┘
-```
-
 ⚠️ **Saiu daqui o «✓ dentro dos limites de todos», a 2026-07-29, ao construir o ecrã.** Estava desenhado sob o LTV e **não há como o afirmar**: o `GET /api/v1/bancos` publica `prazo_min`, `prazo_max`, `idade_maxima_fim`, `periodos_fixos`, `euribor_opcoes`, `euribor_imposto`, `produtos` e `notas` — e nenhum campo de limite de LTV. O `RESUME.md` confirma-o do outro lado: «o domínio de LTV a varrer não sai do banco». Era a app dar uma garantia que não tem de onde saber, e vale aqui a regra da casa: quando um documento e o `openapi.yaml` discordam, o documento é que está errado.
 
 ⚠️ **E o deslizador do prazo passou a contador.** Um deslizador em React Native é um módulo nativo a mais para manter, o alvo web é o primeiro a publicar-se (`APP.md` §5), e acertar em 30 com o dedo num deslizador de 1 a 50 é pior do que carregar duas vezes. O intervalo é o mais largo dos bancos escolhidos, e quem fica de fora do prazo é nomeado por baixo.
@@ -69,35 +33,6 @@ Um passo por ecrã, com barra de progresso. Nada de acordeões nem de secções 
 ⚠️ **E os degraus não são de 5 %, ao contrário do que esta linha dizia até 2026-07-28.** Medido na KAN-35: na CGD o preço **desce** quando o LTV sobe e quebra aos **67 %**; no Novo Banco **sobe** e quebra em 50/51, 70/71 e 80/81; no Montepio **não muda de todo**. São três formas diferentes, e são as do banco — não as nossas. A app **não desenha degraus próprios**: mostra o LTV e diz que o preço muda por patamares, sem inventar onde eles caem.
 
 ### 1.2 Os titulares
-
-```
-┌──────────────────────────────┐
-│ ●●○           Os titulares   │
-├──────────────────────────────┤
-│  1.º titular                 │
-│  Nascimento   [ 12/04/1990 ] │
-│                              │
-│  [ + Acrescentar 2.º titular]│
-│                              │
-│  ┌ ⓘ ───────────────────────┐│
-│  │ Nenhum dos bancos        ││
-│  │ escolhidos usa o         ││
-│  │ rendimento, por isso não ││
-│  │ o pedimos.               ││
-│  └──────────────────────────┘│
-│  ┌ ⓘ ───────────────────────┐│
-│  │ A idade define o prazo   ││
-│  │ máximo: nos bancos       ││
-│  │ escolhidos, até aos      ││
-│  │ 70-80 anos.              ││
-│  └──────────────────────────┘│
-│  O que cada banco diz disto  │
-│  CGD: o simulador não        │
-│  pergunta a idade. Ela só    │
-│  entra no prazo máximo…      │
-│         [ ← ]  [ Seguinte → ]│
-└──────────────────────────────┘
-```
 
 ⚠️ **A caixa explica porque é que a app pede a data de nascimento.** Pedir dados pessoais sem justificar é o que faz uma app parecer um funil de leads.
 
@@ -110,40 +45,6 @@ Um passo por ecrã, com barra de progresso. Nada de acordeões nem de secções 
 ⚠️ **E a app não pré-julga nenhum banco por idade.** Seria fácil calcular aqui a idade no fim do crédito e marcar já os que a recusam, e estaria errado: a `KAN-34` está aberta precisamente porque o `idade_maxima_fim` é um número só e na CGD depende da finalidade. Quem decide que um banco não tem oferta é o servidor, que devolve a razão em português (§3). A app explica a regra; não a aplica.
 
 ### 1.3 A taxa e os bancos
-
-```
-┌──────────────────────────────┐
-│ ●●●        A taxa e os bancos│
-├──────────────────────────────┤
-│  Tipo de taxa                │
-│  [ Variável ][ Mista ][Fixa ]│
-│                              │
-│  Período fixo      5 anos    │
-│  [2][3][4][5][10][15][20]    │
-│   ↑ os cinzentos: nem todos  │
-│     os bancos os têm         │
-│                              │
-│  Indexante        [ 6M ▾ ]   │
-│  ⓘ CGD, Banco CTT e Santander│
-│    impõem o seu — a escolha  │
-│    aplica-se aos restantes.  │
-│                              │
-│  Bancos             5 de 5   │
-│  ☑ CGD                       │
-│      ☑ Packs                 │
-│  ☑ Novo Banco                │
-│      ☑ Primeiro Banco        │
-│      ☐ Proteção              │
-│  ☑ Montepio                  │
-│  ☑ Banco CTT                 │
-│  ☑ Santander                 │
-│  ⓘ As bonificações mudam o   │
-│    preço. Comparam-se as que │
-│    estiverem marcadas.       │
-│                              │
-│  [ ← ]      [ Comparar (5) ] │
-└──────────────────────────────┘
-```
 
 ⚠️ **O tempo por banco saiu deste ecrã a 2026-07-28, e o campo que o alimentava saiu do contrato (KAN-32).** Estava aqui «☑ CGD ~2 s / ☐ Banco BPI ~50 s / Tempo estimado: ~6 s», tirado do campo `custo` de `GET /api/v1/bancos`, e a justificação era boa: «é honesto e faz o utilizador entender porque é que uma comparação demora 6 s e outra 52 s».
 
@@ -173,46 +74,13 @@ Havia um — «A comparar», com barra de progresso, cada banco a aparecer assim
 
 ## 3. Ofertas
 
-```
-┌──────────────────────────────┐
-│  Ofertas          [ ⇅ TAEG ] │
-│  250 000 € · 200 000 € · 30a │
-│  mista 5 anos · Euribor 6M   │
-├──────────────────────────────┤
-│ ┌──────────────────────────┐ │
-│ │ Novo Banco        ★ TAEG │ │
-│ │ ~3,61 %                  │ │
-│ │ 870,42 €/mês             │ │
-│ │ TAN 3,25 · spread 0,90   │ │
-│ │ 🏷 Primeiro Banco,       │ │
-│ │    Proteção              │ │
-│ └──────────────────────────┘ │
-│ ┌──────────────────────────┐ │
-│ │ Banco Montepio           │ │
-│ │ ~3,74 %                  │ │
-│ │ 891,10 €/mês             │ │
-│ │ ⚠️ Simulado como mista — │ │
-│ │    não tem taxa fixa     │ │
-│ └──────────────────────────┘ │
-│ ┌──────────────────────────┐ │
-│ │ Banco CTT     ✕ sem      │ │
-│ │                  oferta  │ │
-│ │ O crédito terminaria aos │ │
-│ │ 78 anos; exige até 75.   │ │
-│ └──────────────────────────┘ │
-│                              │
-│  Preços de hoje, 05:00       │
-│ [ Comparar seleccionadas ]   │
-└──────────────────────────────┘
-```
-
 **Ordenação** por TAEG (omissão), prestação, TAN, spread ou MTIC. `★` marca a melhor de cada métrica.
 
 ⚠️ **O aviso de ajuste vive no cartão, não numa gaveta.** Sempre que `aplicado` não vem vazio, a nota aparece ali. É a regra de `API.md`: números diferentes dos pedidos sem o dizer, numa comparação de crédito, são enganadores.
 
 ⚠️ **Os bancos que falharam continuam na lista**, com a razão em português. Um banco que desaparece parece um esquecimento; um banco que explica porque não tem oferta é informação útil.
 
-⚠️ **E hoje não continuam todos — é a `KAN-45`** (medido a 2026-07-29). O servidor devolve ofertas dos bancos que têm série, não dos que foram pedidos: com série só de dois, escolheram-se cinco no passo 3, o botão dizia «Comparar (5)», e a lista mostrou dois. Os outros três não deixaram rasto. A app mostra o que lhe derem e mostra bem o `sucesso: false` que já recebe; **a correcção é do servidor**, e enquanto não chegar esta regra está por cumprir.
+⚠️ **Esta regra esteve por cumprir até 2026-08-01, e a falta era do servidor** (`KAN-45`): ele devolvia ofertas dos bancos com série e não dos bancos pedidos — escolhiam-se cinco, o botão dizia «Comparar (5)», e a lista mostrava dois, sem rasto dos outros. Corrigido: os pedidos vêm todos, e os que não têm série vêm com o código `sem_serie` e a razão em português.
 
 ⚠️ **Os produtos aplicados são visíveis em cada cartão.** Sem isso, um banco com descontos por omissão parece simplesmente mais barato. Foi a lição que o v1 demorou a aprender na sua própria série de mercado.
 
@@ -235,47 +103,6 @@ Havia um — «A comparar», com barra de progresso, cada banco a aparecer assim
 ---
 
 ## 4. Detalhe da oferta
-
-```
-┌──────────────────────────────┐
-│ ←        Novo Banco          │
-├──────────────────────────────┤
-│  TAEG             ~3,61 %    │
-│  Prestação      870,42 €     │
-│  MTIC        313 351,20 €    │
-│                              │
-│  Como evolui                 │
-│  ┌──────────────────────────┐│
-│  │ ▁▁▁▁▁▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃▃  ││
-│  │ 5 anos fixos │ variável  ││
-│  └──────────────────────────┘│
-│  Anos 1-5    3,25 %  870,42 €│
-│  Anos 6-30   Eur+0,90  …     │
-│                              │
-│  Composição                  │
-│  TAN 3,25 = Eur 6M 2,351     │
-│             + spread 0,90    │
-│                              │
-│  Produtos aplicados          │
-│  ☑ Primeiro Banco    −0,50   │
-│  ☑ Proteção          −0,20   │
-│                              │
-│  Pressupostos da TAEG        │
-│  • Derivada dos encargos     │
-│    medidos, não cotada.      │
-│  • O encargo recorrente      │
-│    incide sobre o capital    │
-│    em dívida.                │
-│                              │
-│  Notas                       │
-│  • Arrendamento agrava o     │
-│    spread em 0,50 p.p.       │
-│                              │
-│  Valor indicativo. Não é uma │
-│  proposta. Fonte: simulador  │
-│  público, 28/07 05:00.       │
-└──────────────────────────────┘
-```
 
 ⚠️ **O gráfico de fases é a informação que o v1 não dava bem.** Numa taxa mista, a TAN dos primeiros anos não é o custo do crédito — é o chamariz. Mostrar as fases lado a lado é a diferença entre comparar e ser induzido em erro.
 

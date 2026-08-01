@@ -4,27 +4,10 @@ Como se acrescenta um banco, e a disciplina que o torna testável. O conheciment
 
 ## 1. A interface
 
-```go
-package bancos
+A interface é **`internal/bancos/contrato.go`**, e é lá que se lê — não aqui. ⚠️ Este documento chegou a trazer uma cópia dela, e a cópia derivou: perdeu os parágrafos que dizem que `Simular` tem de respeitar o `ctx` (no v1 o BPI consumia 52 s de um pedido de 52 s, e isso é afirmável com o `prova.RespeitaPrazo`), e que quem transforma um erro numa observação de falha é o varrimento — dentro de um banco os erros devolvem-se, não se engolem.
 
-// Banco é o que um banco sabe fazer. Nada mais entra aqui: se um banco
-// precisar de um método que só ele tem, isso é um detalhe do seu pacote.
-type Banco interface {
-    ID() string
-    Nome() string
+O contrato em si é pequeno de propósito: `ID`, `Nome`, `Requisitos` e `Simular`. **Se um banco precisar de um método que só ele tem, isso é detalhe do pacote dele e não entra aqui.**
 
-    // Requisitos declara o que este banco usa, aceita e impõe: que inputs lê,
-    // que períodos fixos são válidos, se deixa escolher o indexante Euribor,
-    // que produtos expõe, e os limites de prazo. A app monta o formulário
-    // adaptativo a partir disto — é a única fonte dessa informação.
-    Requisitos() dominio.Requisitos
-
-    // Simular interroga o banco. Devolve erro apenas quando o banco não
-    // conseguiu responder de todo; um pedido que o banco ajustou devolve uma
-    // Oferta com Aplicado e Notas preenchidos, e erro nil.
-    Simular(ctx context.Context, p dominio.Pedido) (dominio.Oferta, error)
-}
-```
 
 ⚠️ `Simular` respeita o `ctx`. O orquestrador impõe um prazo por banco; um banco que ignore o cancelamento segura a comparação inteira. No v1 o BPI consumia 52 s de um pedido de 52 s — em Go isso é um `context.WithTimeout` e um banco que não o honre é um defeito.
 
@@ -83,28 +66,7 @@ Não se corrige o parser contra a produção. Captura-se de novo, vê-se o teste
 
 O transporte é injectado, nunca instanciado dentro do banco. São quatro porque o v1 provou que são precisas quatro — não é generalização antecipada.
 
-```go
-// internal/bancos/transporte/transporte.go
-type HTTPSimples interface {
-    Fazer(ctx context.Context, req *http.Request) (*http.Response, error)
-}
-
-// Sessao é o que o arranque deixou para o pedido real.
-type Sessao struct {
-    HTML []byte
-}
-
-type HTTPComSessao interface {
-    HTTPSimples
-
-    // Arrancar faz o GET inicial: fixa os cookies no jar e devolve o corpo.
-    Arrancar(ctx context.Context, url string) (Sessao, error)
-}
-
-type Browser interface {
-    Abrir(ctx context.Context, url string, opts OpcoesBrowser) (Pagina, error)
-}
-```
+As quatro estratégias estão em **`internal/bancos/transporte/`**. Escolhe-se pela que o banco exige, e a escolha faz-se com uma captura à frente — não por suposição.
 
 ⚠️ **Duas correcções a este documento, feitas ao implementar (KAN-6) e registadas aqui antes do código.**
 
@@ -127,21 +89,7 @@ type Browser interface {
 
 `Requisitos()` é a única fonte do que a app mostra. Se um banco não pede o rendimento, a app tem de o saber por aqui — não por uma lista escrita à mão do lado da app.
 
-```go
-type Requisitos struct {
-    BancoID, BancoNome string
-    Custo              string    // "barato" | "caro" — expectativa honesta de tempo
-    Inputs             []Input   // cada input canónico: usa? com que nota?
-    PeriodosFixos      []int     // anos válidos para taxa mista/fixa
-    PeriodosFixosModo  string    // "lista" | "da-api" | "do-html"
-    EuriborOpcoes      []string  // vazio = o banco impõe o seu
-    EuriborImposto     string
-    PrazoMin, PrazoMax int
-    IdadeMaximaFim     int       // idade do titular no fim do contrato
-    Produtos           []Produto
-    Notas              []string
-}
-```
+O tipo é **`dominio.Requisitos`**. É a única fonte do formulário adaptativo da app: que inputs o banco lê, que períodos fixos aceita, se deixa escolher o indexante, que produtos expõe, e os limites de prazo e idade.
 
 ⚠️ `EuriborOpcoes` vazio não é «não sei». Quer dizer que o banco impõe o seu indexante e ignora a escolha. O v1 aprendeu isto à custa do Banco CTT: a API aceitava outros identificadores de indexante, mas o bundle do próprio simulador forçava um — e o preço dos outros era preço que o banco não comercializa. **Uma API aceitar não é o banco vender.**
 
