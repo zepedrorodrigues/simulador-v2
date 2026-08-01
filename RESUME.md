@@ -73,10 +73,10 @@ Correu-se em local o que um servidor vai correr: a imagem do `Dockerfile`, Postg
 3. `KAN-47` — o `make teste-rede` mistura confirmação de parsers com medição de desenho: não pode passar (10 min contra os 90 pedidos) e dispara o cartesiano sem guarda.
 4. `KAN-46` — os cabeçalhos de defesa que a `API.md` §3 prometia e ninguém emite. ⚠️ O documento já não promete; a falta continua.
 5. **Ligar o subcomando da sonda:** ler a escala guardada, correr contra os bancos, e na divergência servir com fiabilidade reduzida e revarrer aquele banco.
-4. **Confirmar a app contra o servidor já com a `KAN-45`** — a confirmação da A5 é anterior à correcção.
-5. A app, A6 e A7. ⚠️ Ver o ramo `wip/estados-a6-descartado` antes de começar a A6.
-6. `KAN-19` — Crédito Agrícola. ⚠️ O `reference_rate_value` é o **spread**, não a Euribor, apesar de o `rateIndexType` dizer `EUR12TM`.
-7. **Só então, alojamento.**
+6. **Confirmar a app contra o servidor já com a `KAN-45`** — a confirmação da A5 é anterior à correcção.
+7. A app, A6 e A7. ⚠️ Ver o ramo `wip/estados-a6-descartado` antes de começar a A6.
+8. `KAN-19` — Crédito Agrícola. ⚠️ O `reference_rate_value` é o **spread**, não a Euribor, apesar de o `rateIndexType` dizer `EUR12TM`.
+9. **Só então, alojamento.**
 
 ## O que está por resolver
 
