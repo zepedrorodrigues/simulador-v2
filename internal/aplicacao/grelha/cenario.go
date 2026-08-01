@@ -9,29 +9,9 @@ import (
 	"github.com/zepedrorodrigues/simulador-v2/internal/dominio"
 )
 
-// A chave do ponto da grelha, e porque é que tem esta forma.
-//
-// A §4 do ARQUITETURA.md decidiu que o `cenario` de catalogo_taxas é uma chave
-// ESTRUTURADA e DERIVÁVEL DO PEDIDO — é isso que permite ir da pergunta de um
-// cliente à linha certa —, e deixou o formato exacto por fixar «ao escrever a
-// CGD». Não foi fixado então; fica-o aqui (KAN-16).
-//
-//	<tipo>/<periodo>/<finalidade>
-//
-//	variavel/0/propria      fixa/10/propria      mista/5/arrendamento
-//
-// ⚠️ Três segmentos SEMPRE, e o período é 0 na variável em vez de o segmento
-// desaparecer. Uma chave de comprimento variável parte-se em silêncio quando
-// alguém acrescenta uma dimensão — que é a armadilha que o DOSSIE-BANCOS.md
-// regista no ConditionCode do Montepio, onde partir a string pelo separador
-// errado dá a finalidade errada.
-//
-// ⚠️ E o que NÃO está aqui é deliberado: o LTV vive em ltv_min/ltv_max, o tenor
-// da Euribor em euribor_indexante e os produtos em produtos. São colunas
-// tipadas, não texto empacotado. Consequência: duas linhas do mesmo varrimento
-// podem partilhar o cenario e distinguir-se só por essas colunas — é assim que
-// o desvio de cada produto se deriva na leitura.
-
+// A chave do ponto da grelha: <tipo>/<periodo>/<finalidade>, três segmentos
+// sempre. A forma e as três decisões que a fixam — arity fixa, vocabulário
+// fechado, e ser redonda — estão na §4 do ARQUITETURA.md.
 const separadorDeCenario = "/"
 
 // ErrCenarioIlegivel: a chave não tem a forma acima, ou tem um valor fora do

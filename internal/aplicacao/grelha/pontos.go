@@ -8,35 +8,8 @@ import (
 	"github.com/zepedrorodrigues/simulador-v2/internal/dominio"
 )
 
-// Os pontos da grelha, e porque é que são dezenas e não milhares.
-//
-// A grelha guarda o PARÂMETRO e não o resultado (§4, «o que é consulta e o que
-// é cálculo»), e as dimensões do parâmetro SOMAM-SE em vez de se multiplicarem.
-// Isso não é uma esperança de desenho — está medido, e é o que sustenta o
-// tamanho da tabela:
-//
-//   - o spread não depende do tipo de taxa: na CGD dá 1,350 na variável, na
-//     mista e na fixa a LTV 80 %; no Novo Banco dá 0,900 nas três
-//     (ANALISE-KAN-35.md §6);
-//   - o spread não depende do prazo nem do montante: medido na CGD a
-//     2026-07-26, `variavel/ltv80/10a` e `variavel/ltv80/40a` dão o mesmo, e o
-//     montante pequeno e o grande também;
-//   - a taxa da fase fixa é uma tabela curta por período, e não uma curva —
-//     basta uma observação por período que o banco pratica.
-//
-// Daí a forma disto: um ponto de REFERÊNCIA, e uma família por dimensão, cada
-// uma a variar UMA coisa a partir dele. N + M + K pedidos, não N × M × K.
-//
-// ⚠️ A dimensão do LTV não está aqui, e não é esquecimento: ela não é uma lista
-// de pontos fixos, é uma descoberta adaptativa que depende do que o banco
-// responde. Vive no escala.go, e o seu custo (~86 pedidos na CGD) soma-se ao
-// destes.
-//
-// ⚠️ E há uma família — o prazo, a 7.ª — que NÃO existe para medir o spread, ao
-// contrário de todas as outras. Existe porque a TAEG, essa, depende do prazo: é
-// dela que se separa o encargo antecipado do recorrente, e com uma observação só
-// os dois seriam indistinguíveis. Ver o comentário da família 7.
-
+// Os pontos da grelha: as sete famílias e o que cada uma mede. Porque são
+// dezenas e não milhares, na §4 do ARQUITETURA.md.
 // Referencia é o pedido a partir do qual todas as famílias variam.
 //
 // ⚠️ Titular NEUTRO, por exigência da §4: esta tabela não tem dados pessoais.

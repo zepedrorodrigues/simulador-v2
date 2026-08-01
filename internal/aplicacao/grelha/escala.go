@@ -19,34 +19,9 @@ import (
 	"github.com/zepedrorodrigues/simulador-v2/internal/dominio"
 )
 
-// A descoberta das fronteiras de LTV, e porque é que é assim.
-//
-// A §4 do ARQUITETURA.md decidiu, a 2026-07-26 (KAN-35), que o spread se guarda
-// por intervalo de LTV com fronteiras MEDIDAS, e não por banda de passo fixo. O
-// dominio.EscalaDeLTV é o tipo que representa o resultado; isto é o que o
-// preenche, e é a «opção D» da docs/ANALISE-KAN-35.md §5, que essa análise
-// deixou explicitamente para aqui (§8, passo 4).
-//
-// São duas fases, e cada uma existe por uma medição:
-//
-//  1. amostragem UNIFORME ao passo. Não é o caminho ingénuo — é o que apanha
-//     patamares estreitos. Na CGD há um spread de 2,050 que ocupa cerca de 1,25
-//     p.p. de LTV, entre dois patamares mais largos, e o preço SOBE e volta a
-//     DESCER. Uma bissecção pura, que assuma monotonia ou poucos degraus, salta
-//     -o — e foi ele que abriu a KAN-35.
-//
-//  2. refinamento por bissecção SÓ entre vizinhos que discordem, até o intervalo
-//     ficar abaixo da tolerância. É onde está a exactidão: a fase 1 diz que há
-//     uma fronteira entre dois pontos, a fase 2 diz onde.
-//
-// ⚠️ E o remate, que é o que separa isto de uma aproximação com outro nome:
-// quando o refinamento não chega ao fim — o banco recusou, a rede caiu, o
-// arredondamento do montante não deixa estreitar mais — o intervalo fica
-// marcado como NÃO RESOLVIDO, e a escala serve nele o spread mais alto com nota
-// obrigatória. Não se escolhe um lado em silêncio. É o Anexo I, Parte II,
-// alínea (d) da Directiva 2014/17/UE (MCD), e é a regra que a §4 adopta com
-// ele: perante incerteza, o valor menos favorável ao consumidor, declarado.
-
+// A descoberta das fronteiras de LTV: fase uniforme ao passo, depois
+// refinamento por bissecção onde há desacordo. Porque não só bissecção, e
+// porque o passo é este, em docs/ANALISE-KAN-35.md.
 // Medicao é um spread medido num LTV.
 //
 // ⚠️ O LTV é o que o banco viu, e não o que se lhe pediu. Um pedido põe-se em

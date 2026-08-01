@@ -1,20 +1,9 @@
-// Package sonda confirma, por um punhado de pedidos, se a grelha que temos
-// ainda descreve o banco.
+// Package sonda confirma, com ~4 pedidos por banco, se a grelha guardada ainda
+// descreve o banco. Não substitui o varrimento — encurta o intervalo às escuras.
 //
-// É a decisão 6 da §7 do ARQUITETURA.md (2026-08-01). Entre varrer tudo e não
-// saber nada havia um vazio: uma grelha varrida há seis horas pode já não
-// descrever o banco, e a única forma de o saber era varrer outra vez — ~96
-// pedidos por banco para descobrir que nada mudou. Isto custa ~4.
-//
-// ⚠️ **Não é o resíduo da §7.4, e confundi-los perde os dois.** O resíduo compara
-// a prestação que o banco devolveu com a que a francesa dá sobre o plano do
-// PRÓPRIO banco — é coerência interna da resposta dele. A sonda compara o que a
-// NOSSA grelha prevê com o que o banco responde agora — é deriva da nossa
-// fotografia contra a realidade. O resíduo apanha um campo mal lido; a sonda
-// apanha um preço que mudou. Um está a 0,00 € e o outro nunca foi medido.
-//
-// ⚠️ **E não substitui o varrimento.** Encurta o intervalo em que se está às
-// escuras. O que ela não vê está escrito no `Cobertura` e na §7.
+// O desenho, e o que ela deliberadamente não vê, estão na decisão 6 da §7 do
+// ARQUITETURA.md. Não confundir com o resíduo da §7.4: esse mede coerência
+// interna da resposta do banco, esta mede deriva da nossa grelha contra ele.
 package sonda
 
 import (
@@ -28,52 +17,27 @@ import (
 // ErrEscalaSemDegraus: não há escala guardada sobre que sondar.
 var ErrEscalaSemDegraus = errors.New("a escala guardada não tem degraus para sondar")
 
-// RecuoOmissao é a distância abaixo do `Ate` a que a sonda se coloca.
-//
-// ⚠️ **Um décimo de ponto percentual, e a escolha não é neutra.** Tem de ser
-// pequeno o suficiente para a sonda continuar dentro do degrau que quer
-// confirmar, e grande o suficiente para não cair na fronteira por erro de
-// arredondamento — a `grelha.Medicao` avisa que pedir 66,5625 % pode medir
-// 66,5624 %, porque o montante arredonda ao cêntimo.
-//
-// ⚠️ E é uma ordem de grandeza acima da `grelha.ToleranciaOmissao` (0,05 p.p.),
-// que é onde a descoberta pára de refinar: uma sonda mais perto da fronteira do
-// que a própria resolução com que ela foi medida estaria a afirmar uma precisão
-// que a escala não tem.
+// RecuoOmissao é a distância abaixo do Ate a que a sonda se coloca. Tem de ser
+// grande o bastante para o arredondamento ao cêntimo não a atirar para a
+// fronteira, e é uma ordem de grandeza acima da grelha.ToleranciaOmissao —
+// abaixo disso afirmaria uma precisão que a escala não tem.
 var RecuoOmissao = racio("0.001")
 
 // Ponto é um sítio onde se vai perguntar ao banco, e o que se espera ouvir.
 type Ponto struct {
-	// LTV é onde se pergunta: logo ABAIXO do `Ate` do degrau.
-	//
-	// ⚠️ **Abaixo do topo e não no meio, e a assimetria é deliberada** (§7,
-	// decisão 6). Se a fronteira DESCER, este ponto passa a cair no degrau
-	// seguinte e vê spread diferente — detecta. Se a fronteira SUBIR, continua
-	// no degrau antigo e não vê nada — não detecta, e o erro que daí resulta é
-	// servirmos o spread mais ALTO a quem já qualificava para o mais baixo, que
-	// é a direcção que o Anexo I, Parte II, alínea (d) da MCD manda presumir.
-	//
-	// Ou seja: apanha a direcção que nos faria servir barato de mais, e falha a
-	// que nos faz servir caro de mais.
+	// LTV é onde se pergunta: logo abaixo do Ate do degrau, e não no meio.
+	// A assimetria é deliberada — ver a §7, decisão 6.
 	LTV dominio.Racio
 
 	// Esperado é o spread que a grelha guardada diz que o banco pratica aqui.
 	Esperado dominio.Taxa
 
-	// Tolerancia é quanto se aceita de diferença ANTES de chamar divergência.
-	//
-	// ⚠️ **Não é escolhida — é lida do degrau.** Num degrau resolvido é ZERO, e
-	// isso é defensável porque a medição de fidelidade deu zero divergências em
-	// 147 098 comparações: se hoje reproduzimos o banco exactamente, qualquer
-	// diferença é sinal e não ruído. Num degrau por resolver é
-	// `Spread - SpreadMinimo`, que é a largura da incerteza que já foi medida.
-	//
-	// ⚠️ Uma tolerância constante escolhida à cabeça seria o defeito que a §7.4
-	// nomeia — um número com ar de certo — aplicado ao próprio detector.
+	// Tolerancia é lida do degrau, não escolhida: zero se resolvido, e a largura
+	// da incerteza medida (Spread - SpreadMinimo) se não.
 	Tolerancia dominio.Taxa
 
-	// Degrau é o intervalo que este ponto confirma. Viaja para o relatório
-	// poder nomear o que mexeu, e não só dizer que alguma coisa mexeu.
+	// Degrau é o intervalo que este ponto confirma — viaja para o relatório
+	// poder nomear o que mexeu.
 	Degrau dominio.DegrauLTV
 }
 
@@ -127,11 +91,8 @@ func toleranciaDe(d dominio.DegrauLTV) dominio.Taxa {
 	return d.Spread.Sub(*d.SpreadMinimo)
 }
 
-// Medir pergunta a um banco o spread que ele pratica num LTV.
-//
-// É a mesma forma que a `grelha.Amostrar` tem, de propósito: quem sonda e quem
-// descobre a escala perguntam a mesma coisa ao mesmo sítio, e reaproveitar a
-// forma evita duas maneiras de fazer o mesmo pedido divergirem em silêncio.
+// Medir pergunta a um banco o spread que pratica num LTV. Tem de propósito a
+// mesma forma que a grelha.Amostrar: são a mesma pergunta ao mesmo sítio.
 type Medir func(ctx context.Context, ltv dominio.Racio) (dominio.Taxa, error)
 
 // Leitura é o que uma sonda encontrou num ponto.
@@ -141,18 +102,16 @@ type Leitura struct {
 	// Observado é o spread que o banco pratica agora neste LTV.
 	Observado dominio.Taxa
 
-	// Desvio é `Observado - Esperado`, com sinal. ⚠️ Com sinal e não em módulo:
-	// o banco a ficar mais caro e o banco a ficar mais barato são notícias
-	// diferentes, e quem lê o relatório precisa de as distinguir.
+	// Desvio é Observado - Esperado, com sinal: mais caro e mais barato são
+	// notícias diferentes.
 	Desvio dominio.Taxa
 
 	// Divergiu é `|Desvio| > Tolerancia`.
 	Divergiu bool
 
-	// Erro é não se ter conseguido medir aqui. ⚠️ Um ponto que não se mede NÃO
-	// é uma confirmação: é uma sonda cega, e conta como tal na Cobertura. O
-	// contrário — tratar o silêncio como concordância — é como um detector
-	// avariado passa por um detector satisfeito.
+	// Erro é não se ter conseguido medir aqui — uma sonda cega, que não
+	// confirma nada. Tratar silêncio como concordância é como um detector
+	// avariado passa por satisfeito.
 	Erro error
 }
 
@@ -167,23 +126,13 @@ type Relatorio struct {
 	Cegos       int
 }
 
-// Confirmada diz se a grelha deste banco continua a servir.
-//
-// ⚠️ **Uma sonda cega NÃO confirma.** Se não se conseguiu medir um ponto, não se
-// sabe o que lá está — e um relatório que dissesse «confirmado» com metade das
-// sondas em erro seria o pior resultado possível: a tranquilidade sem a
-// medição.
+// Confirmada diz se a grelha deste banco continua a servir. Uma sonda cega não
+// confirma: seria tranquilidade sem medição.
 func (r Relatorio) Confirmada() bool { return r.Divergentes == 0 && r.Cegos == 0 }
 
-// Cobertura é a frase que acompanha o veredicto, em português, e diz o que esta
-// corrida NÃO viu.
-//
-// ⚠️ Existe porque o veredicto sozinho engana. «Confirmada» quer dizer «os
-// degraus que conhecíamos continuam onde estavam e com o preço que tinham» —
-// não quer dizer «o banco não mudou». Uma fronteira que suba, e um patamar novo
-// mais estreito do que a distância entre sondas, passam aqui sem serem vistos.
-// É o que a KAN-35 já mediu na CGD: o 2,050 entre 66,75 % e 67,75 %, 1 p.p. de
-// largura e não monótono, que só uma descoberta densa apanha.
+// Cobertura diz, em português, o que esta corrida NÃO viu. Existe porque o
+// veredicto sozinho engana: «confirmada» quer dizer «os degraus que
+// conhecíamos não mexeram», e não «o banco não mudou».
 func (r Relatorio) Cobertura() string {
 	return fmt.Sprintf(
 		"%d degrau(s) sondado(s). Uma sonda confirma o preço do degrau em que "+
@@ -192,11 +141,9 @@ func (r Relatorio) Cobertura() string {
 		len(r.Leituras))
 }
 
-// Correr sonda os pontos e devolve o que encontrou.
-//
-// ⚠️ Não pára no primeiro desvio. Um banco que mudou dois degraus é informação
-// diferente de um banco que mudou um, e parar cedo custava um pedido a menos
-// para perder a diferença entre «afinaram um escalão» e «refizeram a tabela».
+// Correr sonda os pontos e devolve o que encontrou. Não pára no primeiro
+// desvio: um banco que mudou dois degraus é notícia diferente de um que mudou
+// um, e parar cedo poupava um pedido para perder essa distinção.
 func Correr(ctx context.Context, bancoID string, pontos []Ponto, medir Medir) (Relatorio, error) {
 	if len(pontos) == 0 {
 		return Relatorio{}, ErrEscalaSemDegraus
@@ -204,9 +151,8 @@ func Correr(ctx context.Context, bancoID string, pontos []Ponto, medir Medir) (R
 
 	r := Relatorio{BancoID: bancoID, Leituras: make([]Leitura, 0, len(pontos))}
 	for _, p := range pontos {
-		// ⚠️ O cancelamento interrompe e devolve o que já se apurou, em vez de
-		// devolver um relatório curto com ar de completo. Um `Confirmada()`
-		// verdadeiro sobre metade das sondas seria uma mentira barata.
+		// Interrompe devolvendo o apurado, em vez de um relatório curto com ar
+		// de completo.
 		if err := ctx.Err(); err != nil {
 			return r, fmt.Errorf("sonda de %s interrompida ao fim de %d ponto(s): %w",
 				bancoID, len(r.Leituras), err)
@@ -234,18 +180,14 @@ func Correr(ctx context.Context, bancoID string, pontos []Ponto, medir Medir) (R
 	return r, nil
 }
 
-// excede compara o módulo do desvio com a tolerância.
-//
-// ⚠️ Estritamente maior: um desvio IGUAL à tolerância não diverge. Num degrau
-// por resolver a tolerância é a largura conhecida da incerteza, e um desvio
-// dessa exacta largura é o outro lado do degrau — que é o valor que já sabíamos
-// ser possível ali, não uma surpresa.
+// excede compara o módulo do desvio com a tolerância. Estritamente maior: um
+// desvio igual à largura da incerteza é o outro lado do degrau, que já sabíamos
+// ser possível ali.
 func excede(desvio, tolerancia dominio.Taxa) bool {
 	return desvio.Decimal().Abs().GreaterThan(tolerancia.Decimal().Abs())
 }
 
-// racio constrói um Racio de um literal do próprio ficheiro. Pânico é o certo:
-// um literal errado aqui é defeito de quem o escreveu, não estado de execução.
+// racio constrói um Racio de um literal deste ficheiro; pânico é o certo.
 func racio(s string) dominio.Racio {
 	r, err := dominio.RacioDeTexto(s)
 	if err != nil {

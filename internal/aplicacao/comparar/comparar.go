@@ -1,33 +1,9 @@
-// Package comparar responde a um pedido concreto por consulta à grelha e
-// cálculo local, sem falar com bancos.
+// Package comparar responde a um pedido por consulta à grelha e cálculo local,
+// sem falar com bancos nem saber que existe SQL — o que o torna afirmável sem
+// rede, sem base e sem relógio.
 //
-// É a peça que o cliente recebe (ARQUITETURA.md §1, invertida a 2026-07-25): o
-// varrimento fala com os bancos em hora morta, e isto transforma uma pergunta
-// numa lista de ofertas usando o que ele mediu.
-//
-// ⚠️ **Não fala com bancos, e não sabe que existe SQL.** É a §3: «o comparar não
-// fala com bancos e o varrimento não responde a clientes». Recebe observações já
-// lidas e devolve ofertas — o que o torna afirmável sem rede, sem base e sem
-// relógio.
-//
-// # A divisão entre o que se consulta e o que se calcula
-//
-// Sai por CONSULTA às observações: o spread do intervalo de LTV, a base da taxa
-// fixa por período, o valor da Euribor por tenor, e os desvios de finalidade e
-// de produtos. Sai por CÁLCULO local: a TAN de cada fase, o plano de
-// prestações, a TAEG e o MTIC sob os encargos ajustados, e a ordenação.
-//
-// ⚠️ **Três premissas da issue que fundou este pacote (KAN-31, 2026-07-25) já
-// não valem, e é deliberado que este comentário o diga:**
-//
-//   - «spread por banda de LTV» — a `dominio.BandaLTV` foi apagada na KAN-35. O
-//     spread sai de uma `EscalaDeLTV` com fronteiras MEDIDAS banco a banco;
-//   - «taxa da fase fixa, por período fixo» — o cartesiano de 2026-07-28 mediu
-//     que a TAN da fixa muda com o LTV. O que se consulta é a BASE, e soma-se-lhe
-//     o spread do intervalo de quem pergunta (KAN-41);
-//   - «o TAEG e o MTIC que não se conseguem dar omitem-se com nota — não se
-//     estimam» — revogado no mesmo dia. Derivam-se dos encargos ajustados a
-//     observações, e cada oferta declara os pressupostos.
+// O que sai por consulta e o que sai por cálculo está na §4 do ARQUITETURA.md;
+// a razão de não falar com bancos está na §1 e na §3.
 package comparar
 
 import (
@@ -334,28 +310,10 @@ func (c *Catalogo) Bancos() []string {
 
 // Comparar responde com uma oferta por banco PEDIDO — e não por banco medido.
 //
-// `pedidos` são os ids que quem pergunta nomeou; lista vazia quer dizer todos.
-// `requisitos` são os do registo — é deles que saem os períodos que cada banco
-// pratica e os limites de prazo, e é por isso que os ajustes se fazem aqui e não
-// na leitura da base.
-//
-// ⚠️ Devolve uma oferta por banco mesmo quando o banco não consegue responder:
-// uma falha nomeada é informação, e omitir o banco da lista fazia-o parecer
-// inexistente. É a mesma regra do varrimento — um banco avariado não derruba a
-// comparação (§5).
-//
-// ⚠️ **Percorrer os pedidos e não os medidos é a correcção da KAN-45**, e a
-// distinção não é académica: até 2026-08-01 percorria-se `c.Bancos()`, que são
-// os ids de que se LERAM observações, e um banco escolhido sem série nenhuma
-// não vinha como recusa — não vinha de todo. Medido nesse dia com a base
-// migrada de raiz e um varrimento só de dois bancos, pediram-se cinco e vieram
-// dois, sem uma palavra sobre os três em falta. O `ECRAS.md` §3 di-lo ao
-// contrário: «um banco que desaparece parece um esquecimento».
-//
-// ⚠️ Um id pedido que não existe em lado nenhum é `ErrPedidoInvalido`, e não uma
-// linha de recusa: «ainda não temos preços deste banco» e «não há tal banco» são
-// coisas diferentes, e responder à segunda com a primeira ensinava o cliente que
-// um id que escreveu mal é um banco que existe.
+// `pedidos` são os ids que quem pergunta nomeou; vazio quer dizer todos os
+// conhecidos. Um banco que não consegue responder vem como falha nomeada e não
+// omitido, e um id que não é banco nenhum é ErrPedidoInvalido. O porquê de cada
+// uma dessas três está na KAN-45 e na secção do POST /comparacoes do API.md.
 func (c *Catalogo) Comparar(
 	p dominio.Pedido, pedidos []string, requisitos map[string]dominio.Requisitos, hoje dominio.Data,
 ) ([]dominio.Oferta, error) {

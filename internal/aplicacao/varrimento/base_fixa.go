@@ -6,23 +6,8 @@ import (
 
 // A base da taxa fixa (ARQUITETURA.md §4, «O que se guarda por período é a BASE»).
 //
-// Medido no produto cartesiano da CGD a 2026-07-28, sobre 121 valores de LTV:
-// a TAN da taxa fixa **muda com o LTV**, nas mesmas fronteiras da variável e com
-// a mesma altura de degrau. Subtraindo o spread do degrau, sobra um número
-// constante ao cêntimo por período — 3,500 a 10 anos, 3,650 a 20, 3,900 a 30:
-//
-//	TAN_fixa(período, ltv) = base(período) + spread(ltv)
-//
-// ⚠️ Quem guardasse a TAN estaria a servir o preço do LTV a que a mediu a toda a
-// gente. Na CGD isso são **0,70 p.p.** de erro para quem cai do outro lado dos
-// 68 %, que numa prestação é dinheiro a sério.
-//
-// ⚠️ **Nada disto é um campo da Observacao.** A base é uma subtracção entre duas
-// linhas do MESMO lote, e as duas já lá estão — logo deriva-se ao gravar, como o
-// resíduo. Um campo preenchido por quem constrói a observação esquecia-se no
-// caminho da escala, que não passa por onde os pontos passam: é a lição que o
-// `capturado_em` deixou na sétima fatia da KAN-16.
-
+// A base sai de TAN - spread(ltv). É constante por período — medido no
+// cartesiano da CGD, ver docs/ANALISE-KAN-35.md e a §4 do ARQUITETURA.
 // EscalasPorBanco reconstrói a escala de LTV de cada banco a partir das linhas
 // de degrau do lote.
 //

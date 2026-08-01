@@ -16,13 +16,12 @@
 # versionado (é o que torna o `npm ci` reprodutível); o node_modules não.
 /node_modules/
 
-# Documentação interna — vive no Confluence privado, não neste repositório.
-# Ver a secção "Documentos" do README. Continuam no disco de quem tem acesso.
+# ⚠️ A documentação VOLTOU a ser versionada a 2026-08-01, revogando o 652eda2
+# («o desenho sai do repositório público para o Confluence»). O que a revogou
+# não foi o argumento — o código continua aberto de propósito — foi o custo: dez
+# documentos em duas moradas sem sincronização produziram divergência a sério.
+# Medido no dia: o `ARQUITETURA.md` tinha 485 linhas no Confluence e 505 no
+# disco. Nenhuma linha de conteúdo se perdeu, e foi por sorte.
 #
-# ⚠️ `git clean -xdf` APAGA-OS: o `-x` remove precisamente o que está ignorado.
-# `git clean -df`, sem o `-x`, não lhes toca. Se acontecer, repõem-se do
-# Confluence — não há outra cópia.
-/CLAUDE.md
-/PLAN.md
-/RESUME.md
-/docs/
+# O Confluence deixa de ser usado. Não há segunda morada, e por isso não há
+# nada aqui a ignorar.
