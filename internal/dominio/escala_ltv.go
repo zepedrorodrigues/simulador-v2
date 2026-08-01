@@ -8,26 +8,15 @@ import (
 	"github.com/shopspring/decimal"
 )
 
-// A escala de LTV de um banco: a função em degraus que leva um rácio ao spread
-// que esse banco pratica nele.
+// A escala de LTV de um banco: a função em degraus que leva um rácio ao spread.
 //
-// ⚠️ As fronteiras são MEDIDAS, banco a banco, e não uma constante do domínio.
-// Isto substitui, a 2026-07-26 (KAN-35), o modelo anterior de vinte bandas
-// fixas de 5 %, e a razão está medida e escrita na §4 do ARQUITETURA.md:
+// ⚠️ As fronteiras são MEDIDAS banco a banco, e não uma constante do domínio.
+// Substituiu as vinte bandas fixas de 5 % na KAN-35; os números que o obrigaram
+// — fronteiras fora dos inteiros, o erro que não diminui com o passo, o patamar
+// não monótono — estão em docs/ANALISE-KAN-35.md.
 //
-//   - duas fronteiras da CGD caem em LTV não inteiro — (66,50 ; 66,75] e
-//     (33,00 ; 33,50] —, por isso nem uma grelha de 1 p.p. as representa;
-//   - o erro de quem cai numa banda partida é a altura do degrau, 0,70 p.p. na
-//     banda 70 da CGD, e não diminui quando se afina o passo: afinar reduz a
-//     exposição, não o erro;
-//   - o preço não é monótono no LTV — o 2,050 da CGD é um patamar isolado de
-//     ~1,25 p.p. entre dois mais largos;
-//   - e os bancos discordam sobre a forma da coisa: o Novo Banco muda de preço
-//     exactamente nos múltiplos de 5, a CGD não. Logo a resolução não pode ser
-//     uma constante — tem de vir da medição.
-//
-// Quem preenche a escala a partir do varrimento é a KAN-16. Este pacote só
-// define o que ela é e o que se lhe pergunta.
+// Este pacote define o que a escala é e o que se lhe pergunta. Quem a preenche
+// a partir do varrimento é o aplicacao/grelha.
 
 var (
 	// ErrEscalaVazia: uma escala sem degraus não responde a nada.

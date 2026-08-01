@@ -4,8 +4,6 @@ Este documento é a decisão de desenho. É vinculativo: quando o código diverg
 
 **Stack:** Go · PostgreSQL · `chi` · `pgx` + `sqlc` · OpenAPI. A interface com pessoas é uma app **React Native**, em repositório separado.
 
-⚠️ O Redis estava aqui e saiu a 2026-07-25, com a inversão da §1 — a razão está no fim da §7. ⚠️ Saiu também do **ambiente** a 2026-07-27 (KAN-39): até aí o `docker-compose.yml` continuava a subi-lo.
-
 ## 1. Âmbito
 
 O `simulador-v2` faz **duas** coisas e mais nenhuma:
@@ -15,7 +13,7 @@ O `simulador-v2` faz **duas** coisas e mais nenhuma:
 
 A série temporal de mercado (`GET /api/rate-catalog`, §6) não é uma terceira coisa: é a publicação do que o ponto 1 já guardou.
 
-Este repositório serve **JSON e mais nada** — sem templates, sem HTML, sem ficheiros estáticos. A restrição é deliberada: no v1 não havia fronteira entre UI e servidor, e a lógica de apresentação acabou espalhada pelo servidor.
+Este repositório serve **JSON e mais nada** — sem ficheiros estáticos. A restrição é deliberada: no v1 não havia fronteira entre UI e servidor, e a lógica de apresentação acabou espalhada pelo servidor.
 
 ⚠️ **Consequência prática, executada a 2026-07-28 (KAN-22): a app web é um SERVIÇO À PARTE.** O `expo export` produz estáticos, e servi-los deste binário seria a primeira excepção a esta regra — que é como as regras deste género morrem. São dois serviços no mesmo alojamento, e o repositório Go continua a servir só JSON.
 
@@ -47,12 +45,6 @@ aplicacao  → dominio, bancos
 infra      → dominio, bancos, aplicacao, api
 cmd        → infra
 ```
-
-`dominio` não sabe que existe HTTP. `bancos` não sabe que existe base de dados. `aplicacao` não sabe se foi chamada por HTTP ou pela linha de comandos.
-
-⚠️ **A regra é sobre camadas do projecto, não sobre bibliotecas de terceiros.** O `dominio` importa o `shopspring/decimal` porque a §4 o exige — dinheiro e taxas não são vírgula flutuante, e sem ele o domínio não representava aquilo de que trata. «Zero dependências» quer dizer zero dependências **nossas**.
-
-⚠️ **Isto é imposto, não prometido.** O `internal/` impede importação de fora do módulo mas não regula as camadas entre si; quem o faz é o `depguard` no `.golangci.yml`, que reprova o portão perante um `import` que viole a tabela. Um diagrama que ninguém executa foi exactamente o que o v1 teve. A aresta do `api/` esteve prometida e não imposta até à **KAN-29**.
 
 ### O que vive em cada camada
 
@@ -147,14 +139,9 @@ Três decisões pequenas, e cada uma fecha um modo de falha:
 
 ⚠️ `produtos` é obrigatório para a série ser comparável. Sem saber que condições cada taxa pressupõe, a CGD e o BPI aparecem caros por lhes faltar o desconto, não por cobrarem mais. O v1 descobriu isto tarde.
 
-**E está medido quanto isso vale — inverte a resposta, não a agrava (KAN-33, 2026-07-27).** Até aqui o `dominio.Pedido` não transportava selecção de produtos, e cada banco decidia por si: a CGD servia o preçário base e o Novo Banco servia o seu preço já com as duas bonificações ligadas. No mesmo cenário e no mesmo dia — 250 000 € / 200 000 € / 30 anos, própria, variável:
+**E está medido quanto isso vale — inverte a resposta, não a agrava (KAN-33, 2026-07-27).** Até aqui o `dominio.Pedido` não transportava selecção de produtos, e cada banco decidia por si: a CGD servia o preçário base e o Novo Banco servia o seu preço já com as duas bonificações ligadas. 
 
-| banco | sem produtos | com produtos |
-| --- | --- | --- |
-| CGD | 1,350 | 0,650 |
-| Novo Banco | 1,600 | 0,900 |
-
-Lado a lado, o que saía era 1,350 da CGD contra 0,900 do Novo Banco: **o Novo Banco 0,45 p.p. mais barato**. Em pé de igualdade é **a CGD a mais barata, por 0,25 p.p., nas duas colunas**. Cada preço estava certo; era a comparação que estava invertida — e é isso que a Directiva 2006/114/CE, art. 4.º, proíbe ao exigir características «material, relevant, verifiable and representative».
+O  que saía era 1,350 da CGD contra 0,900 do Novo Banco: **o Novo Banco 0,45 p.p. mais barato**. Em pé de igualdade é **a CGD a mais barata, por 0,25 p.p., nas duas colunas**. Cada preço estava certo; era a comparação que estava invertida — e é isso que a Directiva 2006/114/CE, art. 4.º, proíbe ao exigir características «material, relevant, verifiable and representative».
 
 ⚠️ **Daí a regra: quem escolhe produtos é o pedido, não o banco.** O `Produto.PorOmissao` diz à app o que pré-seleccionar e mais nada; um `Pedido` sem produtos pede o preço sem produtos. E a selecção vai por dois caminhos diferentes, medidos: na CGD é **de leitura** (as duas colunas vêm no mesmo `/calculate`, logo um pedido dá as duas linhas do varrimento), no Novo Banco é **de pedido** (o campo `bonificacoes` decide, e `[]` é aceite). ⚠️ O Montepio (KAN-11) é o terceiro caso e é **de pedido**, pelo campo `Counterparts`.
 
@@ -220,8 +207,6 @@ Subtraindo o spread do degrau a cada TAN, sobra um número **constante ao cênti
 **A regra: `TAN_fixa(período, ltv) = base(período) + spread(ltv)`.**
 
 ⚠️ **A grelha não multiplica, e é essa a boa notícia.** Continua a ser **uma** observação por período — mas o que dela se extrai e se guarda é a **base**, isto é, a TAN menos o spread do intervalo em que foi medida. Quem responde soma o spread do intervalo do cliente, tal como já faz na variável com a Euribor. Uma grelha que guardasse a TAN estaria a servir o preço do LTV a que a mediu a toda a gente — e o erro seria de 0,70 p.p. para quem caísse do outro lado dos 68 %, que é dinheiro a sério numa prestação.
-
-⚠️ **E fica escrito que isto se descobriu por medição, e não por leitura de documentação.** A hipótese anterior era plausível, estava escrita neste documento como facto, e era falsa. O teste que a matou passa a vigiá-la: `TestAFixaDaCGDEBaseMaisSpreadDoLTV` custa ~100 pedidos e falha no dia em que a CGD deixar de preçar assim.
 
 **Por medir, e continua em aberto para os outros bancos:** se a mesma relação vale fora da CGD. O `DOSSIE-BANCOS.md` tem o indício do Novo Banco — a mista «a 25 e 30 anos dá o preço de 20» —, que é outra coisa: ali é o **período** que não se distingue, não o LTV. Cada banco novo repete a medição; nenhum a herda.
 
@@ -378,25 +363,15 @@ Sem chave configurada o catálogo fica aberto — é o comportamento de desenvol
 
 ## 7. O varrimento, e o que substitui a cache
 
-O v1 mediu isto a sério; o v2 começa já do outro lado da medição.
-
-**Os números medidos** (v1, 2026-07-22, contentor contra Postgres 17): uma comparação de 10 bancos fecha em **52,2 s**, mas 9 dos 10 estão prontos aos **25,9 s** e 7 aos **7,4 s** — o BPI sozinho define o total. Bancos de HTTP puro custam **1-2 s**; bancos de browser custam **30-80 s**. Ao vivo, o tecto é \~20 comparações por hora.
-
-⚠️ **Não há cache de pedidos**, porque não há pedido ao banco no caminho do cliente (§1). Os números acima ficam porque são a **razão** da inversão, não porque descrevam o que acontece a um cliente.
-
-Daí saem cinco decisões, todas já tomadas:
-
 1. **O varrimento é o único caminho para os bancos.** Corre por **subcomando** (`cmd/simulador/`), não por rota HTTP. Uma rota teria de ser protegida, e autenticação foi o que o v1 ganhou sem decidir e teve de apagar em três migrações. Se um dia for preciso disparar de fora, acrescenta-se a rota então.
 2. **⚠️ Com travão: nunca dois varrimentos do mesmo banco ao mesmo tempo.** Dois arranques não valem duas cargas em cima do banco. O travão vive na base, não no processo (ver 5).
-3. **Cíclico ao longo do dia, e ⚠️ nunca a servir através da viragem do dia.** A Euribor fixa diariamente e a TAN depende dela. Um valor varrido às 23:50 não se serve às 00:10 — a data do valor faz parte da sua validade, não só a sua idade em horas.
+3. **Cíclico ao longo do dia, e ⚠️ nunca a servir através da viragem do dia.** A Euribor fixa diariamente e a TAN depende dela. 
 
 ⚠️ **Executado a 2026-07-28 (KAN-22), e a decisão de varrer é do SUBCOMANDO, não do agendador.** A máquina agendada acorda **de hora a hora** e corre `simulador varrer`; quem decide se há alguma coisa a fazer é a guarda `--se-antigo`, com omissão de **6 horas**. Dá ~4 varrimentos por dia e 20 arranques que saem a dizer «varrimento saltado» — com código **0**, não com erro, porque um subcomando cíclico que saísse com 1 por não ter de correr enchia o log do agendador de falhas que não são falhas, e quem as visse deixava de as ler. ⚠️ A alternativa era pedir ao agendador uma hora exacta, e o do Fly não a tem (`hourly`/`daily`, sem escolha): pôr a regra no lado que a sabe é o que a torna independente da plataforma. Dois arranques sobrepostos não fazem mal — o travão do ponto 2 vive na base precisamente para travar **entre máquinas**.
 4. **⚠️ Cada varrimento mede o seu próprio resíduo.** É o travão contra o modo de falha deste desenho, e é obrigatório. Ao vivo, um campo mal lido estraga **uma** resposta; aqui envenena **todas** até ao varrimento seguinte, e envenena-as com ar de certas. Por isso cada varrimento leva um punhado de cenários em que se compara o número que o banco devolveu com o número que o nosso cálculo daria, e guarda a diferença. Se o resíduo cresce, alguma coisa mudou do lado do banco — e aparece como número, não como silêncio. O `DOSSIE-BANCOS.md` já registou a versão pequena desta lição: limites de idade medidos e escritos como constantes «sem nada que avise quando o banco os mudar».
 
 ⚠️ **Executado a 2026-07-28 (KAN-16), e não é «um punhado de cenários»: são todos.** A comparação é a prestação da primeira fase contra a amortização francesa sobre o plano que o banco descreveu, e custa uma multiplicação — escolher um punhado seria escolher onde não olhar. Vive em `varrimento.Residuo`, grava-se na coluna `residuo_prestacao` (§4, «O resíduo mora numa coluna») e sai resumido no relatório do `simulador varrer`, por banco. ⚠️ **A dimensão do LTV mede-se pelo mesmo caminho**: um degrau é uma linha como as outras e leva o seu resíduo — foi por o caminho da escala não passar por onde os pontos passam que o `capturado_em` quase ficou a zero, e o mesmo esquecimento aqui deixava a escala sem travão nenhum.
 5. **⚠️ Nada de estado em-processo.** O v1 tinha o gate por banco, o dedup e a cache dentro do processo, e um aviso no arranque a dizer que com mais do que um worker o mesmo banco levava N scrapes em paralelo — precisamente o que o gate existia para evitar. Várias PaaS definem a concorrência sozinhas. A regra mantém-se inteira; o que muda é onde: **o varrimento, o travão e os limites vivem em Postgres**, que já existe por causa da §4.
-
-⚠️ **Consequência: o Redis deixa de ser necessário, e sai.** Estava aqui para a cache e para o *gate* por banco, e nenhum dos dois existe neste desenho — a leitura do cliente é uma consulta a `catalogo_taxas`, e o travão do varrimento é um *advisory lock* na base que já temos. Um serviço a menos no `docker-compose.yml`, no `make dev` e na configuração. Se voltar a fazer falta, volta com uma entrada nova nesta secção.
 
 O travão é o `internal/infra/travao`, sobre `pg_try_advisory_lock` (KAN-39).
 

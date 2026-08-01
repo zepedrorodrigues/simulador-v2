@@ -39,6 +39,14 @@ db/                migrações goose + queries sqlc
 
 Dependências só para dentro: `dominio ← bancos ← aplicacao ← infra ← cmd`. Imposto pelo `depguard`, não pela boa vontade. ⚠️ E o `api/` é folha: **só** a `infra` o consome. Essa aresta passou a estar imposta na KAN-29 — até aí estava prometida e não travava.
 
+## Comentários
+
+**O mais curto que se perceba, e só se for estritamente necessário para se perceber.** Sem nota, se o código se explica.
+
+Um comentário ganha o seu lugar quando diz o que o código não pode dizer: um **número medido**, uma **base legal**, ou **porque é que a alternativa óbvia está errada**. Fora disso não escreve.
+
+⚠️ E se o porquê já vive num documento, o comentário **remete** em vez de repetir — uma cópia diverge do original em silêncio, e já aconteceu aqui: a interface `Banco` copiada para o `CONTRATO-BANCO.md` perdeu os parágrafos do `ctx` sem ninguém dar por isso.
+
 ## Armadilhas
 
 - **Não editar código gerado.** O do `sqlc` e o do `oapi-codegen` são reconstruídos; edições à mão desaparecem no `make gerar` seguinte.
