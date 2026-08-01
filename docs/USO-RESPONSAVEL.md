@@ -2,8 +2,6 @@
 
 ⚠️ **Não sou advogado e isto não é aconselhamento jurídico.** O documento separa deliberadamente duas coisas: o que se decide tecnicamente e já está decidido (§2), e o que exige parecer de quem sabe **antes** de publicar (§3). Não misturar as duas é o objectivo do documento.
 
-⚠️ **Trazido do Confluence para o disco a 2026-07-27 (KAN-40).** Vivia só numa morada. Na passagem, as afirmações que a inversão da §1 tornou falsas foram corrigidas e estão marcadas com ⚠️ **corrigido** — não se traz para a morada de trabalho um documento que contradiz o desenho. As referências a issues do GitHub foram convertidas para as do `KAN`.
-
 ## 1. O que mudou face ao v1
 
 O v1 era um script pessoal. O `README` dizia «projeto de uso pessoal/educativo».

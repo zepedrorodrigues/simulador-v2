@@ -21,19 +21,13 @@ Este repositório serve **JSON e mais nada** — sem templates, sem HTML, sem fi
 
 ⚠️ **Consequência prática, executada a 2026-07-28 (KAN-22): a app web é um SERVIÇO À PARTE.** O `expo export` produz estáticos, e servi-los deste binário seria a primeira excepção a esta regra — que é como as regras deste género morrem. São dois serviços no mesmo alojamento, e o repositório Go continua a servir só JSON.
 
-### ⚠️ Esta secção foi invertida a 2026-07-25. Porquê.
+### ⚠️ Porque é que isto é assim, e não ao vivo (invertido a 2026-07-25)
 
-Até esta data a §1 dizia «**comparar ofertas ao vivo** [...] devolve as ofertas à medida que chegam», e o resto do documento seguia daí: `POST` a devolver 202 com um identificador, sondagem a cada segundo, `progresso`, cache por banco com validade por custo. Estava construído em cima de um número — 52,2 s para 10 bancos — e a aceitá-lo como inevitável.
+O desenho anterior comparava **ao vivo**, e estava construído em cima de um número medido — 52,2 s para dez bancos — aceite como inevitável. Não é: **uma comparação não precisa de falar com os bancos.** O que os bancos vendem é uma função de preço de poucas dimensões e todos devolvem os parâmetros explicitamente (o `spread` vem nomeado na resposta dos dez). Varrida essa função em hora morta, comparar passa a ser aritmética local.
 
-Não é inevitável. **Uma comparação não precisa de falar com os bancos.** O que os bancos vendem é uma função de preço de poucas dimensões, e todos devolvem os seus parâmetros explicitamente (o `spread` vem nomeado na resposta dos dez — ver `DOSSIE-BANCOS.md`). Varrida essa função em hora morta, uma comparação passa a ser aritmética local: milissegundos, e completa.
+Duas consequências que ainda decidem trabalho futuro: **os bancos de browser voltam a ser possíveis** — o BPI a 52 s era inaceitável dentro de um pedido e é irrelevante às 4 da manhã (§5 deixa de os tratar como risco de latência) — e o custo por comparação passa a ser uma consulta a Postgres, o que faz desaparecer o tecto de ~20 comparações/hora.
 
-O que se ganha, por ordem de importância:
-
-- **A resposta é completa e imediata.** Cai o 202, a sondagem, o `progresso`, o estado `em_curso` e tudo o que existia para gerir uma espera que deixou de haver.
-- **Os bancos de browser voltam a ser possíveis.** O BPI a 52 s era inaceitável dentro de um pedido e é irrelevante às 4 da manhã. A `§5` deixa de os tratar como risco de latência.
-- **O tecto de ~20 comparações/hora desaparece**, e com ele a maior parte da conversa sobre capacidade: o custo por comparação passa a ser uma consulta a Postgres.
-
-O que se perde, e é preciso ter presente: **os números passam a ser tão frescos quanto o último varrimento**, e onde o preço depende da pessoa há coisas que um varrimento com titular neutro não consegue dar. Está tratado na §4, em «O limite: onde o preço depende da pessoa».
+⚠️ **E o que se perde:** os números são tão frescos quanto o último varrimento, e onde o preço depende da pessoa um varrimento com titular neutro não consegue dar tudo. Ver «O limite: onde o preço depende da pessoa», na §4.
 
 ## 2. De onde vêm estas regras
 
@@ -77,11 +71,9 @@ cmd        → infra
 
 `dominio` não sabe que existe HTTP. `bancos` não sabe que existe base de dados. `aplicacao` não sabe se foi chamada por HTTP ou pela linha de comandos.
 
-⚠️ **A regra é sobre camadas do projecto, não sobre bibliotecas de terceiros.** O `dominio` importa o `shopspring/decimal` porque a §4 o exige — dinheiro e taxas não são vírgula flutuante, e a alternativa seria o domínio não conseguir representar aquilo de que trata. O que ele não importa é `bancos`, `aplicacao`, `infra` ou `cmd`, e é isso que o `depguard` verifica. «Zero dependências» sempre quis dizer zero dependências **nossas**; a redacção anterior dizia «além da stdlib» e contradizia a §4 à letra.
+⚠️ **A regra é sobre camadas do projecto, não sobre bibliotecas de terceiros.** O `dominio` importa o `shopspring/decimal` porque a §4 o exige — dinheiro e taxas não são vírgula flutuante, e sem ele o domínio não representava aquilo de que trata. «Zero dependências» quer dizer zero dependências **nossas**.
 
-⚠️ **Isto é imposto, não prometido.** O `internal/` já impede importação de fora do módulo, mas não regula as camadas entre si — isso fica a cargo do `depguard` no `.golangci.yml`, que reprova a compilação do portão perante um `import` que viole a tabela acima. Um diagrama que ninguém executa foi exactamente o que o v1 teve.
-
-⚠️ **E era meia verdade até 2026-07-27.** As listas do `depguard` negavam as camadas internas umas às outras, mas **nenhuma delas negava o `api`** — a aresta que o parágrafo do `api/` abaixo declara era a única prometida e não imposta. Corrigido na **KAN-29**, com as quatro entradas em falta (`dominio`, `bancos`, `aplicacao`, `cmd`) e medido nos dois sentidos: cada camada reprova a nomear a sua lista, e a `infra` continua a poder.
+⚠️ **Isto é imposto, não prometido.** O `internal/` impede importação de fora do módulo mas não regula as camadas entre si; quem o faz é o `depguard` no `.golangci.yml`, que reprova o portão perante um `import` que viole a tabela. Um diagrama que ninguém executa foi exactamente o que o v1 teve. A aresta do `api/` esteve prometida e não imposta até à **KAN-29**.
 
 ### O que vive em cada camada
 
@@ -107,11 +99,11 @@ cmd        → infra
 
 Uma linha = um banco × um ponto da grelha, num varrimento. É a única coisa guardada a longo prazo, e não contém dados pessoais: os pontos da grelha são fixos e o titular é neutro.
 
-⚠️ **A partir de 2026-07-25 esta tabela deixou de ser um produto secundário e passou a ser o motor.** Era «a série de mercado», varrida sobre uma pequena grelha de referência para alimentar o `/api/rate-catalog`. É agora a fonte de onde sai **toda** a resposta ao cliente. Duas consequências práticas:
+⚠️ **Esta tabela é o motor, e não um produto secundário.** Era a série de mercado que alimentava o `/api/rate-catalog`; desde a inversão da §1 é a fonte de onde sai **toda** a resposta ao cliente.
 
-- **A grelha cresce**, e o `cenario` deixa de ser um rótulo escolhido à mão para passar a ser uma **chave estruturada** que identifica o ponto: tipo de taxa, período fixo e finalidade. ⚠️ **O LTV saiu desta chave a 2026-07-26** e passou a duas colunas próprias — ver «A resolução do LTV», abaixo. O que continua decidido é que a chave é derivável do pedido, porque é isso que permite ir da pergunta de um cliente à linha certa.
+O `cenario` é uma **chave estruturada** que identifica o ponto — tipo de taxa, período fixo e finalidade — e não um rótulo escolhido à mão. Tem de ser **derivável do pedido**, porque é isso que permite ir da pergunta de um cliente à linha certa. ⚠️ O LTV **não** entra nela: vive em duas colunas próprias, pela razão que está em «A resolução do LTV», abaixo.
 
-⚠️ **O formato ficou fixado a 2026-07-27 (KAN-16), e esta secção dizia desde 2026-07-25 que se fixava «ao escrever a CGD» — o que não aconteceu.** É `<tipo>/<periodo>/<finalidade>`, **sempre três segmentos**, separados por `/`:
+É `<tipo>/<periodo>/<finalidade>`, **sempre três segmentos**, separados por `/`:
 
 ```
 variavel/0/propria        fixa/10/propria        mista/5/arrendamento
@@ -153,9 +145,7 @@ Três decisões pequenas, e cada uma fecha um modo de falha:
 
 ### ⚠️ O que estas três colunas descrevem, e quando são nulas
 
-**Escrito a 2026-07-27 (KAN-16), ao executar a migração.** A tabela declarava `ltv_min`/`ltv_max` como `numeric(6,3)` e um `ltv_resolvido bool` desde 2026-07-26, e as três decisões mudam. Nenhuma é de estilo: cada uma é uma incoerência entre esta secção e o que a própria §4 decidiu na «resolução do LTV». ⚠️ **A quarta entrou a seguir, ao gravar os primeiros degraus**, e responde a outra pergunta: o que é que uma linha de degrau traz **além** do intervalo.
-
-**1. A precisão: `numeric(9,8)` e não `numeric(6,3)`.** O LTV é uma fracção — o contrato publica `ltv: 0.8`, ao lado de `tan: 3.25` —, e `numeric(_,3)` sobre uma fracção arredonda a milésimas, ou seja a **0,1 p.p. de LTV**, com erro máximo de **0,05 p.p.** Isso é exactamente o orçamento inteiro da tolerância do refinamento: gastavam-se ~18 pedidos por banco a estreitar uma fronteira até 0,05 p.p. e a gravação desfazia-o. Medido a 2026-07-27, na forma da CGD: as fronteiras descobertas têm até **sete casas decimais** — 0,3325, 0,6659375, 0,67875 —, e a de 0,6659375 gravada em `numeric(6,3)` fica 0,666. Oito casas representam exactamente tudo o que o plano de omissão produz (duas do domínio mais cinco bissecções, sete no pior caso) e deixam uma de folga. ⚠️ Uma tolerância mais fina do que a de omissão obriga a rever isto.
+**1. A precisão: `numeric(9,8)` e não `numeric(6,3)`.** O LTV é uma fracção, e `numeric(_,3)` sobre uma fracção arredonda a milésimas — **0,1 p.p. de LTV**, erro máximo de **0,05 p.p.**, que é o orçamento inteiro da tolerância do refinamento: gastavam-se ~18 pedidos por banco a estreitar uma fronteira e a gravação desfazia-o. Medido na forma da CGD, as fronteiras têm até **sete casas** — 0,3325, 0,6659375, 0,67875 —, e a de 0,6659375 em `numeric(6,3)` fica 0,666. Oito casas representam tudo o que o plano de omissão produz e deixam uma de folga. ⚠️ Uma tolerância mais fina do que a de omissão obriga a rever isto.
 
 **2. O `ltv_resolvido bool` sai, e entra o `spread_minimo`.** O `dominio.DegrauLTV` guarda o outro lado do degrau em vez de uma bandeira, e a razão está escrita lá: com uma bandeira, «não resolvido» e «sem o outro lado» são estados independentes, e o par impossível é representável. Pior, sem os dois números **a nota obrigatória não se consegue reconstruir a partir da linha** — ela nomeia o spread servido e o que se descartou, e sem isso diria «é aproximado», que não é informação. O `resolvido` deriva-se de `spread_minimo IS NULL`, e não se guarda duas vezes a mesma verdade. Há `CHECK` a impor que, existindo, o `spread_minimo` é **menor** do que o `spread` — a mesma guarda que o `NovaEscalaDeLTV` faz em Go.
 
@@ -207,7 +197,7 @@ Lado a lado, o que saía era 1,350 da CGD contra 0,900 do Novo Banco: **o Novo B
 
 ### ⚠️ A resolução do LTV: intervalos medidos, não bandas de passo fixo
 
-**Alterado a 2026-07-26 (KAN-35).** Até aqui esta secção dizia que o spread se guardava «por banda de LTV», e o `dominio.BandaLTV` implementava-o com vinte degraus de 5 %. Está medido que não representa o preço, e o que se segue são os números que o obrigaram a mudar. A análise completa está em `docs/ANALISE-KAN-35.md`, **no disco e no Confluence** (espaço `GDP`, filha de `simulador-v2`). ⚠️ Até 2026-07-27 esta linha remetia para uma cópia única, que um `git clean -xdf` apagava sem recurso — uma referência assim parece verificável e não é. Corrigido na KAN-40.
+**Decidido a 2026-07-26 (KAN-35)**, e está medido que uma banda de passo fixo não representa o preço. As medições e a base legal estão em [`ANALISE-KAN-35.md`](ANALISE-KAN-35.md); o que se segue são os números que decidem esta secção.
 
 **O que se mediu.** Imóvel fixo em 400 000 € e montante a variar de 1 000 €, para que cada passo seja exactamente 0,25 p.p. de LTV. Variável, 30 anos, habitação própria.
 
@@ -253,7 +243,7 @@ A resposta ao cliente sai destas duas colunas. É a distinção central do desen
 
 ### ⚠️ O que se guarda por período é a BASE, e não a TAN
 
-**Medido a 2026-07-28 (KAN-16), no produto cartesiano da CGD: 1 210 pedidos, 121 valores de LTV × 10 famílias.** Esta secção dizia, até aqui, que «basta uma observação por período» — e a frase estava certa a meias, do pior modo possível: certa no número de observações, errada no que a observação vale.
+**Medido a 2026-07-28 (KAN-16), no produto cartesiano da CGD: 1 210 pedidos, 121 valores de LTV × 10 famílias.** ⚠️ Uma observação por período **chega em número e não chega em conteúdo** — é a distinção que custou a medição.
 
 **A TAN da taxa fixa muda com o LTV**, e muda nas **mesmas fronteiras** da variável e com a **mesma altura de degrau**:
 
@@ -303,9 +293,9 @@ Um varrimento com titular neutro reconstrói o que não depende de quem pede. N�
 
 ⚠️ **Não se serve um número calculado como se fosse cotado pelo banco.** O v1 tropeçou nisto e registou a lição: quando o `/get_by_rates` do Millennium falhava, caía numa amortização francesa local com TAEG e MTIC a nulo, e a conclusão foi «**preferir falhar com clareza a servir um número inventado com ar de oficial**» (`DOSSIE-BANCOS.md`). Aqui isso significa: o que vem do varrimento vai identificado como tal, com a hora do varrimento, pelo mecanismo de `Notas` que a §5 já obriga a existir.
 
-### ⚠️ A TAEG deriva-se com os encargos MEDIDOS — e esta secção dizia o contrário
+### ⚠️ A TAEG deriva-se com os encargos MEDIDOS
 
-**Alterado a 2026-07-28.** Até aqui, o parágrafo acima terminava em «**o TAEG que não se consegue dar omite-se com nota — não se estima**», e essa frase sai. Sai porque a alternativa deixou de ser entre *omitir* e *inventar*: passou a haver uma terceira via, que é **derivar de uma medição e declarar as hipóteses**.
+**Decidido a 2026-07-28**, e revoga «o TAEG que não se consegue dar omite-se — não se estima». A alternativa deixou de ser entre *omitir* e *inventar*: há uma terceira via, **derivar de uma medição e declarar as hipóteses**.
 
 **O que mudou tecnicamente.** A TAEG excede a TAN pelos encargos, e os encargos não se observam directamente — o que se observa é o par (TAN, TAEG) que cada banco devolve. Essa distância é o custo dos encargos, mas não diz de que encargos se trata, e isso importa porque as duas naturezas reagem ao prazo **ao contrário** uma da outra:
 
@@ -431,7 +421,7 @@ O v1 mediu isto a sério; o v2 começa já do outro lado da medição.
 
 **Os números medidos** (v1, 2026-07-22, contentor contra Postgres 17): uma comparação de 10 bancos fecha em **52,2 s**, mas 9 dos 10 estão prontos aos **25,9 s** e 7 aos **7,4 s** — o BPI sozinho define o total. Bancos de HTTP puro custam **1-2 s**; bancos de browser custam **30-80 s**. Ao vivo, o tecto é \~20 comparações por hora.
 
-⚠️ **Esta secção era «Cache e capacidade» e foi substituída a 2026-07-25.** Não há cache de pedidos, porque não há pedido ao banco no caminho do cliente (§1). Os números acima continuam aqui porque são a razão da inversão, não porque descrevam o que acontece a um cliente.
+⚠️ **Não há cache de pedidos**, porque não há pedido ao banco no caminho do cliente (§1). Os números acima ficam porque são a **razão** da inversão, não porque descrevam o que acontece a um cliente.
 
 Daí saem cinco decisões, todas já tomadas:
 
@@ -447,7 +437,7 @@ Daí saem cinco decisões, todas já tomadas:
 
 ⚠️ **Consequência: o Redis deixa de ser necessário, e sai.** Estava aqui para a cache e para o *gate* por banco, e nenhum dos dois existe neste desenho — a leitura do cliente é uma consulta a `catalogo_taxas`, e o travão do varrimento é um *advisory lock* na base que já temos. Um serviço a menos no `docker-compose.yml`, no `make dev` e na configuração. Se voltar a fazer falta, volta com uma entrada nova nesta secção.
 
-⚠️ **Executado a 2026-07-27 (KAN-39).** A decisão acima ficou dois dias por executar: o contentor continuava no `docker-compose.yml`, o `REDIS_URL` no `.env.example`, e o doc comment da `infra` prometia um «cliente Redis» que nunca existiu — nem havia dependência dele no `go.mod`. Saiu tudo. O travão é o `internal/infra/travao`, sobre `pg_try_advisory_lock`.
+O travão é o `internal/infra/travao`, sobre `pg_try_advisory_lock` (KAN-39).
 
 6. **⚠️ A grelha confirma-se por sondagem barata, e não por revarrimento.** Decidido a **2026-08-01**. Entre varrer tudo e não saber nada havia um vazio: uma grelha varrida há seis horas pode já não descrever o banco, e a única forma de o saber era varrer outra vez — 96 pedidos por banco para descobrir que nada mudou. A **sonda** fecha esse vazio com \~4 pedidos por banco.
 
