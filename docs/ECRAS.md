@@ -157,34 +157,17 @@ Um passo por ecrã, com barra de progresso. Nada de acordeões nem de secções 
 
 ---
 
-## 2. ⚠️ O ecrã que saiu: «A comparar»
+## 2. ⚠️ Não há ecrã de espera, e o buraco é de propósito
 
-**Apagado a 2026-07-28.** O número fica vago de propósito, e o desenho fica aqui escrito, porque um ecrã que desaparece sem explicação volta a ser proposto — e este era bom para o problema que havia.
+Havia um — «A comparar», com barra de progresso, cada banco a aparecer assim que chegasse, e um `Cancelar` que propagava pelo `context`. **Estava certo, e o número que o justificava era real:** medido no v1, 7 dos 10 bancos prontos aos 7,4 s, 9 aos 25,9 s, o último aos 52,2 s — uma barra única que só completasse no fim desperdiçava 45 s de informação já disponível.
 
-Era um ecrã próprio, com barra de progresso, cada banco a aparecer assim que chegasse com a TAEG já visível, e um `Cancelar` que propagava o cancelamento pelo `context` até aos bancos ainda a correr:
+⚠️ **O que mudou não foi o ecrã: foi o que está por baixo dele.** Com a inversão da §1, uma comparação deixou de falar com bancos: custa uma consulta a Postgres e aritmética. Não há espera, logo não há progresso a mostrar nem nada que faça sentido cancelar.
 
-```
-┌──────────────────────────────┐
-│         A comparar…          │
-│         ███████░░░  3 de 4   │
-├──────────────────────────────┤
-│  ✓ CGD           3,52 %  1,8s│
-│  ✓ Novo Banco    3,25 %  0,9s│
-│  ✓ Banco CTT     3,61 %  1,4s│
-│  ◍ Montepio      …           │
-│         [ Cancelar ]         │
-└──────────────────────────────┘
-```
+⚠️ **E voltar a pô-lo seria pior do que nada:** uma barra de progresso sobre uma consulta de milissegundos é teatro, e teatro num sítio onde se comparam créditos ensina a pessoa a desconfiar do resto do ecrã. O submeter do passo 3 vai direito às Ofertas.
 
-**Estava certo, e o número que o justificava era real:** medido no v1, 7 dos 10 bancos prontos aos 7,4 s, 9 aos 25,9 s, o último aos 52,2 s. Uma barra única que só completasse no fim desperdiçava 45 s de informação já disponível.
+**O que sobreviveu dele mudou de sítio:** os estados que não são o caminho feliz — servidor em baixo, sem rede, tecto atingido, banco sem série — deixaram de ser um ecrã intermédio e são estados **das próprias Ofertas** (§3), que é onde a pessoa está quando acontecem.
 
-⚠️ **O que mudou não foi o ecrã: foi o que está por baixo dele.** Com a inversão da §1 do `ARQUITETURA.md` (2026-07-25) uma comparação deixou de falar com bancos — lê a série varrida em hora morta e calcula localmente. Custa **uma consulta a Postgres e aritmética**. Já não há espera, logo não há progresso a mostrar, nem chegada progressiva, nem nada que faça sentido cancelar.
-
-⚠️ **E se voltasse assim mesmo seria pior do que nada:** uma barra de progresso sobre uma consulta de milissegundos é teatro, e teatro num sítio onde se comparam créditos ensina a pessoa a desconfiar do resto do ecrã. O submeter do passo 3 vai direito às **Ofertas**.
-
-**O que sobreviveu deste ecrã, e mudou de sítio:** os estados que não são o caminho feliz — servidor em baixo, sem rede, tecto por IP atingido, um banco sem série recente. Deixaram de ser um ecrã intermédio e passam a ser estados **das próprias Ofertas** (§3), que é onde a pessoa está quando eles acontecem.
-
-⚠️ **O único progresso que a app mostra é o dos três passos do formulário** (2026-07-29). É contagem de passos e não espera de trabalho: a pessoa está no segundo de três, e isso é verdade sem depender de nada que esteja a correr.
+⚠️ **O único progresso que a app mostra é o dos três passos do formulário.** É contagem de passos, não espera de trabalho: a pessoa está no segundo de três, e isso é verdade sem depender de nada que esteja a correr.
 
 ---
 
