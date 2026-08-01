@@ -4,7 +4,7 @@ Estado actual e próximos passos. ⚠️ **Sem changelog** — o relato de sess�
 
 **Actualizado:** 2026-08-02
 
-⚠️ **Há trabalho por fundir no ramo `feat/sonda-de-confirmacao-da-grelha`** — oito commits, PR [#70](https://github.com/zepedrorodrigues/simulador-v2/pull/70). O corpo do PR descreve só a sonda; os sete de documentação entraram depois e ou se reescreve o corpo, ou se separam.
+⚠️ **A sonda está fundida** (PR [#70](https://github.com/zepedrorodrigues/simulador-v2/pull/70), merge `cb32c3c`) — o pacote `internal/aplicacao/sonda`, sem o subcomando ligado. **Por fundir ficam os nove commits de documentação**, no ramo `docs/trazer-para-o-repo-e-compactar`.
 
 ## Onde estamos
 
@@ -60,7 +60,7 @@ Correu-se em local o que um servidor vai correr: a imagem do `Dockerfile`, Postg
 - ⚠️ **Uma oferta ajustada não leva estrela de «melhor», e uma oferta sozinha também não.** A `KAN-45` não mexe nisto: o filtro por `sucesso` vem antes da contagem.
 - ⚠️ **A resposta traz uma oferta por banco PEDIDO** (`KAN-45`). Lista vazia = todos os **conhecidos** (união do registo com a grelha). Um id que não é banco nenhum é 400 com `campo: "bancos"`.
 - ⚠️ **Cinco códigos de erro por oferta:** `prazo_impossivel`, `produto_indisponivel` (varreu-se e não mede **este** cenário), `banco_indisponivel` (foi-se lá e não respondeu), `resposta_ilegivel`, `sem_serie` (**não se foi lá**). Um código novo não é mudança de versão: o campo é `type: string` sem enum.
-- ⚠️ **A grelha confirma-se por sondagem barata** (§7, decisão 6). ~4 pedidos por banco contra 96. Uma sonda por degrau, logo **abaixo do `Ate`**: apanha fronteira que desce, falha a que sobe — e o erro que fica é servir o spread mais alto, que é a direcção que a MCD manda presumir. Tolerância **lida do degrau**, não escolhida. Na divergência: servir o antigo com fiabilidade reduzida **e** revarrer aquele banco, seguro só por causa do travão em Postgres. PR #70, por fundir.
+- ⚠️ **A grelha confirma-se por sondagem barata** (§7, decisão 6). ~4 pedidos por banco contra 96. Uma sonda por degrau, logo **abaixo do `Ate`**: apanha fronteira que desce, falha a que sobe — e o erro que fica é servir o spread mais alto, que é a direcção que a MCD manda presumir. Tolerância **lida do degrau**, não escolhida. Na divergência: servir o antigo com fiabilidade reduzida **e** revarrer aquele banco, seguro só por causa do travão em Postgres. Fundida; falta ligar o subcomando.
 - ⚠️ **ALOJAMENTO ADIADO** (2026-08-01), revogando o Fly de 28-07. Não é o fornecedor: é que o primeiro ensaio a sério encontrou dois defeitos numa tarde, e pôr no ar antes de saber o que mais está assim seria escolher a data em vez do estado.
 - ⚠️ **A documentação voltou ao repositório** (2026-08-01), revogando o `652eda2`. O Confluence deixou de ser usado. A razão não foi o argumento — o código continua aberto de propósito — foi o custo: duas moradas sem sincronização produziram divergência a sério (485 contra 505 linhas no `ARQUITETURA.md`).
 - ⚠️ **Os documentos foram compactados a 39 %** (3055 → 1845 linhas), com o critério: estado actual, decisões do passado que importem **e que o código não explique**, e futuro. **Todos os cortes grandes foram cópias de artefactos que já existem** — maquetas de ecrãs construídos, exemplos JSON de um esquema executável, a interface `Banco` copiada para dentro de um documento, medições repetidas em dois ficheiros. Nenhum foi prosa a mais. ⚠️ O `DOSSIE-BANCOS` fica intacto de propósito: 468 linhas de factos medidos banco a banco, nenhum no código e nenhum duplicado.
