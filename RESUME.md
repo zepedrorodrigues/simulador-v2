@@ -91,8 +91,6 @@ Correu-se em local o que um servidor vai correr: a imagem do `Dockerfile`, Postg
 
 **Os documentos mentiam, e concordavam uns com os outros.** O `API.md` prometia `/api/v1/simulacoes`, que nunca existiu, e a §6 do `ARQUITETURA` repetia-lhe o nome. ⚠️ **O portão não apanha isto por construção** — compara o *gerado* com o spec, não os *documentos* nem o *servido*.
 
-**E uma remissão falsa sobrevive a ser citada.** O cabeçalho do cartesiano mandava, desde que existe, aplicar «a §7 do `USO-RESPONSAVEL.md`» — documento que vai só até à §4 e **nunca teve §7**. A `KAN-47` copiou a frase para dentro de si ao descrever o defeito, e nem assim se viu. ⚠️ Uma remissão por número não avisa quando o alvo não existe; se apontasse ao **título** da secção, um `grep` encontrava-a.
-
 **Um desenho pode ficar errado sem ninguém lhe tocar.** O `ECRAS.md` esteve atrás da inversão da §1 três dias. Nenhuma dessas falhas partia um teste.
 
 **Um teste que passa com as duas implementações não prova nenhuma.** Trocar o `eFalhaDaApi` por `instanceof` deixou a suite a passar. ⚠️ Nove reversões falharam e a décima passou — foi **a que passou** que encontrou o defeito.

@@ -89,7 +89,7 @@ testes/              jest + a fábrica de bancos de teste
 | A5 | ✅ Ofertas e detalhe, com o gráfico de fases, as notas de ajuste e os pressupostos — **confirmada contra o servidor a sério** |
 | A6 | Estados que não são o caminho feliz: sem rede, servidor em baixo, tecto atingido, todos os bancos falharam |
 | A7 | Acessibilidade e alvo web |
-| A8 | EAS Build e submissão — ⚠️ **bloqueado pelas perguntas de** `USO-RESPONSAVEL.md` §3 |
+| A8 | EAS Build e submissão — ⚠️ **bloqueado pelas perguntas jurídicas da** `KAN-24` (`prioridade-alta`): termos de serviço dos bancos, redistribuição da série, regulação de crédito, requisitos das lojas, RGPD e responsabilidade |
 
 ⚠️ **A A4 não existe, e o buraco fica de propósito.** Era «ecrã de espera: sondagem, resultados progressivos, cancelamento», e não há espera nenhuma desde a inversão da §1 — a comparação é uma consulta e aritmética local. Renumerar apagava o vestígio de que se planeou uma coisa que o desenho deixou de precisar, e a A4 era **um quinto do trabalho da app**. Com ela saiu a rota `comparar/[id].tsx`, cujo `[id]` **nem existe no contrato**: uma rota dinâmica sobre uma chave inexistente teria falhado no primeiro build.
 

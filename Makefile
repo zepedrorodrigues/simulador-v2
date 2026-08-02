@@ -105,7 +105,7 @@ teste-fidelidade:
 # ⚠️ Custo: **mais de mil pedidos ao simulador público da CGD**, ao longo de mais
 # de uma hora. É o único teste deste repositório que carrega um sistema de
 # terceiros durante mais de uma hora, e o «Reduzir a carga nos bancos ao mínimo
-# que funciona» (§2 do docs/USO-RESPONSAVEL.md) aplica-se-lhe inteiro:
+# que funciona» aplica-se-lhe inteiro:
 # **corre-se em hora morta, e a hora escolhe-se antes de o disparar.**
 #
 # O tempo-limite vem do alvo e não da memória de quem o corre — era o que

@@ -31,19 +31,8 @@ O desenho é versionado aqui, ao lado do código.
 | [`docs/API.md`](docs/API.md) | as duas fronteiras HTTP e os seus estatutos diferentes |
 | [`docs/ECRAS.md`](docs/ECRAS.md) | os ecrãs da app React Native |
 | [`docs/APP.md`](docs/APP.md) | a stack da app e o que ela impõe ao servidor |
-| [`docs/USO-RESPONSAVEL.md`](docs/USO-RESPONSAVEL.md) | carga nos bancos, dados pessoais, e o que exige parecer jurídico |
 | [`PLAN.md`](PLAN.md) | as seis fases e a ordem entre elas |
 | [`RESUME.md`](RESUME.md) | estado actual e próximos passos |
-
-⚠️ **Voltaram ao repositório a 2026-08-01**, revogando a decisão de os manter num
-Confluence privado. O argumento de então — «o código é aberto de propósito, o
-planeamento não» — não caiu; caiu o custo de o cumprir. Dez documentos em duas
-moradas sem sincronização divergiram: o `ARQUITETURA.md` chegou a ter 485 linhas
-de um lado e 505 do outro, e nenhuma linha de conteúdo se perdeu por sorte.
-
-Não precisas de acesso nenhum para duas coisas. **Pôr isto a correr localmente:**
-está tudo abaixo. **Perceber porque é que o portão te reprovou:** as mensagens do
-`depguard` enunciam a regra violada, sem remeter para documento nenhum.
 
 ## Toolchain
 
@@ -224,8 +213,11 @@ vive na base e não no processo — precisamente para travar entre máquinas.
 
 ## Uso responsável
 
-O documento completo é interno; esta parte fica pública de propósito, porque uma
-postura escondida não é postura.
+É aqui que a postura fica escrita, e fica pública de propósito — uma postura
+escondida não é postura. ⚠️ As **perguntas jurídicas** que faltam responder antes
+de publicar nas lojas estão na `KAN-24`, com `prioridade-alta`: termos de serviço
+dos bancos, redistribuição da série, regulação de crédito, requisitos das lojas,
+RGPD e responsabilidade.
 
 - **Só simuladores públicos.** O servidor interroga os simuladores de crédito que
   os bancos publicam nos seus sites. **Nunca** endpoints de registo de contactos,

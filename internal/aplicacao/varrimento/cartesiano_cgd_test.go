@@ -31,11 +31,7 @@ import (
 // ⚠️ **Corre-se em hora morta, e a hora escolhe-se antes de o disparar.** São
 // mais de mil pedidos a um simulador público alheio, ao longo de dezenas de
 // minutos. É o único teste deste repositório que carrega um sistema de terceiros
-// durante mais de uma hora, e o «Reduzir a carga nos bancos ao mínimo que
-// funciona» (§2 do USO-RESPONSAVEL.md) aplica-se-lhe inteiro.
-//
-// ⚠️ Este comentário dizia «a §7 do USO-RESPONSAVEL.md», que nunca existiu — o
-// documento vai só até à §4. Corrigido na KAN-47.
+// durante mais de uma hora.
 //
 // # A pergunta
 //
