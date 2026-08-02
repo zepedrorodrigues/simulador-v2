@@ -2,12 +2,14 @@
 //
 // Monta-se aqui o que a infra construir; nenhuma regra de negócio vive neste
 // pacote — o depguard nega-lhe os imports de `dominio`, `bancos` e `aplicacao`
-// (ARQUITETURA.md §3). Por agora há quatro subcomandos:
+// (ARQUITETURA.md §3). Por agora há cinco subcomandos:
 //
 //	simulador servir     (o default) — verifica o esquema e recusa-se a
 //	                     arrancar com a base por migrar; o servidor HTTP
 //	                     ainda não está montado (KAN-13).
 //	simulador varrer     corre o varrimento sobre a grelha e grava o lote.
+//	simulador sondar     confirma a grelha com ~4 pedidos por banco, e revarre
+//	                     o banco que divergir.
 //	simulador migrar     aplica as migrações pendentes.
 //	simulador reverter   desfaz a última migração.
 //
@@ -25,6 +27,7 @@ import (
 	"strings"
 
 	"github.com/zepedrorodrigues/simulador-v2/internal/infra/esquema"
+	"github.com/zepedrorodrigues/simulador-v2/internal/infra/sondar"
 	"github.com/zepedrorodrigues/simulador-v2/internal/infra/varrer"
 	"github.com/zepedrorodrigues/simulador-v2/internal/infra/web"
 )
@@ -78,6 +81,14 @@ func executar(ctx context.Context, args []string, saida io.Writer) error {
 			return err
 		}
 		return varrimento(ctx, url, args[1:], saida)
+	case "sondar":
+		// ⚠️ Exige a base em dia pela mesma razão que o varrer: a sonda lê a
+		// grelha guardada, e lê-la de um esquema velho é comparar contra
+		// colunas que a §4 já mudou.
+		if err := esquema.ExigirEmDia(ctx, db); err != nil {
+			return err
+		}
+		return sondagem(ctx, url, args[1:], saida)
 	case "migrar":
 		if err := esquema.Migrar(ctx, db); err != nil {
 			return err
@@ -98,7 +109,7 @@ func executar(ctx context.Context, args []string, saida io.Writer) error {
 // comandos é a lista única dos subcomandos. Está aqui e não espalhada pelo
 // switch para a mensagem de erro não se desactualizar quando entrar o próximo —
 // que é como um `usa:` acaba a mentir.
-var comandos = []string{"servir", "varrer", "migrar", "reverter"}
+var comandos = []string{"servir", "varrer", "sondar", "migrar", "reverter"}
 
 // ⚠️ Os `_, _ =` nos Fprint são deliberados e não preguiça. A saída é o stdout
 // de um processo curto: se escrever nele falhar, não há para onde reportar —
@@ -165,4 +176,69 @@ func lista(s string) []string {
 		}
 	}
 	return saida
+}
+
+// sondagem corre o subcomando `sondar`.
+func sondagem(ctx context.Context, url string, args []string, saida io.Writer) error {
+	fs := flag.NewFlagSet("sondar", flag.ContinueOnError)
+	fs.SetOutput(saida)
+	quais := fs.String("bancos", "",
+		"lista de ids separados por vírgula; vazio sonda os que têm escala guardada")
+	semRevarrer := fs.Bool("sem-revarrer", false,
+		"sonda e relata, sem disparar varrimento nenhum")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+
+	rel, err := sondar.Correr(ctx, url, sondar.Opcoes{
+		Bancos:      lista(*quais),
+		SemRevarrer: *semRevarrer,
+	})
+	if err != nil {
+		return err
+	}
+
+	if len(rel.Bancos) == 0 {
+		_, _ = fmt.Fprintln(saida, "não há escala guardada em banco nenhum — corre `simulador varrer` primeiro")
+		return nil
+	}
+
+	for _, b := range rel.Bancos {
+		if b.Motivo != "" {
+			_, _ = fmt.Fprintf(saida, "%s: não sondado — %s\n", b.ID, b.Motivo)
+			continue
+		}
+		_, _ = fmt.Fprintf(saida, "%s: %d degrau(s), %d divergente(s), %d cego(s)%s\n",
+			b.ID, b.Degraus, b.Divergentes, b.Cegos, confirmada(b.Confirmada))
+		for _, d := range b.Divergencias {
+			_, _ = fmt.Fprintf(saida, "  divergiu em LTV %s do degrau (%s ; %s]: esperava %s, veio %s (desvio %s)\n",
+				d.LTV, d.De, d.Ate, d.Esperado, d.Observado, d.Desvio)
+		}
+		switch {
+		case b.Revarrido:
+			_, _ = fmt.Fprintf(saida, "  revarrido: %s\n", b.ID)
+		case b.MotivoDoRevarrimento != "":
+			_, _ = fmt.Fprintf(saida, "  não revarrido — %s\n", b.MotivoDoRevarrimento)
+		}
+	}
+
+	// ⚠️ A cobertura imprime-se UMA vez e não por banco: é a mesma frase para
+	// todos, e repeti-la cinco vezes ensinava a saltá-la.
+	if len(rel.Bancos) > 0 && rel.Bancos[0].Cobertura != "" {
+		_, _ = fmt.Fprintln(saida, rel.Bancos[0].Cobertura)
+	}
+
+	// ⚠️ Sai com 0 mesmo havendo divergência, como o `varrer` saltado. Uma
+	// divergência não é falha do subcomando: ele correu e detectou, que é o que
+	// existe para fazer. Sair com 1 punha o agendador a tratar uma detecção
+	// bem-sucedida como avaria.
+	return nil
+}
+
+// confirmada é o sufixo da linha de cada banco.
+func confirmada(sim bool) string {
+	if sim {
+		return " — confirmada"
+	}
+	return " — POR CONFIRMAR"
 }
