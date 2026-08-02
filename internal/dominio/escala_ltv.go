@@ -13,7 +13,7 @@ import (
 // ⚠️ As fronteiras são MEDIDAS banco a banco, e não uma constante do domínio.
 // Substituiu as vinte bandas fixas de 5 % na KAN-35; os números que o obrigaram
 // — fronteiras fora dos inteiros, o erro que não diminui com o passo, o patamar
-// não monótono — estão em docs/ANALISE-KAN-35.md.
+// não monótono — estão na §4 do ARQUITETURA.md.
 //
 // Este pacote define o que a escala é e o que se lhe pergunta. Quem a preenche
 // a partir do varrimento é o aplicacao/grelha.

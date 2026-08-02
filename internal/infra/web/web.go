@@ -114,6 +114,11 @@ func (s *Servidor) Rotas() http.Handler {
 	// pânico nosso feche a ligação sem uma palavra. O Logger NÃO entra: ele
 	// regista a query string, e a §6 diz que ela leva chaves — o
 	// `/api/rate-catalog` autentica-se por `X-API-Key`.
+	// ⚠️ A defesa entra PRIMEIRO, e o sítio é a decisão (KAN-46). Montada mais
+	// abaixo, punha os cabeçalhos nas respostas boas e não nas que o Recoverer
+	// e o `limitar` produzem — que são precisamente aquelas em que uma resposta
+	// mal interpretada faz mais estrago.
+	r.Use(defesa)
 	r.Use(middleware.RequestID)
 	r.Use(devolverRequestID)
 	// ⚠️ O registo entra a seguir ao RequestID — precisa dele — e **antes** do

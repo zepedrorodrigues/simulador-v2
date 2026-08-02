@@ -1,4 +1,4 @@
-//go:build rede
+//go:build medicao
 
 package varrimento_test
 
@@ -23,7 +23,7 @@ import (
 //
 // Corre-se à mão e **não entra no portão** — depende de a CGD estar de pé:
 //
-//	go test -race -tags rede -run E2E -v ./internal/aplicacao/varrimento/
+//	go test -race -tags medicao -timeout 90m -run E2E -v ./internal/aplicacao/varrimento/
 //
 // ⚠️ O que aqui se afirma não são os números do dia. Um preçário muda, e um
 // teste que fixasse 3,946 % reprovaria amanhã sem nada estar partido. O que se

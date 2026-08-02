@@ -1,4 +1,4 @@
-//go:build rede
+//go:build medicao
 
 package varrimento_test
 
@@ -22,12 +22,16 @@ import (
 // O produto cartesiano da CGD: a medição que valida (ou não) o desenho da
 // grelha inteiro.
 //
-//	go test -race -tags rede -timeout 90m -run Cartesiano -v ./internal/aplicacao/varrimento/
+//	make medicao
+//
+// ⚠️ A tag é `medicao` e não `rede` desde a KAN-47: por trás da `rede` este
+// teste era disparado pelo `make teste-rede`, que ninguém corre com a intenção
+// de mandar mil pedidos à CGD.
 //
 // ⚠️ **Corre-se em hora morta, e a hora escolhe-se antes de o disparar.** São
 // mais de mil pedidos a um simulador público alheio, ao longo de dezenas de
 // minutos. É o único teste deste repositório que carrega um sistema de terceiros
-// durante mais de uma hora, e a §7 do USO-RESPONSAVEL.md aplica-se-lhe inteira.
+// durante mais de uma hora.
 //
 // # A pergunta
 //
@@ -197,7 +201,7 @@ func TestCartesianoDaCGD(t *testing.T) {
 // TestAFixaDaCGDEBaseMaisSpreadDoLTV é a H2 sozinha, e custa ~100 pedidos em vez
 // dos 1 210 do cartesiano.
 //
-//	go test -race -tags rede -timeout 20m -run FixaDaCGD -v ./internal/aplicacao/varrimento/
+//	go test -race -tags medicao -timeout 20m -run FixaDaCGD -v ./internal/aplicacao/varrimento/
 //
 // Existe porque a relação que ela afirma foi **descoberta** pelo cartesiano de
 // 2026-07-28, e uma relação descoberta tem de passar a ser vigiada: se a CGD

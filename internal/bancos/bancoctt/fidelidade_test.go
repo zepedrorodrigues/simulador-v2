@@ -1,4 +1,4 @@
-//go:build rede
+//go:build fidelidade
 
 package bancoctt_test
 
@@ -26,12 +26,9 @@ import (
 
 // Fidelidade: a observação que guardamos é o que o banco respondeu?
 //
-// É a mesma pergunta estreita que se fez à CGD, ao Novo Banco e ao Montepio, e
-// a mesma resposta: **entre o corpo que chegou pela rede e o dominio.Oferta que
+// **entre o corpo que chegou pela rede e o dominio.Oferta que
 // sai do Simular, perdeu-se ou torceu-se alguma coisa?** Não é «o número está
 // certo» — isso depende do preçário do Banco CTT.
-//
-//	go test -tags rede -timeout 60m -run TestFidelidade ./internal/bancos/bancoctt/ -v
 //
 // O tamanho da amostra vem de BANCOCTT_AMOSTRAS (por omissão 250).
 //
@@ -43,9 +40,6 @@ import (
 // mesma maneira por dois desenhos diferentes é muito menos provável do que
 // errar uma vez.
 //
-// ⚠️ **Corre-se em hora morta.** São centenas de pedidos a um simulador público
-// alheio, e o USO-RESPONSAVEL.md aplica-se-lhe inteiro. Dois trabalhadores, como
-// no varrimento.
 
 func TestFidelidadeDoQueGuardamosFaceAoQueOBancoRespondeu(t *testing.T) {
 	alvo := alvoDeAmostras(t)
@@ -70,8 +64,6 @@ func TestFidelidadeDoQueGuardamosFaceAoQueOBancoRespondeu(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			// Cada trabalhador com o seu gravador: partilhar um seria comparar a
-			// oferta de um pedido com o corpo de outro.
 			grav := &gravadorCTT{real: transporte.NovoCliente(nil)}
 			banco := bancoctt.Novo(grav)
 
@@ -87,8 +79,7 @@ func TestFidelidadeDoQueGuardamosFaceAoQueOBancoRespondeu(t *testing.T) {
 
 				corpo := grav.ultimo()
 				if corpo == nil {
-					// Não chegou a haver resposta — nem o banco recusou, nem nós
-					// lemos nada. Não é amostra de fidelidade da leitura.
+					// Não chegou a haver resposta — Não é amostra de fidelidade da leitura.
 					recusadas.Add(1)
 					continue
 				}
@@ -111,11 +102,6 @@ func TestFidelidadeDoQueGuardamosFaceAoQueOBancoRespondeu(t *testing.T) {
 			}
 		}()
 	}
-
-	// ⚠️ Alimenta-se até haver **ofertas conferidas** que cheguem, e não até
-	// haver pedidos feitos: um caso recusado pelo banco não é amostra de
-	// fidelidade da leitura. O tecto é a guarda contra um dia em que quase tudo
-	// seja recusado.
 	gerados := 0
 	for _, c := range formasDeRespostaCTT(t) {
 		entrada <- c

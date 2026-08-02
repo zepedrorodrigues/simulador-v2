@@ -16,6 +16,21 @@ make gerar        # sqlc + oapi-codegen — nunca editar código gerado à mão
 make verificar    # o portão completo (ver abaixo)
 ```
 
+⚠️ **Os alvos que falam com os bancos são três, e escolhem-se pelo que custam a
+terceiros** — não por «toca ou não toca na rede». Nenhum entra no portão.
+
+| alvo | pedidos a terceiros | duração | quando |
+|---|---|---|---|
+| `make teste-rede` | dezenas, por cinco bancos | minutos | confirmar que um parser ainda corresponde ao que o banco devolve |
+| `make teste-fidelidade` | **~2000** (250 amostras por banco) | até 3h | confirmar que nada se perde entre o corpo que chega e a `dominio.Oferta` |
+| `make medicao` | **>1000, todos à CGD** | 1h+ | o cartesiano e o e2e da grelha — perguntas de desenho, não de parser |
+
+⚠️ **`make medicao` e `make teste-fidelidade` correm-se em hora morta, e a hora
+escolhe-se antes de os disparar.** Aplica-se-lhes o «Reduzir a carga nos bancos
+ao mínimo que funciona». Até 2026-08-02 os três
+viviam sob a mesma tag `rede`, e pedir uma confirmação de parser disparava mil
+pedidos à CGD (KAN-47).
+
 O portão são cinco coisas, e passa-se o portão **inteiro**:
 
 ```
@@ -59,7 +74,7 @@ Um comentário ganha o seu lugar quando diz o que o código não pode dizer: um 
 
 ## Onde está o resto
 
-`docs/DOSSIE-BANCOS.md` (o que o v1 apurou sobre cada banco), `docs/API.md`, `docs/ECRAS.md`, `docs/CONTRATO-BANCO.md`, `docs/APP.md` e `docs/USO-RESPONSAVEL.md` — este último separa o que já está decidido tecnicamente do que exige parecer jurídico antes de publicar nas lojas.
+`docs/DOSSIE-BANCOS.md` (o que o v1 apurou sobre cada banco), `docs/API.md`, `docs/ECRAS.md`, `docs/CONTRATO-BANCO.md`, `docs/APP.md` — este último separa o que já está decidido tecnicamente do que exige parecer jurídico antes de publicar nas lojas.
 
 **O backlog é o projecto** `KAN` **do JIRA** (`jpnmsr.atlassian.net`), não as issues do GitHub — essas ficam como arquivo e não se abrem mais.
 

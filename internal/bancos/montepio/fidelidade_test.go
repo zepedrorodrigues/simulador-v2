@@ -1,4 +1,4 @@
-//go:build rede
+//go:build fidelidade
 
 package montepio_test
 
@@ -32,7 +32,7 @@ import (
 // Simular, perdeu-se ou torceu-se alguma coisa?** Não é «o número está certo» —
 // isso depende do preçário do Montepio.
 //
-//	go test -tags rede -timeout 180m -run TestFidelidade ./internal/bancos/montepio/ -v
+//	go test -tags fidelidade -timeout 180m -run TestFidelidade ./internal/bancos/montepio/ -v
 //
 // O tamanho da amostra vem de MONTEPIO_AMOSTRAS (por omissão 250) e a
 // concorrência de MONTEPIO_TRABALHADORES (por omissão 2).

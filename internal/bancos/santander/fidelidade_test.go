@@ -1,4 +1,4 @@
-//go:build rede
+//go:build fidelidade
 
 package santander_test
 
@@ -28,7 +28,7 @@ import (
 // chegou pela rede e o dominio.Oferta que sai do Simular, perdeu-se ou torceu-se
 // alguma coisa?** Não é «o número está certo» — isso depende do preçário.
 //
-//	go test -tags rede -timeout 120m -run TestFidelidade ./internal/bancos/santander/ -v
+//	go test -tags fidelidade -timeout 120m -run TestFidelidade ./internal/bancos/santander/ -v
 //
 // O tamanho da amostra vem de SANTANDER_AMOSTRAS (por omissão 250).
 //

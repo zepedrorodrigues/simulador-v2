@@ -78,7 +78,20 @@ Sem chave configurada o endpoint fica **aberto**: é o modo de desenvolvimento, 
 
 **Erros, em toda a API:** `{"erro": {"codigo", "mensagem", "campo"}, "request_id"}`. O detalhe interno (SQL, respostas de bancos, caminhos) só sai com a variável de depuração ligada.
 
-⚠️ **Cabeçalhos de defesa: por fazer (KAN-46).** Este documento prometeu `X-Content-Type-Options: nosniff`, `Referrer-Policy` e HSTS. Medido a 2026-08-01: **nenhum é emitido**, e o `grep` por esses nomes sobre todo o `.go` não devolve uma linha. Fica escrito como falta, e não como promessa.
+**Cabeçalhos de defesa** (KAN-46), em **todas** as respostas e em todas as rotas:
+
+| cabeçalho | valor | porquê |
+|---|---|---|
+| `X-Content-Type-Options` | `nosniff` | serve-se JSON e mais nada; sem isto, um corpo adivinhado como HTML executa-se como HTML |
+| `Referrer-Policy` | `no-referrer` | não há HTML nem ligação para fora, logo não há referrer que valha a pena emitir — e os caminhos dizem o que se está a comparar |
+
+⚠️ **O HSTS não sai daqui, e é decisão.** O serviço fala HTTP em claro atrás do proxy e não tem como saber se o que está à frente serve TLS — a condição «apenas quando já se serve HTTPS» não é observável de dentro. Inferi-la do `X-Forwarded-Proto` obrigaria ao `PROXIES_DE_CONFIANCA`, que está por medir, e passariam a ser duas coisas a falhar juntas. **Emite-o quem termina o TLS.** Há um teste que falha se o serviço começar a emiti-lo.
+
+⚠️ **Aplicam-se também ao `/api/rate-catalog`**, apesar de congelado: a congelação é do **corpo**, e um cabeçalho de resposta não é corpo. O teste de contrato confirma-o — não se assumiu.
+
+⚠️ **E vão nas respostas de erro**, não só no caminho feliz. O middleware é o **primeiro** da cadeia, antes do `Recoverer` e do `limitar`, porque um 429 ou um 500 mal interpretados fazem mais estrago do que um 200. Montado abaixo deles, os 200 levavam os cabeçalhos e os 429 não — e a suite passava na mesma. Está afirmado por reversão.
+
+⚠️ **Este documento prometeu estes cabeçalhos durante meses sem ninguém os emitir.** Medido a 2026-08-01, no ensaio de produção: nenhum saía, e o `grep` sobre todo o `.go` não devolvia uma linha. A falta era silenciosa por natureza — não parte pedidos, não aparece em logs, não muda números.
 
 ⚠️ **CORS** (KAN-22): lista explícita em `ORIGENS_PERMITIDAS`, **default vazio**, e vazio quer dizer «só a mesma origem» e não «toda a gente». `*` é **recusado ao arranque**, e uma origem mal escrita — com barra final ou caminho — também: nunca casaria com o `Origin` que o browser envia, e falharia em silêncio.
 

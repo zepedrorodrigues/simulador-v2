@@ -40,7 +40,7 @@ type Referencia struct {
 // ⚠️ O imóvel a 400 000 € não é arbitrário: com ele, 1 000 € de montante são
 // exactamente 0,25 p.p. de LTV e 4 000 € são 1 p.p., o que deixa o varrimento do
 // LTV cair em números redondos sem arredondamentos a sujar a medição. É o mesmo
-// imóvel com que a ANALISE-KAN-35.md fez as medições que decidiram a §4.
+// imóvel com que se mediram as fronteiras que decidiram a §4.
 //
 // O montante de 320 000 € põe a referência em LTV 80 %, que é onde os três
 // bancos têm preço medido e onde a maioria dos pedidos cai.

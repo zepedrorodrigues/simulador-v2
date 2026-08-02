@@ -4,7 +4,7 @@ Estado actual e próximos passos. ⚠️ **Sem changelog** — o relato de sess�
 
 **Actualizado:** 2026-08-02
 
-⚠️ **A sonda está fundida** (PR [#70](https://github.com/zepedrorodrigues/simulador-v2/pull/70), merge `cb32c3c`) — o pacote `internal/aplicacao/sonda`, sem o subcomando ligado. **Por fundir ficam os nove commits de documentação**, no ramo `docs/trazer-para-o-repo-e-compactar`.
+⚠️ **A sonda está fundida** (PR [#70](https://github.com/zepedrorodrigues/simulador-v2/pull/70), merge `cb32c3c`) — o pacote `internal/aplicacao/sonda`, sem o subcomando ligado. **E a documentação também** (PR [#71](https://github.com/zepedrorodrigues/simulador-v2/pull/71), merge `35eb7a5`): o `development` tem os documentos todos.
 
 ## Onde estamos
 
@@ -68,24 +68,22 @@ Correu-se em local o que um servidor vai correr: a imagem do `Dockerfile`, Postg
 
 ## Próximo passo
 
-1. **Fundir a documentação** — o ramo `docs/trazer-para-o-repo-e-compactar`.
-2. **Acabar os comentários do código.** Ficou o padrão e a regra (ver «Comentários» no `CLAUDE.md`), não o trabalho: são **4083 linhas de comentário para 8313 de código, 32%**, com **~140 blocos de 8+ linhas seguidas** por rever. Os maiores estão em `dominio/` (taeg, encargos, oferta, dinheiro), `grelha/` e `bancos/`. ⚠️ A pergunta a fazer a cada um é «isto sobrevive noutro sítio?», e agora a maioria sobrevive — os documentos ficaram compactos e precisos de propósito, primeiro.
-3. `KAN-47` — o `make teste-rede` mistura confirmação de parsers com medição de desenho: não pode passar (10 min contra os 90 pedidos) e dispara o cartesiano sem guarda.
-4. `KAN-46` — os cabeçalhos de defesa que a `API.md` §3 prometia e ninguém emite. ⚠️ O documento já não promete; a falta continua.
-5. **Ligar o subcomando da sonda:** ler a escala guardada, correr contra os bancos, e na divergência servir com fiabilidade reduzida e revarrer aquele banco.
-6. **Confirmar a app contra o servidor já com a `KAN-45`** — a confirmação da A5 é anterior à correcção.
-7. A app, A6 e A7. ⚠️ Ver o ramo `wip/estados-a6-descartado` antes de começar a A6.
-8. `KAN-19` — Crédito Agrícola. ⚠️ O `reference_rate_value` é o **spread**, não a Euribor, apesar de o `rateIndexType` dizer `EUR12TM`.
-9. **Só então, alojamento.**
+1. **Acabar os comentários do código.** Ficou o padrão e a regra (ver «Comentários» no `CLAUDE.md`), não o trabalho: são **4083 linhas de comentário para 8313 de código, 32%**, com **~140 blocos de 8+ linhas seguidas** por rever. Os maiores estão em `dominio/` (taeg, encargos, oferta, dinheiro), `grelha/` e `bancos/`. ⚠️ A pergunta a fazer a cada um é «isto sobrevive noutro sítio?», e agora a maioria sobrevive — os documentos ficaram compactos e precisos de propósito, primeiro.
+2. **Ligar o subcomando da sonda:** ler a escala guardada, correr contra os bancos, e na divergência servir com fiabilidade reduzida e revarrer aquele banco.
+3. **Confirmar a app contra o servidor já com a `KAN-45`** — a confirmação da A5 é anterior à correcção.
+4. A app, A6 e A7. ⚠️ Ver o ramo `wip/estados-a6-descartado` antes de começar a A6.
+5. `KAN-19` — Crédito Agrícola. ⚠️ O `reference_rate_value` é o **spread**, não a Euribor, apesar de o `rateIndexType` dizer `EUR12TM`.
+6. **Só então, alojamento.**
 
 ## O que está por resolver
 
-- ⚠️ `KAN-47` e `KAN-46` — acima.
+- ⚠️ **O `PROXIES_DE_CONFIANCA` continua a decidir uma coisa:** enquanto não estiver medido, o HSTS não sai do serviço — fica no proxy, que é quem termina o TLS (`KAN-46`).
 - ⚠️ **O `PROXIES_DE_CONFIANCA` por medir.** Atrás de um proxy nosso deixa de ser medição e passa a valor conhecido; só é problema atrás da rede opaca de uma plataforma.
 - ⚠️ **O domínio de LTV a varrer não sai do banco.** Hoje 30-100 % para todos; a CGD financia até 90 % na própria. É por isto que a app não afirma limites de LTV.
+- ⚠️ **Os degraus da CGD abaixo dos 32 % nunca foram varridos.** Sabe-se que há pelo menos uma fronteira em (33,00 ; 33,50]; abaixo disso não há medição. Ficou fora de âmbito da `KAN-35` e está registado no `DOSSIE-BANCOS.md`.
 - ⚠️ **Se a relação da taxa fixa vale fora da CGD.** Mediu-se lá e **não se herda**.
 - ⚠️ **Tensão na §4:** o `CHECK` exige TAEG numa linha de sucesso e a §4 diz que a que não se consegue dar se omite. Hoje não morde.
-- **Registadas:** `KAN-25` (profissão), `KAN-26` (ordenar ofertas ajustadas), `KAN-30` (pânico nosso sai como `banco_indisponivel` — ficou mais fácil com o precedente do `sem_serie`), `KAN-34`, `KAN-36`, `KAN-37`, `KAN-38`, `KAN-46`, `KAN-47`.
+- **Registadas:** `KAN-25` (profissão), `KAN-26` (ordenar ofertas ajustadas), `KAN-30` (pânico nosso sai como `banco_indisponivel` — ficou mais fácil com o precedente do `sem_serie`), `KAN-34`, `KAN-36`, `KAN-37`, `KAN-38`.
 - ⚠️ **Detalhe de voz:** o corpo do 429 diz «Tenta daqui a 1m0s» — **tu**, onde os `textos` da app usam **você**.
 - ⚠️ **Bancos de browser** (`KAN-20`, `KAN-21`) e **perguntas jurídicas** (`KAN-24`, bloqueia as lojas e não a web).
 
@@ -111,7 +109,8 @@ Correu-se em local o que um servidor vai correr: a imagem do `Dockerfile`, Postg
 - ⚠️ **A porta 5432 desta máquina é de um PostgreSQL nativo**, não dos contentores. Testar «a base está exposta?» pelo porto do host dá falso positivo — ver com `docker port <contentor>`.
 - ⚠️ Ler respostas em Python nesta máquina precisa de `PYTHONIOENCODING=utf-8`, senão os acentos saem como `?` e parece corrupção de dados. ⚠️ E uma barra invertida dentro de um heredoc `<<'PY'` é comida antes de o Python a ver — `f.replace(os.sep, "/")` em vez de escapar à mão, ou o script num ficheiro.
 - ⚠️ O `postgres:18` recusa o mount do v1: nas imagens 18+ é `/var/lib/postgresql`. E `pg_isready` sem `-h 127.0.0.1` dá pronto cedo demais.
-- ⚠️ **Testes de rede por banco (2026-08-01):** novobanco 65 s, santander 119 s, cgd 147 s, bancoctt 185 s, montepio 530 s.
+- ⚠️ **Os alvos de rede são três desde a `KAN-47`**, separados pelo que custam a terceiros: `teste-rede` (parsers, dezenas de pedidos, **108 s**), `teste-fidelidade` (~2000 pedidos, 250 amostras por banco, até 3h) e `medicao` (o cartesiano e o e2e, >1000 pedidos só à CGD, 1h+). Ver a tabela no `CLAUDE.md`.
+- ⚠️ **O `teste-rede` encolheu porque deixou de correr o que não é dele** (medido 2026-08-02, contra 2026-08-01): montepio 530→25 s, bancoctt 185→10 s, cgd 147→6 s, santander 119→7 s, novobanco 65→6 s, e o `varrimento` deixou de **falhar aos 601 s** para passar em 10 s.
 - ⚠️ **Na app:** o `openapi-typescript` 7 rebenta com o TypeScript 7 — fica no `~5.9`. O `@testing-library/react-native` traz matchers embutidos desde a v12.4; apontar-lhe o `extend-expect` faz o Jest recusar arrancar. O `expo start` reescreve o `tsconfig.json` sozinho — confirmar o `git diff` antes de commitar.
 - ⚠️ O `flyctl` está instalado (winget, v0.4.71) sem sessão. Ficou de um alojamento adiado; não é compromisso.
 
