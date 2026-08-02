@@ -69,22 +69,21 @@ Correu-se em local o que um servidor vai correr: a imagem do `Dockerfile`, Postg
 ## Próximo passo
 
 1. **Acabar os comentários do código.** Ficou o padrão e a regra (ver «Comentários» no `CLAUDE.md`), não o trabalho: são **4083 linhas de comentário para 8313 de código, 32%**, com **~140 blocos de 8+ linhas seguidas** por rever. Os maiores estão em `dominio/` (taeg, encargos, oferta, dinheiro), `grelha/` e `bancos/`. ⚠️ A pergunta a fazer a cada um é «isto sobrevive noutro sítio?», e agora a maioria sobrevive — os documentos ficaram compactos e precisos de propósito, primeiro.
-2. `KAN-46` — os cabeçalhos de defesa que a `API.md` §3 prometia e ninguém emite. ⚠️ O documento já não promete; a falta continua.
-3. **Ligar o subcomando da sonda:** ler a escala guardada, correr contra os bancos, e na divergência servir com fiabilidade reduzida e revarrer aquele banco.
-4. **Confirmar a app contra o servidor já com a `KAN-45`** — a confirmação da A5 é anterior à correcção.
-5. A app, A6 e A7. ⚠️ Ver o ramo `wip/estados-a6-descartado` antes de começar a A6.
-6. `KAN-19` — Crédito Agrícola. ⚠️ O `reference_rate_value` é o **spread**, não a Euribor, apesar de o `rateIndexType` dizer `EUR12TM`.
-7. **Só então, alojamento.**
+2. **Ligar o subcomando da sonda:** ler a escala guardada, correr contra os bancos, e na divergência servir com fiabilidade reduzida e revarrer aquele banco.
+3. **Confirmar a app contra o servidor já com a `KAN-45`** — a confirmação da A5 é anterior à correcção.
+4. A app, A6 e A7. ⚠️ Ver o ramo `wip/estados-a6-descartado` antes de começar a A6.
+5. `KAN-19` — Crédito Agrícola. ⚠️ O `reference_rate_value` é o **spread**, não a Euribor, apesar de o `rateIndexType` dizer `EUR12TM`.
+6. **Só então, alojamento.**
 
 ## O que está por resolver
 
-- ⚠️ `KAN-46` — acima. A `KAN-47` está feita.
+- ⚠️ **O `PROXIES_DE_CONFIANCA` continua a decidir uma coisa:** enquanto não estiver medido, o HSTS não sai do serviço — fica no proxy, que é quem termina o TLS (`KAN-46`).
 - ⚠️ **O `PROXIES_DE_CONFIANCA` por medir.** Atrás de um proxy nosso deixa de ser medição e passa a valor conhecido; só é problema atrás da rede opaca de uma plataforma.
 - ⚠️ **O domínio de LTV a varrer não sai do banco.** Hoje 30-100 % para todos; a CGD financia até 90 % na própria. É por isto que a app não afirma limites de LTV.
 - ⚠️ **Os degraus da CGD abaixo dos 32 % nunca foram varridos.** Sabe-se que há pelo menos uma fronteira em (33,00 ; 33,50]; abaixo disso não há medição. Ficou fora de âmbito da `KAN-35` e está registado no `DOSSIE-BANCOS.md`.
 - ⚠️ **Se a relação da taxa fixa vale fora da CGD.** Mediu-se lá e **não se herda**.
 - ⚠️ **Tensão na §4:** o `CHECK` exige TAEG numa linha de sucesso e a §4 diz que a que não se consegue dar se omite. Hoje não morde.
-- **Registadas:** `KAN-25` (profissão), `KAN-26` (ordenar ofertas ajustadas), `KAN-30` (pânico nosso sai como `banco_indisponivel` — ficou mais fácil com o precedente do `sem_serie`), `KAN-34`, `KAN-36`, `KAN-37`, `KAN-38`, `KAN-46`.
+- **Registadas:** `KAN-25` (profissão), `KAN-26` (ordenar ofertas ajustadas), `KAN-30` (pânico nosso sai como `banco_indisponivel` — ficou mais fácil com o precedente do `sem_serie`), `KAN-34`, `KAN-36`, `KAN-37`, `KAN-38`.
 - ⚠️ **Detalhe de voz:** o corpo do 429 diz «Tenta daqui a 1m0s» — **tu**, onde os `textos` da app usam **você**.
 - ⚠️ **Bancos de browser** (`KAN-20`, `KAN-21`) e **perguntas jurídicas** (`KAN-24`, bloqueia as lojas e não a web).
 
