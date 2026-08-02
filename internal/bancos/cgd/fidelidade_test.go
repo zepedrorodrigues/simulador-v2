@@ -1,4 +1,4 @@
-//go:build rede
+//go:build fidelidade
 
 package cgd_test
 
@@ -33,7 +33,7 @@ import (
 // ainda não existe). É: **entre o corpo que chegou pela rede e o dominio.Oferta
 // que sai do Simular, perdeu-se ou torceu-se alguma coisa?**
 //
-//	go test -tags rede -timeout 60m -run TestFidelidade ./internal/bancos/cgd/ -v
+//	go test -tags fidelidade -timeout 60m -run TestFidelidade ./internal/bancos/cgd/ -v
 //
 // O tamanho da amostra vem de CGD_AMOSTRAS (por omissão 250, para uma corrida
 // distraída não pesar). A corrida que sustenta uma afirmação de 99,9 % precisa

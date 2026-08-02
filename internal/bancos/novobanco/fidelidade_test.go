@@ -1,4 +1,4 @@
-//go:build rede
+//go:build fidelidade
 
 package novobanco_test
 
@@ -32,7 +32,7 @@ import (
 // ou torceu-se alguma coisa?** Não é «o número está certo» — isso depende do
 // preçário do Novo Banco.
 //
-//	go test -tags rede -timeout 60m -run TestFidelidade ./internal/bancos/novobanco/ -v
+//	go test -tags fidelidade -timeout 60m -run TestFidelidade ./internal/bancos/novobanco/ -v
 //
 // O tamanho da amostra vem de NOVOBANCO_AMOSTRAS (por omissão 250).
 //

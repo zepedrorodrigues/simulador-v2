@@ -1,4 +1,4 @@
-//go:build rede
+//go:build fidelidade
 
 package bancoctt_test
 
@@ -31,7 +31,7 @@ import (
 // sai do Simular, perdeu-se ou torceu-se alguma coisa?** Não é «o número está
 // certo» — isso depende do preçário do Banco CTT.
 //
-//	go test -tags rede -timeout 60m -run TestFidelidade ./internal/bancos/bancoctt/ -v
+//	go test -tags fidelidade -timeout 60m -run TestFidelidade ./internal/bancos/bancoctt/ -v
 //
 // O tamanho da amostra vem de BANCOCTT_AMOSTRAS (por omissão 250).
 //
