@@ -127,9 +127,9 @@ func Correr(ctx context.Context, url string, o Opcoes) (Relatorio, error) {
 	hoje := dominio.DataDeInstante(time.Now().In(lisboa()))
 
 	// ⚠️ A escala de LTV entra por aqui e corre dentro do travão de cada banco.
-	// São ~86 pedidos por banco além dos pontos — o orçamento da
-	// ANALISE-KAN-35.md §6 —, e é o que faz uma corrida passar de segundos a
-	// cerca de um minuto por banco. Em hora morta, que é quando isto corre.
+	// São ~86 pedidos por banco além dos pontos — o orçamento da §4 do
+	// ARQUITETURA.md —, e é o que faz uma corrida passar de segundos a cerca
+	// de um minuto por banco. Em hora morta, que é quando isto corre.
 	v, err := varrimento.Novo(varrimento.Config{
 		Bancos:  escolhidos,
 		Travao:  travao.NovoPostgres(pool),

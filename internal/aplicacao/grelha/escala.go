@@ -21,7 +21,7 @@ import (
 
 // A descoberta das fronteiras de LTV: fase uniforme ao passo, depois
 // refinamento por bissecção onde há desacordo. Porque não só bissecção, e
-// porque o passo é este, em docs/ANALISE-KAN-35.md.
+// porque o passo é este, na §4 do ARQUITETURA.md («A resolução do LTV»).
 // Medicao é um spread medido num LTV.
 //
 // ⚠️ O LTV é o que o banco viu, e não o que se lhe pediu. Um pedido põe-se em
@@ -85,7 +85,7 @@ type Config struct {
 	Tolerancia dominio.Racio
 }
 
-// Os valores de omissão saem da docs/ANALISE-KAN-35.md.
+// Os valores de omissão saem da §4 do ARQUITETURA.md.
 //
 // ⚠️ O passo de 1 p.p. e o domínio de 30 % a 100 % são o custo que a análise
 // orçamentou: ~71 pedidos de fase 1 mais ~25 de refinamento, cerca de um minuto

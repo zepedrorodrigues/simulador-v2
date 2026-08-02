@@ -14,7 +14,7 @@ import (
 // banco falso: respondem sem rede e sem relógio, e é contra elas que se afirma
 // que a descoberta reconstrói o que o banco pratica.
 
-// escadariaCGD é a forma medida da CGD a 2026-07-26 (docs/ANALISE-KAN-35.md §3), na
+// escadariaCGD é a forma medida da CGD a 2026-07-26 (DOSSIE-BANCOS.md, CGD), na
 // fatia que foi varrida.
 //
 // ⚠️ Duas das três fronteiras não caem em LTV inteiro, e o 2,050 é um patamar

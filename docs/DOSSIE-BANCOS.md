@@ -61,6 +61,18 @@ Mínimos: montante 5 000 €, imóvel 10 000 €.
 
 Duas coisas a reter. **O preço desce quando o LTV sobe** — acima de 68 % é 0,65 p.p. mais barato do que abaixo, ao contrário do que se esperaria. E **os degraus não são de 5 %**: 66 %, 67 % e 68 % caem todos na banda 70 do `dominio.BandaLTV` e têm três spreads diferentes, com 0,70 p.p. entre os extremos. Uma grelha com uma linha por banda de 5 % serve a dois deles o preço de outro cliente — está em **KAN-35**.
 
+⚠️ **E a 0,25 p.p. de resolução a tabela acima fica grosseira** (medido 2026-07-26, imóvel 400 000 € e montante a variar de 1 000 €). À volta dos 67 %:
+
+| LTV | 65,00–66,50 | 66,75–67,75 | 68,00–69,00 |
+|---|---|---|---|
+| spread | 2,000 | **2,050** | 1,350 |
+
+À volta dos 33 %: 1,950 em 32,00–33,00 e 2,000 em 33,50–36,00.
+
+**Duas destas fronteiras não contêm LTV inteiro nenhum** — a de 2,000→2,050 está em (66,50 ; 66,75] e a de 1,950→2,000 em (33,00 ; 33,50]. É a prova de que afinar a grelha para 1 p.p. teria o mesmo defeito da de 5 p.p., só mais pequeno. E o **2,050 é um patamar isolado de \~1,25 p.p.** (\~66,6 % a \~67,9 %), mais caro do que os dois vizinhos: o preço **não é monótono**, o que elimina a bissecção como forma de o descobrir. O argumento completo está na §4 do `ARQUITETURA.md`.
+
+⚠️ **Por medir: os degraus abaixo dos 32 %.** Sabe-se que há pelo menos uma fronteira em (33,00 ; 33,50]; abaixo disso nunca foi varrido.
+
 O prazo e o montante, esses, não mexem: 10 a 40 anos e 100 000 a 400 000 € deram todos 1,350 a LTV 80 %.
 
 **Produtos:** `cgd:packs` (Vinculação, Ligação, Proteção → usa `DiscountedResult`), por omissão **desligado**. Medido: spread 1,350 → 0,650, ou seja **-0,70 p.p.**, e 948,61 € → 869,97 € de prestação. ⚠️ As duas variantes vêm sempre na mesma resposta, e o `dominio.Pedido` não tem por onde se pedir a segunda (KAN-33).
@@ -155,6 +167,8 @@ Os parâmetros vêm prefixados com `DONT_TRANSLATE:` (`"DONT_TRANSLATE:35"` = 35
 | 81 % a 100 % | 0,950 |
 
 Duas coisas a reter, e as duas contrariam a CGD. **O preço sobe quando o LTV sobe**, que é a direcção que se esperaria — na CGD desce. E **os degraus caem exactamente nas fronteiras do** `dominio.BandaLTV`: as quebras são em 50/51, 70/71 e 80/81, e as bandas de 5 % representam este banco sem perder um cêntimo. ⚠️ É o contra-exemplo que o **KAN-35** precisava: a grelha de 5 % serve o Novo Banco na perfeição e **não** serve a CGD, cuja quebra aos 67 % não é representável. Um banco não decide a resolução da grelha; dois já mostram que ela tem de ser mais fina do que 5 % ou definida por banco.
+
+⚠️ **A 0,25 p.p. vê-se de que lado a fronteira fecha** (medido 2026-07-26, mesmas condições da CGD): 0,75 em 49,50–50,00 e 0,80 em 50,25–51,50; 0,90 em 79,50–80,00 e 0,95 em 80,25–81,50. As quebras caem em (50,00 ; 50,25] e (80,00 ; 80,25] — logo **acima** do múltiplo de 5, que é o que «LTV até 50 %» quer dizer: a fronteira é **fechada em cima**. Confirma a leitura da tabela grosseira em vez de a contrariar, ao contrário do que acontece na CGD.
 
 ⚠️ **corrigido — há um endpoint de limites, e o dossiê dizia que não havia.** Confrontado com o bundle do simulador a 2026-07-26 (`srv.novobanco.pt/web/ocp/simhb/site/assets/index-*.js`): o `GET /configuracoes` devolve 432 bytes, sem parâmetros nenhuns, com os limites todos.
 

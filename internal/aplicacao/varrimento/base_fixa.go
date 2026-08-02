@@ -7,7 +7,7 @@ import (
 // A base da taxa fixa (ARQUITETURA.md §4, «O que se guarda por período é a BASE»).
 //
 // A base sai de TAN - spread(ltv). É constante por período — medido no
-// cartesiano da CGD, ver docs/ANALISE-KAN-35.md e a §4 do ARQUITETURA.
+// cartesiano da CGD, ver a §4 do ARQUITETURA.md.
 // EscalasPorBanco reconstrói a escala de LTV de cada banco a partir das linhas
 // de degrau do lote.
 //

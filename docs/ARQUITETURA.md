@@ -86,7 +86,7 @@ Três decisões pequenas, e cada uma fecha um modo de falha:
 - **vocabulário fechado dos dois lados.** Os três segmentos são valores de `dominio.TipoTaxa`, um inteiro, e `dominio.Finalidade`. Quem lê a chave valida-os, e uma chave que não seja reconhecida **falha alto** em vez de devolver um ponto plausível.
 - **redonda.** `Cenario → chave → Cenario` e `Pedido → Cenario` são funções do `internal/aplicacao/grelha`, e há teste que fecha o ciclo. É o que sustenta a frase «derivável do pedido»: sem a volta completa, a chave é um rótulo bonito e a pergunta de um cliente não encontra a linha.
 
-⚠️ **O que NÃO entra na chave**, e é deliberado: o LTV (colunas `ltv_min`/`ltv_max`), o **tenor da Euribor** (coluna `euribor_indexante`) e os **produtos** (coluna `produtos`). São colunas tipadas, não texto empacotado, pela razão da Decisão 2 da `ANALISE-KAN-35.md`. Consequência prática, e é preciso tê-la presente: **duas linhas do mesmo varrimento podem partilhar o `cenario`** e distinguir-se só por essas colunas — a linha com produtos e a linha sem eles, por exemplo. É assim que o desvio de cada produto se deriva na leitura, como esta secção já dizia em «Porque é que não há uma terceira tabela».
+⚠️ **O que NÃO entra na chave**, e é deliberado: o LTV (colunas `ltv_min`/`ltv_max`), o **tenor da Euribor** (coluna `euribor_indexante`) e os **produtos** (coluna `produtos`). São colunas tipadas, não texto empacotado, pela razão que «A resolução do LTV» dá abaixo — uma chave composta parte-se em silêncio quando o formato muda. Consequência prática, e é preciso tê-la presente: **duas linhas do mesmo varrimento podem partilhar o `cenario`** e distinguir-se só por essas colunas — a linha com produtos e a linha sem eles, por exemplo. É assim que o desvio de cada produto se deriva na leitura, como esta secção já dizia em «Porque é que não há uma terceira tabela».
 | coluna | tipo | nota |
 | --- | --- | --- |
 | `id` | `bigserial` PK |  |
@@ -161,9 +161,34 @@ O resíduo da §7.4 guarda-se em `residuo_prestacao`, **e não numa tabela nova*
 
 ### ⚠️ A resolução do LTV: intervalos medidos, não bandas de passo fixo
 
-**Decidido a 2026-07-26 (KAN-35)**, e está medido que uma banda de passo fixo não representa o preço. As medições e a base legal estão em [`ANALISE-KAN-35.md`](ANALISE-KAN-35.md); o que se segue são os números que decidem esta secção.
+**Decidido a 2026-07-26 (KAN-35)**, e está medido que uma banda de passo fixo não representa o preço. A medição fez-se com o imóvel fixo em 400 000 € e o montante a variar de 1 000 €, para cada passo ser exactamente **0,25 p.p. de LTV** sem arredondamentos a sujá-la; variável, 30 anos, habitação própria. As formas por banco estão no `DOSSIE-BANCOS.md`.
 
-Três coisas saem da medição, e cada uma mata uma solução: **duas fronteiras da CGD não caem em LTV inteiro** (afinar para 1 p.p. tem o mesmo defeito, só mais pequeno); **afinar o passo não reduz o erro, reduz a exposição** — quem cai do lado errado erra a altura do degrau, 0,70 p.p. na CGD, ~79 €/mês em 200 000 € a 30 anos; e **o preço não é monótono**, o que mata a bissecção. Os números estão na [`ANALISE-KAN-35.md`](ANALISE-KAN-35.md).
+Três coisas saem da medição, e cada uma mata uma solução.
+
+**1 — As fronteiras não caem em LTV inteiro**, logo afinar para 1 p.p. tem o mesmo defeito da banda de 5 p.p., só mais pequeno:
+
+| fronteira | está em | contém inteiro? |
+|---|---|---|
+| CGD 2,000 → 2,050 | (66,50 ; 66,75] | **não** |
+| CGD 1,950 → 2,000 | (33,00 ; 33,50] | **não** |
+| CGD 2,050 → 1,350 | (67,75 ; 68,00] | sim — 68 |
+| Novo Banco 0,75 → 0,80 | (50,00 ; 50,25] | não |
+| Novo Banco 0,90 → 0,95 | (80,00 ; 80,25] | não |
+
+⚠️ As do Novo Banco caem logo **acima** do múltiplo de 5, o que é consistente com «LTV até 50 %» — a fronteira é fechada em cima. As duas primeiras da CGD não se alinham com passo nenhum que se escolha à cabeça.
+
+**2 — Afinar o passo não reduz o erro; reduz a exposição.** É a conta que não é intuitiva, e é o coração da decisão. Numa grelha de passo fixo, a banda que contém uma fronteira serve um só spread aos dois lados dela, e quem cai do lado errado erra **a altura do degrau**, seja qual for o passo:
+
+| resolução | bandas partidas (CGD) | largura exposta | erro de quem lá cai | linhas por banco |
+|---|---|---|---|---|
+| 5 p.p. | banda 70 | 5 p.p. | **0,70 p.p.** | 20 |
+| 1 p.p. | bandas 67 e 68 | 2 p.p. | **0,70 p.p.** | ~71 |
+| 0,25 p.p. | 2 bandas | 0,5 p.p. | **0,70 p.p.** | ~280 |
+| **intervalos medidos** | nenhuma | 0 | **0** | **~4** |
+
+Os 0,70 p.p. valem \~**79 €/mês** num empréstimo de 200 000 € a 30 anos — mais do que a diferença entre bancos que este projecto existe para comparar.
+
+**3 — O preço não é monótono, o que mata a bissecção.** O 2,050 da CGD ocupa \~1,25 p.p., de \~66,6 % a \~67,9 %: não é uma fronteira, é um **patamar isolado** entre dois mais largos, e mais caro do que ambos. Qualquer descoberta por bissecção que assuma monotonia — ou poucos degraus — salta-o. Foi encontrado por **amostragem uniforme**, e é a razão de a fase 1 da descoberta ser uniforme e não recursiva (§7).
 
 ⚠️ **E os bancos discordam sobre a forma da coisa, o que é o argumento decisivo.** O Novo Banco muda nos múltiplos de 5, com a fronteira fechada em cima; a CGD não; e o **Montepio não muda de todo** — spread 1,500 de 50 % a 100 % (KAN-11). Três bancos, três formas: uma que quebra fora dos inteiros, uma que quebra nos múltiplos de 5, e uma constante. **Logo a resolução não pode ser uma constante do domínio — tem de ser medida banco a banco**, e um banco não chegava para decidir isto. A grelha por intervalos representa as três com as linhas que cada uma precisa: uma só, no caso do Montepio.
 
@@ -171,7 +196,21 @@ Três coisas saem da medição, e cada uma mata uma solução: **duas fronteiras
 
 - O spread guarda-se por **intervalo de LTV com fronteiras medidas**, em `ltv_min`/`ltv_max`, e não por banda de passo fixo. ⚠️ Duas colunas `numeric` tipadas, não uma chave de texto a empacotá-las: uma chave composta parte-se em silêncio quando o formato muda, que é a armadilha que o `DOSSIE-BANCOS.md` regista no `ConditionCode` do Montepio.
 - A representação exacta é também **a mais pequena**: a função em degraus que o banco pratica são ~4 linhas por banco, contra 20 a 5 p.p. e ~71 a 1 p.p. O custo desloca-se todo para o varrimento, que passa a descobrir as fronteiras em vez de as assumir — ~96 pedidos por banco, cerca de um minuto, uma vez por corrida (§7).
-- **Dentro de um intervalo por resolver serve-se o spread mais alto, com nota obrigatória** a dizer que é um limite superior. Não se recusa e não se escolhe um lado em silêncio. É o que prescreve o Anexo I, Parte II, alínea (d) da Directiva 2014/17/UE (MCD) para «vários valores possíveis», e a regra geral que este projecto adopta com ele: **perante incerteza, assume-se o valor menos favorável ao consumidor e declara-se a assunção** — nunca uma sem a outra. É a mesma regra que já governa o TAEG que não se consegue dar.
+- **Dentro de um intervalo por resolver serve-se o spread mais alto, com nota obrigatória** a dizer que é um limite superior. Não se recusa e não se escolhe um lado em silêncio — é mais útil do que recusar, porque o cliente fica a saber que não pagará **mais** do que aquilo. ⚠️ **A nota não é opcional**: sem ela isto vira um número errado com ar de certo. É por isso que o `DegrauLTV` guarda **os dois lados** (`Spread` e `SpreadMinimo`) em vez de uma flag — a frase que a pessoa lê nomeia os dois números, e sem eles diria apenas «é aproximado», que não é informação.
+- **Tolerância do refinamento: 0,05 p.p.** ⚠️ **É escolhida, não medida** — uma ordem de grandeza abaixo do menor degrau observado (os 0,05 p.p. entre 1,950 e 2,000). Fica escrito que é escolha para que a primeira medição que a contrarie a mude sem discussão.
+
+#### ⚠️ A regra da casa perante incerteza
+
+**Decidido a 2026-07-26, e vale muito para além do LTV:** perante incerteza, **assume-se o valor menos favorável ao consumidor e declara-se a assunção**. Nunca uma sem a outra — assumir sem declarar é enganar, declarar sem assumir é não responder.
+
+Não é preferência de estilo: é o que a **Directiva 2014/17/UE (MCD)** prescreve para exactamente este problema, no **Anexo I, Parte II**:
+
+- **alínea (b)** — havendo formas de utilização com encargos ou taxas diferentes, presume-se a taxa e o encargo **mais altos** da forma mais comum;
+- **alínea (d)** — havendo taxas ou encargos diferentes por período ou montante limitado, presumem-se **os mais altos** para toda a duração do contrato.
+
+E o **Anexo II** (a FINE/ESIS) fecha o par: um custo que **não entra** na TAEG por não ser conhecido da instituição **tem de ser assinalado**.
+
+É a mesma regra que governa o intervalo de LTV por resolver, o TAEG que não se consegue dar, e a questão em aberto da mista sem fases (`KAN-38`).
 
 ### O que é consulta e o que é cálculo
 

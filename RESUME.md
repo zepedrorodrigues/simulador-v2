@@ -81,6 +81,7 @@ Correu-se em local o que um servidor vai correr: a imagem do `Dockerfile`, Postg
 - ⚠️ `KAN-46` — acima. A `KAN-47` está feita.
 - ⚠️ **O `PROXIES_DE_CONFIANCA` por medir.** Atrás de um proxy nosso deixa de ser medição e passa a valor conhecido; só é problema atrás da rede opaca de uma plataforma.
 - ⚠️ **O domínio de LTV a varrer não sai do banco.** Hoje 30-100 % para todos; a CGD financia até 90 % na própria. É por isto que a app não afirma limites de LTV.
+- ⚠️ **Os degraus da CGD abaixo dos 32 % nunca foram varridos.** Sabe-se que há pelo menos uma fronteira em (33,00 ; 33,50]; abaixo disso não há medição. Ficou fora de âmbito da `KAN-35` e está registado no `DOSSIE-BANCOS.md`.
 - ⚠️ **Se a relação da taxa fixa vale fora da CGD.** Mediu-se lá e **não se herda**.
 - ⚠️ **Tensão na §4:** o `CHECK` exige TAEG numa linha de sucesso e a §4 diz que a que não se consegue dar se omite. Hoje não morde.
 - **Registadas:** `KAN-25` (profissão), `KAN-26` (ordenar ofertas ajustadas), `KAN-30` (pânico nosso sai como `banco_indisponivel` — ficou mais fácil com o precedente do `sem_serie`), `KAN-34`, `KAN-36`, `KAN-37`, `KAN-38`, `KAN-46`.
