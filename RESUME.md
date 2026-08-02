@@ -4,7 +4,7 @@ Estado actual e próximos passos. ⚠️ **Sem changelog** — o relato de sess�
 
 **Actualizado:** 2026-08-02
 
-⚠️ **A sonda está fundida** (PR [#70](https://github.com/zepedrorodrigues/simulador-v2/pull/70), merge `cb32c3c`) — o pacote `internal/aplicacao/sonda`, sem o subcomando ligado. **E a documentação também** (PR [#71](https://github.com/zepedrorodrigues/simulador-v2/pull/71), merge `35eb7a5`): o `development` tem os documentos todos.
+⚠️ **A sonda corre de ponta a ponta** (`simulador sondar`, `KAN-48`, merge `d7fac99`): lê a escala guardada, mede ~4 pontos por banco e, na divergência, revarre **aquele** banco. Falta a metade que se declara — ver `KAN-49` no passo 1.
 
 ## Onde estamos
 
@@ -68,8 +68,8 @@ Correu-se em local o que um servidor vai correr: a imagem do `Dockerfile`, Postg
 
 ## Próximo passo
 
-1. **Acabar os comentários do código.** Ficou o padrão e a regra (ver «Comentários» no `CLAUDE.md`), não o trabalho: são **4083 linhas de comentário para 8313 de código, 32%**, com **~140 blocos de 8+ linhas seguidas** por rever. Os maiores estão em `dominio/` (taeg, encargos, oferta, dinheiro), `grelha/` e `bancos/`. ⚠️ A pergunta a fazer a cada um é «isto sobrevive noutro sítio?», e agora a maioria sobrevive — os documentos ficaram compactos e precisos de propósito, primeiro.
-2. **`KAN-49` — a fiabilidade na resposta.** A sonda já detecta e revarre (`KAN-48`); o «serve-se o antigo com menor fiabilidade **declarada**» da §7 decisão 6 continua por fazer, e é a metade que muda o contrato e os ecrãs.
+1. **`KAN-49` — a fiabilidade na resposta.** A sonda já detecta e revarre (`KAN-48`); o «serve-se o antigo com menor fiabilidade **declarada**» da §7 decisão 6 continua por fazer, e é a metade que muda o contrato e os ecrãs. ⚠️ **Passa à frente dos comentários** porque é a única das duas que muda o `api/openapi.yaml` — e o contrato arrasta a app, o `sincronizar-api` e os ecrãs.
+2. **Acabar os comentários do código.** Ficou o padrão e a regra (ver «Comentários» no `CLAUDE.md`), não o trabalho: são **4083 linhas de comentário para 8313 de código, 32%**, com **~140 blocos de 8+ linhas seguidas** por rever. Os maiores estão em `dominio/` (taeg, encargos, oferta, dinheiro), `grelha/` e `bancos/`. ⚠️ A pergunta a fazer a cada um é «isto sobrevive noutro sítio?», e agora a maioria sobrevive — os documentos ficaram compactos e precisos de propósito, primeiro.
 3. **Confirmar a app contra o servidor já com a `KAN-45`** — a confirmação da A5 é anterior à correcção.
 4. A app, A6 e A7. ⚠️ Ver o ramo `wip/estados-a6-descartado` antes de começar a A6.
 5. `KAN-19` — Crédito Agrícola. ⚠️ O `reference_rate_value` é o **spread**, não a Euribor, apesar de o `rateIndexType` dizer `EUR12TM`.
@@ -77,6 +77,7 @@ Correu-se em local o que um servidor vai correr: a imagem do `Dockerfile`, Postg
 
 ## O que está por resolver
 
+- ⚠️ **O tamanho da imagem está escrito em dois sítios com dois valores:** 24,3 MB no `README.md`, 24,4 MB na tabela do ensaio aqui em cima. Um dos dois não foi medido na corrida que diz medir. Não se escolheu nenhum — mede-se e escreve-se o mesmo número nos dois.
 - ⚠️ **O `PROXIES_DE_CONFIANCA` continua a decidir uma coisa:** enquanto não estiver medido, o HSTS não sai do serviço — fica no proxy, que é quem termina o TLS (`KAN-46`).
 - ⚠️ **O `PROXIES_DE_CONFIANCA` por medir.** Atrás de um proxy nosso deixa de ser medição e passa a valor conhecido; só é problema atrás da rede opaca de uma plataforma.
 - ⚠️ **O domínio de LTV a varrer não sai do banco.** Hoje 30-100 % para todos; a CGD financia até 90 % na própria. É por isto que a app não afirma limites de LTV.
@@ -88,6 +89,8 @@ Correu-se em local o que um servidor vai correr: a imagem do `Dockerfile`, Postg
 - ⚠️ **Bancos de browser** (`KAN-20`, `KAN-21`) e **perguntas jurídicas** (`KAN-24`, bloqueia as lojas e não a web).
 
 ## Lições
+
+**Um PR pode dizer que fecha uma issue e não a fundir.** O #72 anunciava a `KAN-48` no título e trazia-lhe o corpo inteiro — tabela de reversões incluída —, mas o merge levou como cabeça o commit **anterior** ao subcomando, que foi escrito dezasseis minutos depois e empurrado para um ramo já fechado. Ficaram no `development` o `CLAUDE.md` a anunciar `simulador sondar` numa tabela de custos e o binário sem o subcomando. ⚠️ **Nada disto dá erro:** o portão passa (o código que falta não é importado por ninguém), o CI passa, e o JIRA fica com a issue fechada. Encontrou-se por se ler a **árvore** — `git ls-tree origin/development internal/infra/` — e não os documentos. Corrigido pelo #73. ⚠️ **O que o PR diz que fez e o que o merge levou são duas afirmações diferentes**, e só a segunda é verificável.
 
 **Os documentos mentiam, e concordavam uns com os outros.** O `API.md` prometia `/api/v1/simulacoes`, que nunca existiu, e a §6 do `ARQUITETURA` repetia-lhe o nome. ⚠️ **O portão não apanha isto por construção** — compara o *gerado* com o spec, não os *documentos* nem o *servido*.
 

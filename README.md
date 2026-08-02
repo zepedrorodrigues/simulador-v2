@@ -121,14 +121,22 @@ go test -race -tags rede ./internal/bancos/cgd/
 
 ## Pôr de pé
 
-A imagem é uma só, e serve os cinco subcomandos — `servir`, `varrer`, `sondar`, `migrar`,
-`reverter`. Sem Chromium: **24,3 MB**, a correr como `nonroot`, sobre
+A imagem é uma só, e serve os cinco subcomandos — `servir`, `varrer`, `sondar`,
+`migrar`, `reverter`. Sem Chromium: **24,3 MB**, a correr como `nonroot`, sobre
 `distroless/static` (sem shell, sem gestor de pacotes).
 
 ```bash
 docker build -t simulador-v2 .
 docker run --rm -e DATABASE_URL=… simulador-v2 migrar
 docker run --rm -p 8080:8080 -e DATABASE_URL=… simulador-v2 servir
+```
+
+⚠️ **O `sondar` é o barato e o `varrer` é o caro** — ~4 pedidos por banco contra
+~96 (ver a tabela no `CLAUDE.md`). Confirma a grelha sem a reconstruir, e na
+divergência revarre **aquele** banco; para ver sem mexer, `--sem-revarrer`:
+
+```bash
+docker run --rm -e DATABASE_URL=… simulador-v2 sondar --sem-revarrer
 ```
 
 ⚠️ **O `migrar` não é opcional, e o binário obriga.** `servir` contra uma base

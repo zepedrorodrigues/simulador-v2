@@ -435,6 +435,8 @@ O travão é o `internal/infra/travao`, sobre `pg_try_advisory_lock` (KAN-39).
 
 **Custo, com os números da KAN-35:** \~4 degraus por banco, logo \~20 pedidos para confirmar os cinco, contra \~480 de um varrimento completo dos cinco. **Vinte e quatro vezes mais barato**, o que é o que a torna corrível com frequência — e uma confirmação que se pode correr de hora a hora vale mais do que um varrimento que se corre quatro vezes por dia.
 
+⚠️ **Executado a 2026-08-02 pela metade, e a metade que falta é nomeada (KAN-48; falta a KAN-49).** O algoritmo vive em `internal/aplicacao/sonda` e o subcomando `simulador sondar` em `internal/infra/sondar`. **Feito:** detectar a divergência e revarrer aquele banco — com `SeAntigo: 0`, porque a divergência é razão medida e a guarda de frescura existe para travar quem varre sem razão. **Por fazer:** o «serve-se o antigo com **menor fiabilidade declarada**» de três parágrafos acima. Hoje detecta-se e revarre-se em silêncio, e quem lê a oferta não sabe que ela esteve em dúvida — é a `KAN-49`, e muda o `api/openapi.yaml`. ⚠️ **Revarre-se por divergência e não por «não confirmada»:** uma sonda cega também não confirma, e disparar 96 pedidos porque o banco não respondeu a quatro é carregá-lo quando ele já está em baixo.
+
 ### O que morreu com a cache, e o que sobreviveu
 
 **Morreu: a quantização do pedido.** Arredondar o montante ao milhar e o valor do imóvel aos 5 000 € existia para aumentar acertos de cache, e não há cache. Um pedido é avaliado no seu valor exacto.
