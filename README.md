@@ -121,7 +121,7 @@ go test -race -tags rede ./internal/bancos/cgd/
 
 ## Pôr de pé
 
-A imagem é uma só, e serve os quatro subcomandos — `servir`, `varrer`, `migrar`,
+A imagem é uma só, e serve os cinco subcomandos — `servir`, `varrer`, `sondar`, `migrar`,
 `reverter`. Sem Chromium: **24,3 MB**, a correr como `nonroot`, sobre
 `distroless/static` (sem shell, sem gestor de pacotes).
 

@@ -31,6 +31,19 @@ ao mínimo que funciona». Até 2026-08-02 os três
 viviam sob a mesma tag `rede`, e pedir uma confirmação de parser disparava mil
 pedidos à CGD (KAN-47).
 
+⚠️ **E o binário também fala com os bancos, pelo mesmo critério.** Dois
+subcomandos, dois custos:
+
+| subcomando | pedidos a terceiros | quando |
+|---|---|---|
+| `simulador varrer` | **~96 por banco** (~480 pelos cinco) | reconstruir a grelha; corre em hora morta, com guarda `--se-antigo` de 6h |
+| `simulador sondar` | **~4 por banco** (~20 pelos cinco) | confirmar que a grelha ainda descreve o banco (KAN-48) |
+
+A sonda é **vinte e quatro vezes mais barata** do que o varrimento, e é isso que
+a torna corrível de hora a hora. ⚠️ **Mas na divergência ela revarre aquele
+banco** — logo uma corrida que encontre um preçário mudado custa os ~96 desse
+banco. Para ver sem mexer: `simulador sondar --sem-revarrer`.
+
 O portão são cinco coisas, e passa-se o portão **inteiro**:
 
 ```
