@@ -89,8 +89,11 @@ O CI corre exactamente esses três alvos, em `push` e em `pull_request` contra
 definição do portão: é o mesmo Makefile. O runner precisa de **Docker** — o
 teste de integração sobe o seu próprio Postgres — e não de serviços declarados.
 
-Os testes que tocam a rede dos bancos ficam de fora, por trás de
-`//go:build rede`, e correm-se à mão com `make teste-rede`.
+Os testes que tocam a rede dos bancos ficam de fora e correm-se à mão. São três
+alvos, separados pelo que custam a terceiros: `make teste-rede` confirma parsers
+(dezenas de pedidos), `make teste-fidelidade` confere o que se guarda contra o
+que o banco respondeu (~2000 pedidos), e `make medicao` corre as medições de
+desenho contra a CGD (mais de mil pedidos, mais de uma hora — agenda-se).
 
 
 ## Ambiente de desenvolvimento
