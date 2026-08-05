@@ -232,7 +232,8 @@ type Oferta struct {
 	// Fiabilidade O que se sabe sobre a grelha de onde este preço saiu, e não sobre o preço em si (KAN-49). A sonda confirma — com ~4 pedidos por banco — se a grelha guardada ainda descreve o banco.
 	// ⚠️ `em_duvida` quer dizer que a última sondagem DISCORDOU da grelha e que ainda não houve varrimento que resolvesse a discordância. A app é **obrigada** a mostrar a nota que vem em `notas`, junto do número — é a mesma regra do `aplicado`.
 	// ⚠️ `confirmada` e `por_confirmar` mostram-se com **silêncio**. Uma marca de «confirmada» em toda a gente é ruído com aspecto de informação, e treina quem lê a saltar a única que importa.
-	// ⚠️ A omissão vale `por_confirmar` e não `confirmada`, e hoje é o estado de quase tudo: a sonda ainda não corre agendada. Uma omissão que valesse «confirmada» afirmava sobre a série inteira uma coisa que ninguém mediu.
+	// ⚠️ **Ausente vale `por_confirmar`**, e nunca `confirmada`: uma omissão que valesse «confirmada» afirmava sobre a série inteira uma coisa que ninguém mediu. Este servidor manda-o sempre; o campo fica opcional porque `required` só tem o que uma oferta não pode não ter.
+	// ⚠️ E **não leva `default:`** de propósito. Levava, e o `openapi-typescript` traduz um campo com omissão para um campo OBRIGATÓRIO no tipo gerado — a app passava a afirmar que a resposta traz sempre este campo, que é precisamente o que o `required` diz que não. A regra fica na descrição, onde não mente ao gerador.
 	Fiabilidade *OfertaFiabilidade `json:"fiabilidade,omitempty"`
 
 	// Mtic ⚠️ DERIVADO, pela mesma razão e sobre o mesmo modelo de encargos que a `taeg`. Ver `pressupostos`.
@@ -264,7 +265,8 @@ type Oferta struct {
 // OfertaFiabilidade O que se sabe sobre a grelha de onde este preço saiu, e não sobre o preço em si (KAN-49). A sonda confirma — com ~4 pedidos por banco — se a grelha guardada ainda descreve o banco.
 // ⚠️ `em_duvida` quer dizer que a última sondagem DISCORDOU da grelha e que ainda não houve varrimento que resolvesse a discordância. A app é **obrigada** a mostrar a nota que vem em `notas`, junto do número — é a mesma regra do `aplicado`.
 // ⚠️ `confirmada` e `por_confirmar` mostram-se com **silêncio**. Uma marca de «confirmada» em toda a gente é ruído com aspecto de informação, e treina quem lê a saltar a única que importa.
-// ⚠️ A omissão vale `por_confirmar` e não `confirmada`, e hoje é o estado de quase tudo: a sonda ainda não corre agendada. Uma omissão que valesse «confirmada» afirmava sobre a série inteira uma coisa que ninguém mediu.
+// ⚠️ **Ausente vale `por_confirmar`**, e nunca `confirmada`: uma omissão que valesse «confirmada» afirmava sobre a série inteira uma coisa que ninguém mediu. Este servidor manda-o sempre; o campo fica opcional porque `required` só tem o que uma oferta não pode não ter.
+// ⚠️ E **não leva `default:`** de propósito. Levava, e o `openapi-typescript` traduz um campo com omissão para um campo OBRIGATÓRIO no tipo gerado — a app passava a afirmar que a resposta traz sempre este campo, que é precisamente o que o `required` diz que não. A regra fica na descrição, onde não mente ao gerador.
 type OfertaFiabilidade string
 
 // OfertaErro Estruturado de propósito: `codigo` é para a app decidir, `mensagem` é para a pessoa ler, em português.
