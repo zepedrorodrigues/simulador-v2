@@ -88,6 +88,12 @@ Havia um — «A comparar», com barra de progresso, cada banco a aparecer assim
 
 ⚠️ **E a idade do preço aparece, sempre.** Cada oferta traz o `capturado_em` do varrimento de que saiu, e a resposta traz o `calculado_em` dela própria. O rodapé da lista diz de quando são os preços — «preços de hoje, 05:00» — porque **um preço sem data não se serve**. Um preço de ontem continua a ser informação; um preço de ontem apresentado como o de agora, não.
 
+⚠️ **Um preço que a sonda contradisse leva aviso no cartão** (`KAN-49`, 2026-08-05). Quando `fiabilidade` vem `em_duvida`, a nota que vem em `notas` aparece **no cartão**, pela mesma regra do aviso de ajuste: uma verificação barata discordou daquele preço e ainda não foi possível confirmá-lo. Não diz «este preço está errado» — não se sabe isso — diz o que se mediu.
+
+⚠️ **E os outros dois estados mostram-se com SILÊNCIO.** `confirmada` e `por_confirmar` não põem marca nenhuma no cartão. Uma etiqueta de «confirmada» em toda a gente é ruído com aspecto de informação: treina quem lê a saltá-la, e o dia em que aparecesse a que importa já ninguém a via. ⚠️ Hoje **quase tudo** é `por_confirmar` — a sonda ainda não corre agendada —, portanto uma marca de estado positivo estaria ausente em toda a parte e a negativa em toda a parte. Nenhuma das duas informa.
+
+⚠️ **A dúvida NÃO tira a estrela**, ao contrário do ajuste. A estrela diz «esta é a melhor das que estão aqui», e uma dúvida sobre a idade do preço não a torna falsa — o preço continua a ser o melhor que temos daquele banco. Tirá-la escondia a comparação em vez de a qualificar. O aviso e a estrela convivem no mesmo cartão, e é isso que se pretende: «a melhor, e há uma reserva sobre ela».
+
 ⚠️ **Construído a 2026-07-29 (A5), e quatro coisas ficaram decididas aqui que não estavam desenhadas:**
 
 ⚠️ **O rodapé dá o `capturado_em` MAIS ANTIGO da lista, não o mais recente.** É uma afirmação sobre o conjunto de preços, e a afirmação verdadeira sobre preços de horas diferentes é a do mais velho. Dizer a hora do mais fresco apresentava os outros como sendo dessa hora — que é a mesma falha, à escala da lista, de servir um preço sem data.

@@ -39,7 +39,7 @@ func TestUmBancoQueNaoMudouEConfirmadoENaoSeRevarre(t *testing.T) {
 	var disparos contador
 
 	rel := correr(context.Background(), []bancos.Banco{banco},
-		map[string]dominio.EscalaDeLTV{"cgd": escala}, hojeDeProva(t), disparos.revarrer)
+		map[string]dominio.EscalaDeLTV{"cgd": escala}, hojeDeProva(t), disparos.revarrer, nil)
 
 	if len(rel.Bancos) != 1 {
 		t.Fatalf("%d bancos no relatório, esperava 1", len(rel.Bancos))
@@ -73,7 +73,7 @@ func TestUmBancoQueMudouODeSpreadDisparaOVarrimentoDele(t *testing.T) {
 	var disparos contador
 
 	rel := correr(context.Background(), []bancos.Banco{banco},
-		map[string]dominio.EscalaDeLTV{"cgd": escala}, hojeDeProva(t), disparos.revarrer)
+		map[string]dominio.EscalaDeLTV{"cgd": escala}, hojeDeProva(t), disparos.revarrer, nil)
 
 	b := rel.Bancos[0]
 	if b.Confirmada {
@@ -109,7 +109,7 @@ func TestRevarreSoOBancoQueDivergiu(t *testing.T) {
 
 	correr(context.Background(), []bancos.Banco{bom, mau},
 		map[string]dominio.EscalaDeLTV{"cgd": escala, "novobanco": escala},
-		hojeDeProva(t), disparos.revarrer)
+		hojeDeProva(t), disparos.revarrer, nil)
 
 	if got := disparos.ids(); len(got) != 1 || got[0] != "novobanco" {
 		t.Errorf("revarreram-se %v, e só o novobanco divergiu", got)
@@ -128,7 +128,7 @@ func TestUmaSondaCegaNaoConfirmaENaoRevarre(t *testing.T) {
 	var disparos contador
 
 	rel := correr(context.Background(), []bancos.Banco{banco},
-		map[string]dominio.EscalaDeLTV{"cgd": escala}, hojeDeProva(t), disparos.revarrer)
+		map[string]dominio.EscalaDeLTV{"cgd": escala}, hojeDeProva(t), disparos.revarrer, nil)
 
 	b := rel.Bancos[0]
 	if b.Confirmada {
@@ -151,7 +151,7 @@ func TestComSemRevarrerDetectaENaoDispara(t *testing.T) {
 	banco := &bancoFalso{id: "cgd", escala: escala, substituir: map[string]string{"1.350": "1.500"}}
 
 	rel := correr(context.Background(), []bancos.Banco{banco},
-		map[string]dominio.EscalaDeLTV{"cgd": escala}, hojeDeProva(t), nil)
+		map[string]dominio.EscalaDeLTV{"cgd": escala}, hojeDeProva(t), nil, nil)
 
 	b := rel.Bancos[0]
 	if b.Divergentes != 1 {
@@ -171,7 +171,7 @@ func TestUmBancoSemEscalaGuardadaNaoDerrubaACorrida(t *testing.T) {
 	var disparos contador
 
 	rel := correr(context.Background(), []bancos.Banco{comEscala, semEscala},
-		map[string]dominio.EscalaDeLTV{"cgd": escala}, hojeDeProva(t), disparos.revarrer)
+		map[string]dominio.EscalaDeLTV{"cgd": escala}, hojeDeProva(t), disparos.revarrer, nil)
 
 	if len(rel.Bancos) != 2 {
 		t.Fatalf("%d bancos no relatório, esperava 2", len(rel.Bancos))
@@ -201,7 +201,7 @@ func TestUmVarrimentoTravadoNaoPassaPorFeito(t *testing.T) {
 	}
 
 	rel := correr(context.Background(), []bancos.Banco{banco},
-		map[string]dominio.EscalaDeLTV{"cgd": escala}, hojeDeProva(t), travado)
+		map[string]dominio.EscalaDeLTV{"cgd": escala}, hojeDeProva(t), travado, nil)
 
 	b := rel.Bancos[0]
 	if b.Revarrido {

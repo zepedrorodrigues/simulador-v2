@@ -245,6 +245,12 @@ type Oferta struct {
 	EmCache     bool
 	CapturadoEm time.Time
 
+	// Fiabilidade é o que se sabe sobre a grelha de onde este preço saiu — se
+	// alguma sonda a confirmou desde o varrimento, e se discordou dela. O valor
+	// zero é FiabilidadePorConfirmar, e é de propósito: um banco sobre que
+	// ninguém disse nada não é um banco confirmado (ARQUITETURA.md §4).
+	Fiabilidade Fiabilidade
+
 	// Erro não-nulo é uma oferta de falha. Sucesso deriva daqui, para não
 	// existir o estado impossível "sucesso com erro".
 	Erro *ErroOferta
@@ -255,6 +261,58 @@ type Oferta struct {
 	ajustes      []Ajuste
 	notas        []string
 	pressupostos []string
+}
+
+// Fiabilidade é o que se sabe sobre a grelha de que um preço saiu (KAN-49).
+//
+// ⚠️ Três estados e não um booleano, e a razão é o histórico: hoje quase tudo é
+// FiabilidadePorConfirmar — a sonda existe há dias e não corre agendada. Um
+// booleano `confirmada` nascia a mentir sobre a série inteira, num sentido ou no
+// outro. «Não sabemos» é um estado, e é aquele em que quase tudo está.
+type Fiabilidade string
+
+const (
+	// FiabilidadePorConfirmar: ninguém sondou este banco desde que foi varrido.
+	// ⚠️ É para aqui que o valor zero do tipo cai — ver `Ou()`. A string vazia
+	// não é um quarto estado: é «ninguém pensou nisto», e a resposta certa a isso
+	// é esta e não «confirmada».
+	FiabilidadePorConfirmar Fiabilidade = "por_confirmar"
+
+	// FiabilidadeConfirmada: a última sonda deu a grelha por boa. Não leva nota
+	// — ruído em toda a gente é o mesmo que silêncio.
+	FiabilidadeConfirmada Fiabilidade = "confirmada"
+
+	// FiabilidadeEmDuvida: a última sonda discordou da grelha e ainda não houve
+	// varrimento que resolvesse a discordância. É o único dos três que a app é
+	// obrigada a mostrar.
+	FiabilidadeEmDuvida Fiabilidade = "em_duvida"
+)
+
+// Ou resolve o valor zero para «por confirmar».
+//
+// ⚠️ Existe porque o zero de uma string é `""` e não a constante — e um mapa de
+// fiabilidades sem entrada para um banco devolve exactamente isso. Sem esta
+// normalização, a série de hoje (nenhuma sondagem gravada) saía com o campo
+// vazio: um valor que o enum do contrato não conhece, e que a app leria como
+// «não sei o que isto é» em vez de «ninguém confirmou».
+func (f Fiabilidade) Ou() Fiabilidade {
+	if f == "" {
+		return FiabilidadePorConfirmar
+	}
+	return f
+}
+
+// NotaDaDuvida é a frase que acompanha um preço que a sonda contradisse.
+//
+// ⚠️ Vive aqui e não no `comparar` pela mesma razão que a nota do Ajuste vive
+// colada ao ajuste: quem põe o estado escreve a frase, e não há caminho por onde
+// um `em_duvida` saia mudo. E não é «este preço está errado» — não se sabe isso.
+// É «uma verificação barata discordou dele», que é o que se mediu.
+func NotaDaDuvida(bancoNome string) string {
+	return fmt.Sprintf(
+		"Uma verificação recente ao %s devolveu um preço diferente do que temos guardado, e ainda "+
+			"não foi possível confirmá-lo. Este valor pode estar desactualizado — confirme-o com o "+
+			"banco antes de decidir.", bancoNome)
 }
 
 // Falhar constrói uma oferta de falha.

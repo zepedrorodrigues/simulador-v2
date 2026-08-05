@@ -214,6 +214,12 @@ func sondagem(ctx context.Context, url string, args []string, saida io.Writer) e
 			_, _ = fmt.Fprintf(saida, "  divergiu em LTV %s do degrau (%s ; %s]: esperava %s, veio %s (desvio %s)\n",
 				d.LTV, d.De, d.Ate, d.Esperado, d.Observado, d.Desvio)
 		}
+		// ⚠️ Sondou-se e não se conseguiu declarar. A oferta vai sair como se
+		// ninguém tivesse olhado, e quem corre isto tem de o saber — senão a
+		// corrida parece ter feito o trabalho todo.
+		if b.MotivoDoRegisto != "" {
+			_, _ = fmt.Fprintf(saida, "  ⚠️ veredicto NÃO gravado — %s\n", b.MotivoDoRegisto)
+		}
 		switch {
 		case b.Revarrido:
 			_, _ = fmt.Fprintf(saida, "  revarrido: %s\n", b.ID)

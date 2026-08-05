@@ -42,7 +42,7 @@ subcomandos, dois custos:
 A sonda é **vinte e quatro vezes mais barata** do que o varrimento, e é isso que
 a torna corrível de hora a hora. ⚠️ **Mas na divergência ela revarre aquele
 banco** — logo uma corrida que encontre um preçário mudado custa os ~96 desse
-banco. Para ver sem mexer: `simulador sondar --sem-revarrer`.
+banco. Para sondar sem pagar o revarrimento: `simulador sondar --sem-revarrer`. ⚠️ **Não é «ver sem mexer»** desde a KAN-49: o veredicto é gravado à mesma, e uma divergência passa a aparecer nas ofertas como `em_duvida`. O que o sinalizador poupa são os ~96 pedidos ao banco, não a declaração — medir e não contar a ninguém é o defeito que a KAN-49 corrige.
 
 O portão são cinco coisas, e passa-se o portão **inteiro**:
 

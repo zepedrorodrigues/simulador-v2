@@ -176,3 +176,58 @@ func observacaoDoBanco(id, nome string) varrimento.Observacao {
 	}
 	return o
 }
+
+// A volta completa da KAN-49: grava-se uma sondagem que divergiu, e a série sai
+// a dizer que aquele banco está em dúvida.
+//
+// ⚠️ É aqui que se vê que a tabela nova NÃO entra na composição da série. Uma
+// leitura de sonda parece uma observação; se fosse gravada em `catalogo_taxas`,
+// os 4 pontos dela passavam a ser o «varrimento mais recente» da CGD e o banco
+// ficava com uma grelha de quatro pontos.
+func TestUmaSondagemQueDivergiuChegaAOfertaComoDuvida(t *testing.T) {
+	pool := subirBase(t)
+	cat := catalogo.NovoPostgres(pool)
+
+	varridoEm := time.Now().Add(-2 * time.Hour)
+	lote := append(degrausDaCGD(t), fixaDaCGD(t), observacaoDeProva())
+	lote = append(lote, observacaoDoBanco("novobanco", "Novo Banco"))
+	for i := range lote {
+		lote[i].Oferta.CapturadoEm = varridoEm
+	}
+	if _, err := cat.GravarLote(t.Context(), lote); err != nil {
+		t.Fatalf("gravar: %v", err)
+	}
+
+	// A CGD divergiu depois do varrimento; o Novo Banco foi confirmado.
+	if err := cat.GravarSondagem(t.Context(), "cgd", varridoEm.Add(time.Hour), 4, 1, 0); err != nil {
+		t.Fatalf("gravar a sondagem da cgd: %v", err)
+	}
+	if err := cat.GravarSondagem(t.Context(), "novobanco", varridoEm.Add(time.Hour), 4, 0, 0); err != nil {
+		t.Fatalf("gravar a sondagem do novobanco: %v", err)
+	}
+
+	serie, err := cat.SerieServivel(t.Context())
+	if err != nil {
+		t.Fatalf("SerieServivel: %v", err)
+	}
+
+	if lido := serie.Fiabilidade["cgd"]; lido != dominio.FiabilidadeEmDuvida {
+		t.Errorf("a cgd divergiu na última sonda e a série di-la %q", lido)
+	}
+	if lido := serie.Fiabilidade["novobanco"]; lido != dominio.FiabilidadeConfirmada {
+		t.Errorf("o novobanco foi confirmado na última sonda e a série di-lo %q", lido)
+	}
+
+	// ⚠️ E a sondagem não mexeu na grelha: as observações da CGD continuam a ser
+	// as do varrimento, e não quatro pontos de sonda.
+	daCGD := 0
+	for _, o := range serie.Observacoes {
+		if o.Oferta.BancoID == "cgd" {
+			daCGD++
+		}
+	}
+	if esperado := len(degrausDaCGD(t)) + 2; daCGD != esperado {
+		t.Errorf("a cgd tem %d observações e o varrimento gravou %d — a sondagem entrou na grelha",
+			daCGD, esperado)
+	}
+}

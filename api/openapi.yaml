@@ -596,6 +596,28 @@ components:
           type: array
           items:
             type: string
+        fiabilidade:
+          type: string
+          enum: [por_confirmar, confirmada, em_duvida]
+          default: por_confirmar
+          description: >-
+            O que se sabe sobre a grelha de onde este preço saiu, e não sobre o
+            preço em si (KAN-49). A sonda confirma — com ~4 pedidos por banco —
+            se a grelha guardada ainda descreve o banco.
+
+            ⚠️ `em_duvida` quer dizer que a última sondagem DISCORDOU da grelha
+            e que ainda não houve varrimento que resolvesse a discordância. A
+            app é **obrigada** a mostrar a nota que vem em `notas`, junto do
+            número — é a mesma regra do `aplicado`.
+
+            ⚠️ `confirmada` e `por_confirmar` mostram-se com **silêncio**. Uma
+            marca de «confirmada» em toda a gente é ruído com aspecto de
+            informação, e treina quem lê a saltar a única que importa.
+
+            ⚠️ A omissão vale `por_confirmar` e não `confirmada`, e hoje é o
+            estado de quase tudo: a sonda ainda não corre agendada. Uma omissão
+            que valesse «confirmada» afirmava sobre a série inteira uma coisa
+            que ninguém mediu.
         # ⚠️ Havia aqui um `em_cache: boolean`, e saiu com a inversão da §1. Dizia
         # à app se a oferta veio da cache ou de uma chamada fresca ao banco — uma
         # distinção que deixou de existir: TODAS as ofertas vêm da série varrida,

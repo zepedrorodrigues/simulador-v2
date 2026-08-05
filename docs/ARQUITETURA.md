@@ -64,7 +64,7 @@ cmd        → infra
 
 ## 4. Modelo de dados
 
-**Duas tabelas. Não há uma terceira sem uma entrada nova nesta secção.** ⚠️ Continuam a ser duas depois da inversão da §1 — ver «Porque é que não há uma terceira tabela», abaixo.
+**Três tabelas desde 2026-08-05, e não há uma quarta sem uma entrada nova nesta secção.** ⚠️ Foram duas até à `KAN-49`, inclusive através da inversão da §1 — ver «Porque é que não há uma terceira tabela» e a `sondagens` que se lhe segue, que é a primeira a passar esse travão e diz porquê.
 
 ### `catalogo_taxas` — as observações do varrimento
 
@@ -326,6 +326,41 @@ A tentação era guardar o modelo de preço à parte, numa tabela de parâmetros
 
 Uma tabela de parâmetros seria uma segunda cópia da mesma verdade, com a obrigação de as manter de acordo. E a §2 nasceu de um modelo de dados entulhado — a regra das duas tabelas não é um número bonito, é o travão.
 
+### `sondagens` — o veredicto da sonda (a terceira, e porquê)
+
+Acrescentada a **2026-08-05** (`KAN-49`). É a entrada nova que o cabeçalho desta secção exige, e o travão funcionou: esta é a primeira em quatro tentativas de lhe passar por cima.
+
+| coluna | tipo | nota |
+| --- | --- | --- |
+| `id` | `bigserial` PK | |
+| `banco_id` | `text` | |
+| `sondado_em` | `timestamptz` | ⚠️ **com** fuso, como tudo |
+| `degraus` | `integer` | quantos pontos a sonda visitou |
+| `divergentes` | `integer` | quantos discordaram da grelha |
+| `cegos` | `integer` | quantos não se conseguiram medir |
+
+**Porque é que esta não é uma segunda cópia.** O argumento contra a terceira tabela é «uma observação do varrimento já é uma linha de `catalogo_taxas`». Um veredicto de sonda **não é** uma observação do varrimento e não existe em lado nenhum: é a comparação entre o que a grelha previa e o que o banco respondeu num instante, e o seu grão é **banco × corrida da sonda**, não banco × ponto da grelha. Não há coluna de `catalogo_taxas` onde isto caiba sem se repetir em todas as linhas do banco.
+
+⚠️ **E a alternativa aparentemente elegante é uma armadilha.** Uma leitura de sonda *parece* uma observação — mede um spread num LTV, exactamente como o varrimento. Gravá-la em `catalogo_taxas` fá-la-ia entrar na composição da série (§4, «Que observações compõem a série servida»), e uma sonda de **4 pontos** passaria a ser o «varrimento mais recente» daquele banco, substituindo um de **96**. O banco ficaria com uma grelha de quatro pontos e ninguém veria erro nenhum. É por isto que a tabela é separada, e não por arrumação.
+
+**Uma linha por banco por corrida, e o histórico fica.** Não se actualiza uma linha só: um banco que diverge três sondas seguidas é notícia diferente de um que divergiu uma vez, e essa distinção morre num `UPDATE`.
+
+### ⚠️ A fiabilidade de um banco deriva-se, e não se guarda
+
+São três estados, e derivam-se de comparar **duas datas** — a última sondagem daquele banco e o último varrimento dele com sucesso:
+
+| estado | quando | leva nota? |
+| --- | --- | --- |
+| `confirmada` | a sondagem é posterior ao varrimento e não divergiu | **não** |
+| `por_confirmar` | não há sondagem posterior ao varrimento | **não** |
+| `em_duvida` | a sondagem é posterior ao varrimento e divergiu | **sim** |
+
+⚠️ **Três estados e não dois, e a razão é o histórico.** Hoje **tudo** é `por_confirmar` — a sonda existe há dias e nunca correu agendada. Um booleano `confirmada` nasceria a dizer «confirmada: não» sobre toda a série, ou pior, `true` por omissão sobre preços que ninguém confirmou. «Não sabemos» é um estado, e é o estado em que quase tudo está.
+
+⚠️ **A dúvida expira sozinha, e é por isso que não leva prazo.** Escolher «dura 6 horas» seria um número inventado do género que a §7.4 nomeia. Ela acaba quando aquele banco for varrido outra vez — e a sonda **já dispara** esse varrimento na divergência (§7, decisão 6). O caso em que a dúvida persiste é exactamente aquele em que devia persistir: o revarrimento não aconteceu, porque o travão o impediu ou porque falhou.
+
+⚠️ **É afirmação sobre a OFERTA e não sobre o conjunto**, ao contrário do `capturado_em`, cujo rodapé dá o mais antigo. A diferença é que a idade do conjunto é uma propriedade do conjunto e a dúvida não: um banco pode estar em dúvida com os outros quatro confirmados, e diluir isso num rodapé dizia a coisa errada sobre quatro bancos para a dizer sobre um. **A nota vai agarrada ao número**, como o `dominio.Ajuste` (§5).
+
 ### `limites` — tecto de pedidos por IP
 
 | coluna | tipo |
@@ -458,7 +493,7 @@ O travão é o `internal/infra/travao`, sobre `pg_try_advisory_lock` (KAN-39).
 
 **Custo, com os números da KAN-35:** \~4 degraus por banco, logo \~20 pedidos para confirmar os cinco, contra \~480 de um varrimento completo dos cinco. **Vinte e quatro vezes mais barato**, o que é o que a torna corrível com frequência — e uma confirmação que se pode correr de hora a hora vale mais do que um varrimento que se corre quatro vezes por dia.
 
-⚠️ **Executado a 2026-08-02 pela metade, e a metade que falta é nomeada (KAN-48; falta a KAN-49).** O algoritmo vive em `internal/aplicacao/sonda` e o subcomando `simulador sondar` em `internal/infra/sondar`. **Feito:** detectar a divergência e revarrer aquele banco — com `SeAntigo: 0`, porque a divergência é razão medida e a guarda de frescura existe para travar quem varre sem razão. **Por fazer:** o «serve-se o antigo com **menor fiabilidade declarada**» de três parágrafos acima. Hoje detecta-se e revarre-se em silêncio, e quem lê a oferta não sabe que ela esteve em dúvida — é a `KAN-49`, e muda o `api/openapi.yaml`. ⚠️ **Revarre-se por divergência e não por «não confirmada»:** uma sonda cega também não confirma, e disparar 96 pedidos porque o banco não respondeu a quatro é carregá-lo quando ele já está em baixo.
+⚠️ **Executado por inteiro: a detecção e o revarrimento a 2026-08-02 (KAN-48), a fiabilidade declarada a 2026-08-05 (KAN-49).** O algoritmo vive em `internal/aplicacao/sonda` e o subcomando `simulador sondar` em `internal/infra/sondar`. **Feito:** detectar a divergência e revarrer aquele banco — com `SeAntigo: 0`, porque a divergência é razão medida e a guarda de frescura existe para travar quem varre sem razão. **E declarado:** o veredicto grava-se na `sondagens` (§4), a oferta de um banco em dúvida sai com `fiabilidade: "em_duvida"` e a nota agarrada ao número, e a de um banco confirmado não leva nota nenhuma — ruído em toda a gente é o mesmo que silêncio. ⚠️ **Revarre-se por divergência e não por «não confirmada»:** uma sonda cega também não confirma, e disparar 96 pedidos porque o banco não respondeu a quatro é carregá-lo quando ele já está em baixo.
 
 ### O que morreu com a cache, e o que sobreviveu
 

@@ -264,6 +264,15 @@ export interface components {
             };
             notas?: string[];
             /**
+             * @description O que se sabe sobre a grelha de onde este preço saiu, e não sobre o preço em si (KAN-49). A sonda confirma — com ~4 pedidos por banco — se a grelha guardada ainda descreve o banco.
+             *     ⚠️ `em_duvida` quer dizer que a última sondagem DISCORDOU da grelha e que ainda não houve varrimento que resolvesse a discordância. A app é **obrigada** a mostrar a nota que vem em `notas`, junto do número — é a mesma regra do `aplicado`.
+             *     ⚠️ `confirmada` e `por_confirmar` mostram-se com **silêncio**. Uma marca de «confirmada» em toda a gente é ruído com aspecto de informação, e treina quem lê a saltar a única que importa.
+             *     ⚠️ A omissão vale `por_confirmar` e não `confirmada`, e hoje é o estado de quase tudo: a sonda ainda não corre agendada. Uma omissão que valesse «confirmada» afirmava sobre a série inteira uma coisa que ninguém mediu.
+             * @default por_confirmar
+             * @enum {string}
+             */
+            fiabilidade: "por_confirmar" | "confirmada" | "em_duvida";
+            /**
              * Format: date-time
              * @description Quando o preço foi MEDIDO no banco, durante o varrimento — não quando esta resposta foi calculada (isso é o `calculado_em` da Comparacao).
              *     ⚠️ Presente sempre que `sucesso` é verdadeiro, e é o campo mais importante desta lista para a honestidade do produto: é o único que diz à pessoa que está a ver um preço de ontem à noite e não de agora. A app é obrigada a mostrá-lo. Escondê-lo apresentaria dados varridos como se fossem uma consulta ao vivo ao banco, que é exactamente o que este serviço não faz.

@@ -45,3 +45,12 @@ type Limite struct {
 	Contagem     int32
 	BloqueadoAte pgtype.Timestamptz
 }
+
+type Sondagen struct {
+	ID          int64
+	BancoID     string
+	SondadoEm   pgtype.Timestamptz
+	Degraus     int32
+	Divergentes int32
+	Cegos       int32
+}

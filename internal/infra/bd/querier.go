@@ -30,6 +30,13 @@ type Querier interface {
 	// contagem 1. Uma janela deslizante exigiria guardar cada pedido — e isto é uma
 	// tabela de contadores, não um registo de quem nos visitou.
 	ContarPedido(ctx context.Context, arg ContarPedidoParams) (ContarPedidoRow, error)
+	// Queries das sondagens. Geradas pelo sqlc para internal/infra/bd/.
+	// GravarSondagem regista o que uma corrida da sonda apurou sobre um banco.
+	//
+	// ⚠️ Grava-se SEMPRE, e não só na divergência. Uma sondagem que confirma é o que
+	// distingue «confirmada» de «ninguém olhou», e são estados diferentes para quem
+	// lê a oferta (ARQUITETURA.md §4, «A fiabilidade de um banco deriva-se»).
+	GravarSondagem(ctx context.Context, arg GravarSondagemParams) (int64, error)
 	// Queries do catálogo de taxas. Geradas pelo sqlc para internal/infra/bd/.
 	// InserirTaxa grava uma linha de um banco num varrimento. Os campos de resposta
 	// são opcionais: numa falha entram nulos e `erro` preenchido.
@@ -85,6 +92,13 @@ type Querier interface {
 	// Não traz `varrimento_id`: com um por banco, ele deixou de identificar a
 	// resposta e guardá-lo convidava a voltar a raciocinar por corrida.
 	ObservacoesDeCadaBanco(ctx context.Context) ([]ObservacoesDeCadaBancoRow, error)
+	// UltimaSondagemDeCadaBanco devolve, por banco, a corrida da sonda mais recente.
+	//
+	// ⚠️ Não filtra por «divergiu». A fiabilidade deriva-se de comparar esta data com
+	// a do último varrimento do banco, e uma sondagem que confirmou é tão necessária
+	// a essa conta como uma que divergiu — sem ela, um banco confirmado ficava
+	// indistinguível de um que ninguém sondou.
+	UltimaSondagemDeCadaBanco(ctx context.Context) ([]UltimaSondagemDeCadaBancoRow, error)
 	// UltimoVarrimentoEm é a guarda de idempotência (`--se-antigo`): diz quando foi
 	// a observação mais recente, para não se dispararem varrimentos em cima uns dos
 	// outros. Nulo quando nunca se varreu nada.
