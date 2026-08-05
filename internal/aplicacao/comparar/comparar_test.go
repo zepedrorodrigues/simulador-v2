@@ -926,3 +926,90 @@ func TestUmDesactualizadoForaDoRegistoAindaAssimAparece(t *testing.T) {
 	}
 	t.Error("um banco que só a série conhece, e que a viragem do dia pôs de fora, não veio na lista de todos")
 }
+
+// Um preço que a sonda contradisse não sai calado (KAN-49).
+//
+// A reversão: tirar o `oferta.Anotar(dominio.NotaDaDuvida(nome))` do `ofertaDe`.
+// O campo continua a dizer `em_duvida` e a oferta sai sem uma palavra — que é
+// exactamente o defeito, porque é a nota que a pessoa lê.
+func TestUmaOfertaEmDuvidaSaiComANotaAgarrada(t *testing.T) {
+	cat, err := comparar.NovoCatalogo(comparar.Serie{
+		Observacoes: observacoesDeProva(t),
+		Fiabilidade: map[string]dominio.Fiabilidade{bancoID: dominio.FiabilidadeEmDuvida},
+	})
+	if err != nil {
+		t.Fatalf("NovoCatalogo: %v", err)
+	}
+
+	ofertas, err := cat.Comparar(pedido(t, "320000", 30, dominio.TaxaVariavel),
+		[]string{bancoID}, requisitosDeTres(), hoje())
+	if err != nil {
+		t.Fatalf("Comparar: %v", err)
+	}
+	if len(ofertas) != 1 || !ofertas[0].Sucesso() {
+		t.Fatalf("esperava uma oferta com sucesso, veio %d", len(ofertas))
+	}
+
+	o := ofertas[0]
+	if o.Fiabilidade != dominio.FiabilidadeEmDuvida {
+		t.Errorf("a fiabilidade veio %q e o catálogo disse %q", o.Fiabilidade, dominio.FiabilidadeEmDuvida)
+	}
+
+	// ⚠️ A asserção que interessa: a NOTA. O campo é para a app ramificar; a
+	// frase é o que a pessoa lê, e uma sem a outra não serve de nada.
+	if !algumaNotaFala(o.Notas(), "verificação") {
+		t.Errorf("a oferta está em dúvida e saiu sem a dizer. Notas: %v", o.Notas())
+	}
+}
+
+// E uma oferta confirmada não leva nota nenhuma — ruído em toda a gente é o
+// mesmo que silêncio (KAN-49).
+func TestUmaOfertaConfirmadaNaoLevaNotaDeFiabilidade(t *testing.T) {
+	for _, estado := range []dominio.Fiabilidade{
+		dominio.FiabilidadeConfirmada, dominio.FiabilidadePorConfirmar,
+	} {
+		cat, err := comparar.NovoCatalogo(comparar.Serie{
+			Observacoes: observacoesDeProva(t),
+			Fiabilidade: map[string]dominio.Fiabilidade{bancoID: estado},
+		})
+		if err != nil {
+			t.Fatalf("NovoCatalogo: %v", err)
+		}
+		ofertas, err := cat.Comparar(pedido(t, "320000", 30, dominio.TaxaVariavel),
+			[]string{bancoID}, requisitosDeTres(), hoje())
+		if err != nil {
+			t.Fatalf("Comparar: %v", err)
+		}
+		if algumaNotaFala(ofertas[0].Notas(), "verificação") {
+			t.Errorf("um banco %q levou a nota da dúvida: %v", estado, ofertas[0].Notas())
+		}
+	}
+}
+
+// ⚠️ E uma série sem sondagens nenhumas — o estado de hoje — sai `por_confirmar`
+// e não `confirmada`. É o valor zero a ter de estar do lado certo: uma omissão
+// que valesse «confirmada» afirmava sobre a série inteira o que ninguém mediu.
+func TestSemSondagensAFiabilidadeEPorConfirmarENaoConfirmada(t *testing.T) {
+	cat, err := comparar.NovoCatalogo(comparar.Serie{Observacoes: observacoesDeProva(t)})
+	if err != nil {
+		t.Fatalf("NovoCatalogo: %v", err)
+	}
+	ofertas, err := cat.Comparar(pedido(t, "320000", 30, dominio.TaxaVariavel),
+		[]string{bancoID}, requisitosDeTres(), hoje())
+	if err != nil {
+		t.Fatalf("Comparar: %v", err)
+	}
+	if f := ofertas[0].Fiabilidade; f != dominio.FiabilidadePorConfirmar {
+		t.Errorf("sem sondagem nenhuma a fiabilidade veio %q, e a única verdade é %q",
+			f, dominio.FiabilidadePorConfirmar)
+	}
+}
+
+func algumaNotaFala(notas []string, palavra string) bool {
+	for _, n := range notas {
+		if strings.Contains(n, palavra) {
+			return true
+		}
+	}
+	return false
+}

@@ -4,8 +4,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgtype"
+
 	"github.com/zepedrorodrigues/simulador-v2/internal/aplicacao/varrimento"
 	"github.com/zepedrorodrigues/simulador-v2/internal/dominio"
+	"github.com/zepedrorodrigues/simulador-v2/internal/infra/bd"
 )
 
 // A guarda da §7.3, sem base de dados: a composição só junta bancos do mesmo
@@ -64,5 +67,57 @@ func TestUmaSerieTodaDeOntemServeSeInteira(t *testing.T) {
 func observacaoEm(bancoID string, quando time.Time) varrimento.Observacao {
 	return varrimento.Observacao{
 		Oferta: dominio.Oferta{BancoID: bancoID, CapturadoEm: quando},
+	}
+}
+
+// A fiabilidade deriva-se de duas datas, e a ordem entre elas é tudo (KAN-49).
+func TestAFiabilidadeDerivaDaOrdemEntreSondagemEVarrimento(t *testing.T) {
+	varrido := time.Date(2026, 8, 5, 3, 0, 0, 0, lisboa())
+	antes := varrido.Add(-time.Hour)
+	depois := varrido.Add(time.Hour)
+
+	obs := []varrimento.Observacao{
+		observacaoEm("cgd", varrido),
+		observacaoEm("novobanco", varrido),
+		observacaoEm("montepio", varrido),
+		observacaoEm("santander", varrido),
+	}
+
+	casos := []struct {
+		nome     string
+		linha    bd.UltimaSondagemDeCadaBancoRow
+		esperado dominio.Fiabilidade
+	}{
+		{"divergiu depois do varrimento", sondagem("cgd", depois, 4, 1, 0), dominio.FiabilidadeEmDuvida},
+		{"confirmou depois do varrimento", sondagem("novobanco", depois, 4, 0, 0), dominio.FiabilidadeConfirmada},
+		// ⚠️ A sondagem julgou a grelha ANTERIOR. Sem esta comparação, o
+		// revarrimento que a própria sonda dispara deixava o banco em dúvida para
+		// sempre, com a dúvida já resolvida por baixo.
+		{"divergiu ANTES do varrimento", sondagem("montepio", antes, 4, 1, 0), dominio.FiabilidadePorConfirmar},
+		// ⚠️ Cego não é dúvida nem confirmação: ninguém contradisse a grelha e
+		// ninguém a confirmou.
+		{"sonda cega", sondagem("santander", depois, 4, 0, 4), dominio.FiabilidadePorConfirmar},
+	}
+
+	linhas := make([]bd.UltimaSondagemDeCadaBancoRow, 0, len(casos))
+	for _, c := range casos {
+		linhas = append(linhas, c.linha)
+	}
+	fiabilidade := fiabilidadePorBanco(obs, linhas)
+
+	for _, c := range casos {
+		if lido := fiabilidade[c.linha.BancoID].Ou(); lido != c.esperado {
+			t.Errorf("%s: o %s veio %q, esperava %q", c.nome, c.linha.BancoID, lido, c.esperado)
+		}
+	}
+}
+
+func sondagem(bancoID string, quando time.Time, degraus, divergentes, cegos int32) bd.UltimaSondagemDeCadaBancoRow {
+	return bd.UltimaSondagemDeCadaBancoRow{
+		BancoID:     bancoID,
+		SondadoEm:   pgtype.Timestamptz{Time: quando, Valid: true},
+		Degraus:     degraus,
+		Divergentes: divergentes,
+		Cegos:       cegos,
 	}
 }

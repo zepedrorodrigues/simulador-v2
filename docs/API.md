@@ -40,6 +40,18 @@ Tudo o que a app precisa para montar o formulário adaptativo. **É a única fon
 
 ⚠️ **`pressupostos` é obrigatório sempre que `taeg` ou `mtic` vêm preenchidos**, e é lista à parte de `notas` de propósito. Uma `nota` é um aviso sobre o que aconteceu a **este** pedido; um pressuposto é uma **hipótese de cálculo** que a MCD obriga a declarar junto do número que dela depende (Anexo I, Parte II; Anexo II). Empacotadas juntas, a app fica sem forma de as apresentar como o que são. Uma TAEG com `pressupostos` vazio é defeito nosso, não um caso legítimo.
 
+⚠️ **`fiabilidade` diz o que se sabe sobre o preço, e é por OFERTA** (KAN-49). Três valores, e só um deles se mostra:
+
+| valor | quer dizer | a app mostra |
+| --- | --- | --- |
+| `por_confirmar` | ninguém sondou este banco desde que ele foi varrido | nada |
+| `confirmada` | a última sonda confirmou a grelha deste banco | nada |
+| `em_duvida` | a última sonda **discordou** da grelha, e ainda não se revarreu | ⚠️ a nota, junto do número |
+
+⚠️ **O `em_duvida` obriga a mostrar, os outros dois obrigam a calar.** Uma marca de «confirmada» em toda a gente é ruído com aspecto de informação, e treina quem lê a saltá-la — exactamente o que faria falta no dia em que aparecesse a que importa. A nota vem em `notas`, agarrada ao número, e não numa gaveta.
+
+⚠️ **O estado por omissão é `por_confirmar` e não `confirmada`**, e hoje é o estado de quase tudo: a sonda existe há dias e ainda não corre agendada. Uma omissão que valesse «confirmada» afirmaria sobre toda a série uma coisa que ninguém mediu.
+
 ⚠️ **Não há `pedido_efectivo`.** Existia para mostrar o valor realmente simulado quando a quantização alterava o montante para aproveitar a cache. A quantização morreu com a cache: um pedido é avaliado no seu valor exacto, porque o LTV é dimensão da grelha e o pedido cai no seu intervalo por construção. O `aplicado` continua a declarar os ajustes do **banco** — período fixo fora da lista, prazo encolhido pela idade —, que são outra coisa.
 
 ### Os códigos de erro, e a distinção que cada um serve

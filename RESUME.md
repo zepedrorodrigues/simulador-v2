@@ -4,7 +4,7 @@ Estado actual e próximos passos. ⚠️ **Sem changelog** — o relato de sess�
 
 **Actualizado:** 2026-08-05
 
-⚠️ **A sonda corre de ponta a ponta** (`simulador sondar`, `KAN-48`, merge `d7fac99`): lê a escala guardada, mede ~4 pontos por banco e, na divergência, revarre **aquele** banco. Falta a metade que se declara — ver `KAN-49` no passo 1.
+⚠️ **A sonda corre de ponta a ponta e já se declara** (`KAN-48` + `KAN-49`): lê a escala guardada, mede ~4 pontos por banco, na divergência revarre **aquele** banco, grava o veredicto e a oferta sai com `fiabilidade`. A §7 decisão 6 está executada por inteiro.
 
 ⚠️ **E esse revarrimento apagava os outros bancos da resposta** — corrigido a 2026-08-05 (`KAN-50`). A leitura servia o último `varrimento_id` e o revarrimento cunhava um id novo com um banco lá dentro; medido contra Postgres, um varrimento completo dava `map[cgd:6 novobanco:1]` e revarrer só a CGD dava `map[cgd:6]`. **A série passa a compor-se por banco**, e a guarda da viragem do dia da §7.3 passou a existir em código em vez de ser só uma frase.
 
@@ -60,6 +60,7 @@ Correu-se em local o que um servidor vai correr: a imagem do `Dockerfile`, Postg
 - ⚠️ **TAEG e MTIC são DERIVADOS** e vão com `pressupostos` obrigatórios.
 - ⚠️ **Um preço sem data não é servido.** O rodapé da lista dá o `capturado_em` **mais antigo** — é afirmação sobre o conjunto.
 - ⚠️ **Uma oferta ajustada não leva estrela de «melhor», e uma oferta sozinha também não.** A `KAN-45` não mexe nisto: o filtro por `sucesso` vem antes da contagem.
+- ⚠️ **A fiabilidade é declarada por OFERTA** (`KAN-49`, 2026-08-05): três estados, e só o `em_duvida` se mostra. Deriva-se de duas datas — a última sondagem e o último varrimento daquele banco — e por isso **expira sozinha**, sem prazo escolhido. Trouxe a **terceira tabela** (`sondagens`), com a entrada na §4 que o travão das duas exige.
 - ⚠️ **A série serve-se por BANCO** (`KAN-50`, 2026-08-05), revogando «uma resposta mistura-se de um varrimento só»: de cada banco, o varrimento mais recente em que teve sucesso. Um banco do outro lado da viragem do dia sai com `serie_desactualizada` — código novo, e a §4 do `API.md` permite-o sem versão nova.
 - ⚠️ **A resposta traz uma oferta por banco PEDIDO** (`KAN-45`). Lista vazia = todos os **conhecidos** (união do registo com a grelha). Um id que não é banco nenhum é 400 com `campo: "bancos"`.
 - ⚠️ **Cinco códigos de erro por oferta:** `prazo_impossivel`, `produto_indisponivel` (varreu-se e não mede **este** cenário), `banco_indisponivel` (foi-se lá e não respondeu), `resposta_ilegivel`, `sem_serie` (**não se foi lá**). Um código novo não é mudança de versão: o campo é `type: string` sem enum.
@@ -71,12 +72,11 @@ Correu-se em local o que um servidor vai correr: a imagem do `Dockerfile`, Postg
 
 ## Próximo passo
 
-1. **`KAN-49` — a fiabilidade na resposta.** A sonda já detecta e revarre (`KAN-48`); o «serve-se o antigo com menor fiabilidade **declarada**» da §7 decisão 6 continua por fazer, e é a metade que muda o contrato e os ecrãs. ⚠️ **Passa à frente dos comentários** porque é a única das duas que muda o `api/openapi.yaml` — e o contrato arrasta a app, o `sincronizar-api` e os ecrãs.
-2. **Acabar os comentários do código.** Ficou o padrão e a regra (ver «Comentários» no `CLAUDE.md`), não o trabalho: são **4506 linhas de comentário para 15 708 linhas não-teste, 29%**, com **148 blocos de 8+ linhas seguidas** por rever (medido 2026-08-05; os 4083/~140 anteriores são de antes de a sonda entrar). Os maiores estão em `dominio/` (taeg, encargos, oferta, dinheiro), `grelha/` e `bancos/`. ⚠️ A pergunta a fazer a cada um é «isto sobrevive noutro sítio?», e agora a maioria sobrevive — os documentos ficaram compactos e precisos de propósito, primeiro.
-3. **Confirmar a app contra o servidor** — a confirmação da A5 (2026-07-29) é anterior à `KAN-45` **e** à `KAN-50`, as duas que mudaram quem aparece na lista.
-4. A app, A6 e A7. ⚠️ Ver o ramo `wip/estados-a6-descartado` antes de começar a A6.
-5. `KAN-19` — Crédito Agrícola. ⚠️ O `reference_rate_value` é o **spread**, não a Euribor, apesar de o `rateIndexType` dizer `EUR12TM`.
-6. **Só então, alojamento.**
+1. **Acabar os comentários do código.** Ficou o padrão e a regra (ver «Comentários» no `CLAUDE.md`), não o trabalho: são **4506 linhas de comentário para 15 708 linhas não-teste, 29%**, com **148 blocos de 8+ linhas seguidas** por rever (medido 2026-08-05; os 4083/~140 anteriores são de antes de a sonda entrar). Os maiores estão em `dominio/` (taeg, encargos, oferta, dinheiro), `grelha/` e `bancos/`. ⚠️ A pergunta a fazer a cada um é «isto sobrevive noutro sítio?», e agora a maioria sobrevive — os documentos ficaram compactos e precisos de propósito, primeiro.
+2. **Confirmar a app contra o servidor** — a confirmação da A5 (2026-07-29) é anterior à `KAN-45` **e** à `KAN-50`, as duas que mudaram quem aparece na lista.
+3. A app, A6 e A7. ⚠️ Ver o ramo `wip/estados-a6-descartado` antes de começar a A6.
+4. `KAN-19` — Crédito Agrícola. ⚠️ O `reference_rate_value` é o **spread**, não a Euribor, apesar de o `rateIndexType` dizer `EUR12TM`.
+5. **Só então, alojamento.**
 
 ## O que está por resolver
 

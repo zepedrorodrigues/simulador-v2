@@ -359,3 +359,26 @@ func junta(s []string) string {
 	}
 	return saida
 }
+
+// GravarSondagem regista o que uma corrida da sonda apurou sobre um banco
+// (ARQUITETURA.md §4, tabela `sondagens`; KAN-49).
+//
+// ⚠️ Grava-se sempre, e não só quando diverge. Uma sondagem que confirmou é o
+// que distingue «confirmada» de «ninguém olhou» — e sem ela a série inteira
+// ficava em `por_confirmar` para sempre, mesmo com a sonda a correr de hora a
+// hora e a dar tudo certo.
+func (p *Postgres) GravarSondagem(
+	ctx context.Context, bancoID string, sondadoEm time.Time, degraus, divergentes, cegos int,
+) error {
+	_, err := bd.New(p.pool).GravarSondagem(ctx, bd.GravarSondagemParams{
+		BancoID:     bancoID,
+		SondadoEm:   pgtype.Timestamptz{Time: sondadoEm, Valid: true},
+		Degraus:     int32(degraus),
+		Divergentes: int32(divergentes),
+		Cegos:       int32(cegos),
+	})
+	if err != nil {
+		return fmt.Errorf("gravar a sondagem de %s: %w", bancoID, err)
+	}
+	return nil
+}

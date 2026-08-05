@@ -44,7 +44,9 @@ var ErrSemVarrimento = errors.New("não há varrimento nenhum gravado")
 // (KAN-48), a corrida mais recente é, com frequência, **um** banco — e servir só
 // ela apagava os outros quatro da resposta.
 func (p *Postgres) SerieServivel(ctx context.Context) (comparar.Serie, error) {
-	linhas, err := bd.New(p.pool).ObservacoesDeCadaBanco(ctx)
+	q := bd.New(p.pool)
+
+	linhas, err := q.ObservacoesDeCadaBanco(ctx)
 	if err != nil {
 		return comparar.Serie{}, fmt.Errorf("ler as observações de cada banco: %w", err)
 	}
@@ -60,7 +62,54 @@ func (p *Postgres) SerieServivel(ctx context.Context) (comparar.Serie, error) {
 		}
 		obs = append(obs, o)
 	}
-	return comporSerie(obs), nil
+
+	sondagens, err := q.UltimaSondagemDeCadaBanco(ctx)
+	if err != nil {
+		return comparar.Serie{}, fmt.Errorf("ler a última sondagem de cada banco: %w", err)
+	}
+
+	serie := comporSerie(obs)
+	serie.Fiabilidade = fiabilidadePorBanco(obs, sondagens)
+	return serie, nil
+}
+
+// fiabilidadePorBanco deriva o que se sabe sobre a grelha de cada banco, de duas
+// datas: a da última sondagem e a do varrimento que ela devia ter confirmado
+// (ARQUITETURA.md §4, «A fiabilidade de um banco deriva-se»).
+//
+// ⚠️ Uma sondagem ANTERIOR ao varrimento não diz nada sobre a grelha que está a
+// ser servida — ela julgou a anterior. Sem esta comparação, o revarrimento que a
+// própria sonda dispara na divergência deixava o banco marcado em dúvida para
+// sempre, com a dúvida já resolvida por baixo.
+//
+// ⚠️ E uma sonda CEGA não confirma nem levanta dúvida: ninguém contradisse a
+// grelha, e ninguém a confirmou. É `por_confirmar`, pela mesma razão que o
+// `sonda.Relatorio.Confirmada()` exige zero cegos — silêncio não é concordância.
+func fiabilidadePorBanco(
+	obs []varrimento.Observacao, sondagens []bd.UltimaSondagemDeCadaBancoRow,
+) map[string]dominio.Fiabilidade {
+	varridoEm := map[string]time.Time{}
+	for _, o := range obs {
+		if q := o.Oferta.CapturadoEm; q.After(varridoEm[o.Oferta.BancoID]) {
+			varridoEm[o.Oferta.BancoID] = q
+		}
+	}
+
+	fiabilidade := make(map[string]dominio.Fiabilidade, len(sondagens))
+	for _, s := range sondagens {
+		if !s.SondadoEm.Time.After(varridoEm[s.BancoID]) {
+			continue
+		}
+		if s.Divergentes > 0 {
+			fiabilidade[s.BancoID] = dominio.FiabilidadeEmDuvida
+			continue
+		}
+		if s.Cegos > 0 {
+			continue
+		}
+		fiabilidade[s.BancoID] = dominio.FiabilidadeConfirmada
+	}
+	return fiabilidade
 }
 
 // comporSerie aplica a guarda da §7.3: só entram bancos cujo varrimento caia na

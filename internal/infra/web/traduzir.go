@@ -55,6 +55,14 @@ func ofertaDe(o dominio.Oferta) api.Oferta {
 
 	capturado := o.CapturadoEm.UTC()
 	saida.CapturadoEm = &capturado
+
+	// ⚠️ Vai SEMPRE, mesmo a valer `por_confirmar`, e não só quando há dúvida.
+	// Um campo que só aparece quando as notícias são más ensina a app a tratar a
+	// ausência como boa notícia — e hoje a ausência quer dizer «ninguém olhou»,
+	// que é o estado de quase tudo. O silêncio faz-se no ecrã (§1 do API.md),
+	// não no contrato.
+	fiabilidade := api.OfertaFiabilidade(o.Fiabilidade.Ou())
+	saida.Fiabilidade = &fiabilidade
 	saida.Tan = taxaDe(o.TAN)
 	saida.Taeg = taxaDe(o.TAEG)
 	saida.Spread = taxaDe(o.Spread)

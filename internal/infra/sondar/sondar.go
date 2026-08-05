@@ -34,9 +34,10 @@ type Opcoes struct {
 
 	// SemRevarrer sonda e relata, sem disparar varrimento nenhum.
 	//
-	// ⚠️ Existe para se poder ver o estado sem o mudar — a corrida que responde
-	// «mudou alguma coisa?» sem gastar os ~96 pedidos de a corrigir. Não é o
-	// modo normal: a §7 decide que na divergência se revarre.
+	// ⚠️ Poupa os ~96 pedidos do revarrimento, e **não** a gravação do veredicto:
+	// desde a KAN-49 uma divergência aparece nas ofertas como `em_duvida` mesmo
+	// com este sinalizador. Ver o tipo `Gravar`. Não é o modo normal — a §7
+	// decide que na divergência se revarre.
 	SemRevarrer bool
 }
 
@@ -74,7 +75,13 @@ type BancoSondado struct {
 	// passa por satisfeito.
 	Cegos int
 
-	Confirmada   bool
+	Confirmada bool
+
+	// MotivoDoRegisto é a razão de o veredicto não ter chegado à base. Vazio é o
+	// normal. ⚠️ Sondou-se e não se conseguiu declarar: a oferta vai sair como se
+	// ninguém tivesse olhado, e quem corre o subcomando tem de o saber.
+	MotivoDoRegisto string
+
 	Cobertura    string
 	Divergencias []Divergencia
 
@@ -130,7 +137,8 @@ func Correr(ctx context.Context, url string, o Opcoes) (Relatorio, error) {
 	// servido, portanto não tem grelha em uso que confirmar — e gastar-lhe
 	// pedidos era pagar por uma resposta que ninguém ia usar. Quem o traz de
 	// volta é o `varrer`, não a sonda.
-	serie, err := catalogo.NovoPostgres(pool).SerieServivel(ctx)
+	cat := catalogo.NovoPostgres(pool)
+	serie, err := cat.SerieServivel(ctx)
 	if err != nil {
 		return Relatorio{}, fmt.Errorf("ler a série servível: %w", err)
 	}
@@ -140,19 +148,31 @@ func Correr(ctx context.Context, url string, o Opcoes) (Relatorio, error) {
 	if err != nil {
 		return Relatorio{}, err
 	}
-	return correr(ctx, escolhidos, escalas, hoje, revarrer), nil
+	return correr(ctx, escolhidos, escalas, hoje, revarrer, cat.GravarSondagem), nil
 }
+
+// Gravar regista o veredicto de uma sondagem (KAN-49). Nulo não grava, e é o que
+// os testes da orquestração usam.
+//
+// ⚠️ Corre TAMBÉM com `--sem-revarrer`, e isso é decisão. Esse sinalizador existe
+// para poupar os ~96 pedidos do revarrimento, não para medir às escondidas — uma
+// divergência que se mediu e não se contou a ninguém é exactamente o defeito que
+// a KAN-49 corrige, e fazê-la depender de um sinalizador de linha de comandos era
+// reintroduzi-lo com um interruptor.
+type Gravar func(ctx context.Context, bancoID string, sondadoEm time.Time,
+	degraus, divergentes, cegos int) error
 
 // correr é a orquestração, sem base de dados nem registo de bancos à vista —
 // recebe os bancos já construídos. É esta que os testes exercitam, com bancos
 // falsos e um Revarrer que conta em vez de varrer.
 func correr(
 	ctx context.Context, escolhidos []bancos.Banco,
-	escalas map[string]dominio.EscalaDeLTV, hoje dominio.Data, revarrer Revarrer,
+	escalas map[string]dominio.EscalaDeLTV, hoje dominio.Data,
+	revarrer Revarrer, gravar Gravar,
 ) Relatorio {
 	rel := Relatorio{Bancos: make([]BancoSondado, 0, len(escolhidos))}
 	for _, b := range escolhidos {
-		rel.Bancos = append(rel.Bancos, sondarBanco(ctx, b, escalas[b.ID()], hoje, revarrer))
+		rel.Bancos = append(rel.Bancos, sondarBanco(ctx, b, escalas[b.ID()], hoje, revarrer, gravar))
 	}
 	return rel
 }
@@ -163,7 +183,7 @@ func correr(
 // a §5 manda e o varrimento já faz.
 func sondarBanco(
 	ctx context.Context, b bancos.Banco, escala dominio.EscalaDeLTV,
-	hoje dominio.Data, revarrer Revarrer,
+	hoje dominio.Data, revarrer Revarrer, gravar Gravar,
 ) BancoSondado {
 	saida := BancoSondado{ID: b.ID()}
 
@@ -191,6 +211,21 @@ func sondarBanco(
 	saida.Confirmada = rel.Confirmada()
 	saida.Cobertura = rel.Cobertura()
 	saida.Divergencias = divergenciasDe(rel)
+
+	// ⚠️ Grava-se ANTES de revarrer, e a ordem é a decisão. O revarrimento pode
+	// demorar minutos e falhar a meio; se a gravação viesse depois, uma sonda
+	// interrompida perdia o veredicto que acabara de medir — e o preço continuava
+	// a ser servido como se ninguém tivesse olhado para ele. Gravar primeiro
+	// deixa a dúvida à vista, e o revarrimento bem sucedido resolve-a a seguir
+	// por ser mais recente do que ela.
+	if gravar != nil {
+		if err := gravar(ctx, b.ID(), time.Now(), len(rel.Leituras), rel.Divergentes, rel.Cegos); err != nil {
+			// ⚠️ Não derruba a corrida: a sondagem foi feita e o relatório vale.
+			// O que se perde é a declaração na oferta, e isso diz-se em vez de
+			// se perder em silêncio.
+			saida.MotivoDoRegisto = err.Error()
+		}
+	}
 
 	// ⚠️ Revarre-se por DIVERGÊNCIA e não por «não confirmada». Uma sonda cega
 	// também não confirma, e disparar 96 pedidos porque o banco não respondeu a

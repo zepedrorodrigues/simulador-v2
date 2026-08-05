@@ -41,6 +41,10 @@ type Catalogo struct {
 	// Não estão em `porBanco` — não há preço deles com que responder — e existem
 	// aqui só para a recusa poder dizer a verdade em vez de `sem_serie`.
 	desactualizados map[string]bool
+
+	// fiabilidade é o veredicto da sonda por banco. Nulo, ou banco ausente, vale
+	// o valor zero de dominio.Fiabilidade — «por confirmar».
+	fiabilidade map[string]dominio.Fiabilidade
 }
 
 // medidoDeUmBanco é o que a grelha sabe de um banco.
@@ -90,6 +94,11 @@ type medidoDeUmBanco struct {
 type Serie struct {
 	Observacoes     []varrimento.Observacao
 	Desactualizados []string
+
+	// Fiabilidade é o que a sonda apurou sobre cada banco. Um banco ausente do
+	// mapa vale `FiabilidadePorConfirmar` — o valor zero —, e é o que faz uma
+	// série lida de uma base sem sondagens nenhumas dizer a verdade sozinha.
+	Fiabilidade map[string]dominio.Fiabilidade
 }
 
 // NovoCatalogo organiza uma série varrida para se poder responder com ela.
@@ -105,7 +114,11 @@ func NovoCatalogo(s Serie) (*Catalogo, error) {
 	}
 
 	escalas := varrimento.EscalasPorBanco(obs)
-	c := &Catalogo{porBanco: map[string]*medidoDeUmBanco{}, desactualizados: map[string]bool{}}
+	c := &Catalogo{
+		porBanco:        map[string]*medidoDeUmBanco{},
+		desactualizados: map[string]bool{},
+		fiabilidade:     s.Fiabilidade,
+	}
 	for _, id := range s.Desactualizados {
 		c.desactualizados[id] = true
 	}
@@ -474,6 +487,15 @@ func (c *Catalogo) ofertaDe(
 
 	oferta.BancoID, oferta.BancoNome = id, nome
 	oferta.CapturadoEm = observada.Oferta.CapturadoEm
+
+	// ⚠️ A fiabilidade e a nota dela entram JUNTAS, e é por isso que são duas
+	// linhas e não uma chamada a cada sítio: um `em_duvida` sem frase seria
+	// exactamente o defeito que a KAN-49 corrige, uma camada acima.
+	oferta.Fiabilidade = c.fiabilidade[id].Ou()
+	if oferta.Fiabilidade == dominio.FiabilidadeEmDuvida {
+		oferta.Anotar(dominio.NotaDaDuvida(nome))
+	}
+
 	for _, a := range ajustes {
 		oferta.Acrescentar(a)
 	}
