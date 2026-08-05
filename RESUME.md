@@ -20,6 +20,24 @@ Estado actual e próximos passos. ⚠️ **Sem changelog** — o relato de sess�
 
 **A app pede, mostra, e foi confirmada.** `simulador-v2-app`: Expo SDK 57, os três passos do pedido (A3) e a lista de ofertas com detalhe (A5).
 
+## O ensaio da KAN-49/KAN-50 (2026-08-05)
+
+Correu-se o ciclo contra Postgres em contentor, com o binário a sério e a série semeada à mão — **sem varrimento**, portanto sem carga em bancos. O que se foi confrontar é o que **sai no JSON**, que é o que nenhum teste do portão vê.
+
+| | |
+|---|---|
+| `simulador migrar` cria a `sondagens` | sim, na base a sério |
+| oferta de banco com sonda divergente | `fiabilidade: "em_duvida"` **e a nota no `notas`** |
+| oferta de banco com sonda confirmada | `fiabilidade: "confirmada"`, sem nota |
+| revarrer só a CGD | o Novo Banco **fica** (era o defeito da `KAN-50`) |
+| a dúvida depois do revarrimento | volta a `por_confirmar` — **expira sozinha**, como desenhado |
+| banco varrido antes da viragem do dia | `serie_desactualizada`, com a frase em pt-PT |
+| `simulador sondar --bancos cgd --sem-revarrer` | **1 pedido** à CGD; detectou, gravou na `sondagens`, e a oferta passou a `em_duvida` |
+
+⚠️ **O que este ensaio NÃO confirmou: a app.** Confrontou-se o servidor, não os ecrãs — a app continua confirmada só a 2026-07-29, e é o passo 2.
+
+⚠️ E a divergência que a sonda encontrou era **da grelha semeada**, não do banco: a CGD respondeu 1,350 onde a série inventada dizia 2,250. Serviu para exercitar o caminho, e não é medição sobre a CGD.
+
 ## O ensaio da forma de produção (2026-08-01)
 
 Correu-se em local o que um servidor vai correr: a imagem do `Dockerfile`, PostgreSQL **fechado**, migrações como passo próprio, Caddy com TLS à frente.
