@@ -2,6 +2,7 @@ package dominio
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/shopspring/decimal"
 )
@@ -84,6 +85,36 @@ func (d Dinheiro) Positivo() bool { return d.v.IsPositive() }
 func (d Dinheiro) Decimal() decimal.Decimal { return d.v }
 
 func (d Dinheiro) String() string { return d.v.String() }
+
+// ParaPessoa escreve o valor como se escreve em Portugal: duas casas, vírgula
+// decimal e espaço a separar os milhares — «27 911,11».
+//
+// ⚠️ Método à parte, e o String() NÃO muda (KAN-51). Aquele é a forma da
+// biblioteca decimal e há testes e comparações que dependem dela; pôr-lhe
+// espaços de milhares partia-os em silêncio. Este é para texto que uma pessoa
+// vai ler, e os dois têm de poder divergir.
+//
+// ⚠️ O separador é o espaço normal e não o estreito não-separável (U+202F), que
+// se lê melhor e atravessa mal terminais, ficheiros de teste e o copiar-colar de
+// quem quer conferir o número.
+func (d Dinheiro) ParaPessoa() string {
+	texto := d.v.StringFixed(2)
+
+	sinal := ""
+	if strings.HasPrefix(texto, "-") {
+		sinal, texto = "-", texto[1:]
+	}
+	inteiro, decimais, _ := strings.Cut(texto, ".")
+
+	var b strings.Builder
+	for i, r := range inteiro {
+		if i > 0 && (len(inteiro)-i)%3 == 0 {
+			b.WriteByte(' ')
+		}
+		b.WriteRune(r)
+	}
+	return sinal + b.String() + "," + decimais
+}
 
 // Taxa é uma taxa anual em pontos percentuais: 3.25 é 3,25 %.
 //

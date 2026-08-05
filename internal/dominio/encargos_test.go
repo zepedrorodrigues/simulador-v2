@@ -3,6 +3,7 @@ package dominio_test
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/shopspring/decimal"
@@ -215,7 +216,10 @@ func TestOsPressupostosNomeiamOsNumerosDeQueDependem(t *testing.T) {
 		}
 		junto += p + "\n"
 	}
-	for _, numero := range []string{"3200", "0,35", "1"} {
+	// ⚠️ Os números aparecem escritos para uma pessoa desde a KAN-51 — «3 200,00»
+	// e não «3200». O que este teste afirma continua a ser o mesmo: que os
+	// pressupostos NOMEIAM os números de que dependem, em vez de os esconderem.
+	for _, numero := range []string{"3 200,00", "0,35", "1"} {
 		if !contem(junto, numero) {
 			t.Errorf("os pressupostos não nomeiam %q:\n%s", numero, junto)
 		}
@@ -232,4 +236,50 @@ func contem(s, sub string) bool {
 		}
 		return false
 	})()
+}
+
+// O pressuposto dos encargos lê-se como uma frase, e não como um despejo de
+// números (KAN-51).
+//
+// ⚠️ Visto no ecrã do detalhe a 2026-08-06, contra dados varridos: saía
+// «27911.11 € de encargos iniciais (8,72222222222223 % do montante)». O sítio é
+// o que agrava — é o `pressupostos`, que a MCD manda declarar A QUEM LÊ.
+//
+// A reversão é repor o `String()` e o `percentagem()` sem arredondar: o teste
+// falha a mostrar a FRASE inteira, e não «esperava X veio Y» sobre um número
+// solto, porque o que está errado é o que a pessoa lê.
+func TestOPressupostoDosEncargosLeSeComoUmaFrase(t *testing.T) {
+	antecipado, err := decimal.NewFromString("0.0872222222222223")
+	if err != nil {
+		t.Fatalf("montar o antecipado: %v", err)
+	}
+	encargos := dominio.Encargos{
+		Antecipado: dominio.RacioDeDecimal(antecipado),
+		Recorrente: dominio.TaxaDeDecimal(decimal.Zero),
+	}
+	capital, err := dominio.DinheiroDeTexto("320000")
+	if err != nil {
+		t.Fatalf("DinheiroDeTexto: %v", err)
+	}
+
+	var frase string
+	for _, p := range encargos.Pressupostos(capital) {
+		if strings.Contains(p, "encargos iniciais") {
+			frase = p
+		}
+	}
+	if frase == "" {
+		t.Fatal("não há pressuposto nenhum sobre os encargos iniciais")
+	}
+
+	for _, feio := range []string{"27911.11", "8,72222222222223"} {
+		if strings.Contains(frase, feio) {
+			t.Errorf("o pressuposto tem %q lá dentro, e é para uma pessoa ler:\n  %s", feio, frase)
+		}
+	}
+	for _, bonito := range []string{"27 911,11 €", "8,72 %"} {
+		if !strings.Contains(frase, bonito) {
+			t.Errorf("o pressuposto devia trazer %q e não traz:\n  %s", bonito, frase)
+		}
+	}
 }

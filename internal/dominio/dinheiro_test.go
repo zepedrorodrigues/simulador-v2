@@ -84,3 +84,44 @@ func TestTaxaSomaESubtrai(t *testing.T) {
 		t.Errorf("3,251 - 0,9 = %s, queria 2,351", got)
 	}
 }
+
+// Um montante escrito para uma pessoa lê-se como em Portugal (KAN-51).
+//
+// ⚠️ A reversão é trocar o `ParaPessoa` pelo `String`: os casos falham a mostrar
+// `27911.11` onde se espera `27 911,11`, que é a diferença entre um número e o
+// despejo de uma biblioteca decimal.
+func TestUmMontanteEscreveSeComoEmPortugal(t *testing.T) {
+	casos := []struct{ valor, esperado string }{
+		{"27911.11", "27 911,11"},
+		{"1464.77", "1 464,77"},
+		{"555230.1", "555 230,10"},
+		{"400000", "400 000,00"},
+		{"999", "999,00"},
+		{"1000", "1 000,00"},
+		{"1234567.89", "1 234 567,89"},
+		{"0", "0,00"},
+		{"-1500.5", "-1 500,50"},
+	}
+	for _, c := range casos {
+		d, err := dominio.DinheiroDeTexto(c.valor)
+		if err != nil {
+			t.Fatalf("DinheiroDeTexto(%q): %v", c.valor, err)
+		}
+		if lido := d.ParaPessoa(); lido != c.esperado {
+			t.Errorf("%s escreve-se %q e saiu %q", c.valor, c.esperado, lido)
+		}
+	}
+}
+
+// ⚠️ E o String() NÃO muda: há testes e comparações que dependem da forma da
+// biblioteca decimal, e um separador de milhares a aparecer lá partia-os em
+// silêncio. São dois métodos de propósito.
+func TestOStringContinuaAFormaDaBiblioteca(t *testing.T) {
+	d, err := dominio.DinheiroDeTexto("27911.11")
+	if err != nil {
+		t.Fatalf("DinheiroDeTexto: %v", err)
+	}
+	if lido := d.String(); lido != "27911.11" {
+		t.Errorf("o String() passou a devolver %q — quem compara texto com ele deixa de bater", lido)
+	}
+}

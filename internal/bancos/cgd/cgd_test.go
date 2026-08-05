@@ -282,10 +282,10 @@ func TestLTVAcimaDoQueACGDVendeERecusadoAntesDeCalcular(t *testing.T) {
 	// limite de 80 %, as duas percentagens arredondavam para o mesmo número e
 	// a recusa lia-se «é de 80.0 % e a CGD vai até 80 %». Medido na corrida de
 	// fidelidade de 2026-07-26, 25 vezes em 2900.
-	if !strings.Contains(erro.Mensagem, "225000") {
+	if !strings.Contains(erro.Mensagem, "225 000") {
 		t.Errorf("a mensagem devia dizer quanto a CGD financia neste imóvel, veio %q", erro.Mensagem)
 	}
-	if !strings.Contains(erro.Mensagem, "240000") {
+	if !strings.Contains(erro.Mensagem, "240 000") {
 		t.Errorf("a mensagem devia dizer quanto se pediu, veio %q", erro.Mensagem)
 	}
 	if pedidos := caminhos(falso); contem(pedidos, "/calculate") {

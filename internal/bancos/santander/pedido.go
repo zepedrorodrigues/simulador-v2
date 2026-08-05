@@ -215,16 +215,16 @@ func verificarLimites(l limites, p dominio.Pedido, idade int) error {
 
 	if minimo, err := decimalDe(l.Limits.MinPropertyPrice); err == nil && minimo != nil && imovel.LessThan(*minimo) {
 		return indisponivel(fmt.Sprintf(
-			"O Santander não simula imóveis abaixo de %s €.", minimo.StringFixed(2)))
+			"O Santander não simula imóveis abaixo de %s €.", dominio.DinheiroDeDecimal(*minimo).ParaPessoa()))
 	}
 	if maximo, err := decimalDe(l.Limits.MaxPropertyPrice); err == nil && maximo != nil && imovel.GreaterThan(*maximo) {
 		return indisponivel(fmt.Sprintf(
-			"O Santander não simula imóveis acima de %s €.", maximo.StringFixed(2)))
+			"O Santander não simula imóveis acima de %s €.", dominio.DinheiroDeDecimal(*maximo).ParaPessoa()))
 	}
 	if minimo, err := decimalDe(l.Limits.MinAllowedLoanAmount); err == nil && minimo != nil &&
 		p.Montante.Decimal().LessThan(*minimo) {
 		return indisponivel(fmt.Sprintf(
-			"O Santander não financia menos de %s €.", minimo.StringFixed(2)))
+			"O Santander não financia menos de %s €.", dominio.DinheiroDeDecimal(*minimo).ParaPessoa()))
 	}
 	if l.Limits.MinAge > 0 && idade < l.Limits.MinAge {
 		return indisponivel(fmt.Sprintf("O Santander exige pelo menos %d anos de idade.", l.Limits.MinAge))
