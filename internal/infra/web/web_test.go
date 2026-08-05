@@ -14,6 +14,7 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 
 	"github.com/zepedrorodrigues/simulador-v2/api"
+	"github.com/zepedrorodrigues/simulador-v2/internal/aplicacao/comparar"
 	"github.com/zepedrorodrigues/simulador-v2/internal/aplicacao/varrimento"
 	"github.com/zepedrorodrigues/simulador-v2/internal/bancos"
 	"github.com/zepedrorodrigues/simulador-v2/internal/dominio"
@@ -29,7 +30,7 @@ import (
 func TestUmPedidoUmaRespostaComTodosOsBancos(t *testing.T) {
 	s := servidor(t, observacoesDeQuatroBancos(t))
 
-	resposta := comparar(t, s, corpoDePedido(nil))
+	resposta := pedirComparacao(t, s, corpoDePedido(nil))
 
 	if resposta.Code != http.StatusOK {
 		t.Fatalf("estado %d: %s", resposta.Code, resposta.Body.String())
@@ -82,7 +83,7 @@ func TestUmaOfertaSemDataDoVarrimentoNaoEServida(t *testing.T) {
 		}
 	}
 
-	resposta := comparar(t, servidor(t, obs), corpoDePedido([]string{"cgd"}))
+	resposta := pedirComparacao(t, servidor(t, obs), corpoDePedido([]string{"cgd"}))
 	var c api.Comparacao
 	lerJSON(t, resposta, &c)
 
@@ -111,7 +112,7 @@ func TestSemVarrimentoNaoSeCulpaOsBancos(t *testing.T) {
 		t.Fatalf("Novo: %v", err)
 	}
 
-	resposta := comparar(t, s, corpoDePedido(nil))
+	resposta := pedirComparacao(t, s, corpoDePedido(nil))
 
 	if resposta.Code != http.StatusServiceUnavailable {
 		t.Errorf("estado %d, esperava 503", resposta.Code)
@@ -158,7 +159,7 @@ func TestUmBancoPedidoSemSerieVemNaRespostaComoRecusa(t *testing.T) {
 	}
 	s := servidor(t, obs)
 
-	resposta := comparar(t, s, corpoDePedido(todos))
+	resposta := pedirComparacao(t, s, corpoDePedido(todos))
 	if resposta.Code != http.StatusOK {
 		t.Fatalf("estado %d, esperava 200: %s", resposta.Code, resposta.Body.String())
 	}
@@ -198,7 +199,7 @@ func TestUmBancoPedidoSemSerieVemNaRespostaComoRecusa(t *testing.T) {
 func TestUmIdQueNaoEBancoNenhumEUm400(t *testing.T) {
 	s := servidor(t, observacoesDeQuatroBancos(t))
 
-	resposta := comparar(t, s, corpoDePedido([]string{"banco-que-nunca-existiu"}))
+	resposta := pedirComparacao(t, s, corpoDePedido([]string{"banco-que-nunca-existiu"}))
 	if resposta.Code != http.StatusBadRequest {
 		t.Fatalf("estado %d, esperava 400: %s", resposta.Code, resposta.Body.String())
 	}
@@ -219,7 +220,7 @@ func TestUmPedidoInvalidoNomeiaOCampo(t *testing.T) {
 	corpo := corpoDePedido(nil)
 	corpo.Pedido.Montante = 900_000 // acima do valor do imóvel
 
-	resposta := comparar(t, s, corpo)
+	resposta := pedirComparacao(t, s, corpo)
 	if resposta.Code != http.StatusBadRequest {
 		t.Fatalf("estado %d, esperava 400", resposta.Code)
 	}
@@ -239,7 +240,7 @@ func TestUmProdutoDeOutroBancoNaoPassa(t *testing.T) {
 	corpo := corpoDePedido(nil)
 	corpo.Produtos = &map[string][]string{"cgd": {"novobanco:protecao"}}
 
-	resposta := comparar(t, s, corpo)
+	resposta := pedirComparacao(t, s, corpo)
 	if resposta.Code != http.StatusBadRequest {
 		t.Fatalf("estado %d, esperava 400", resposta.Code)
 	}
@@ -298,16 +299,21 @@ func TestTodasAsRespostasLevamRequestID(t *testing.T) {
 
 var relogio = func() time.Time { return time.Date(2026, 7, 28, 12, 0, 0, 0, time.UTC) }
 
-type fonteEmMemoria struct{ obs []varrimento.Observacao }
+type fonteEmMemoria struct {
+	obs []varrimento.Observacao
+	// desactualizados são os bancos que a composição pôs de fora pela viragem do
+	// dia. Vazio na maioria dos testes — quem o usa está a afirmar sobre isso.
+	desactualizados []string
+}
 
-func (f fonteEmMemoria) UltimoVarrimento(context.Context) ([]varrimento.Observacao, error) {
-	return f.obs, nil
+func (f fonteEmMemoria) SerieServivel(context.Context) (comparar.Serie, error) {
+	return comparar.Serie{Observacoes: f.obs, Desactualizados: f.desactualizados}, nil
 }
 
 type fonteVazia struct{}
 
-func (fonteVazia) UltimoVarrimento(context.Context) ([]varrimento.Observacao, error) {
-	return nil, dominio.ErrSemTitulares // qualquer erro serve: o que se afirma é o 503
+func (fonteVazia) SerieServivel(context.Context) (comparar.Serie, error) {
+	return comparar.Serie{}, dominio.ErrSemTitulares // qualquer erro serve: o que se afirma é o 503
 }
 
 func servidor(t *testing.T, obs []varrimento.Observacao) *web.Servidor {
@@ -319,7 +325,7 @@ func servidor(t *testing.T, obs []varrimento.Observacao) *web.Servidor {
 	return s
 }
 
-func comparar(t *testing.T, s *web.Servidor, corpo api.ComparacaoPedido) *httptest.ResponseRecorder {
+func pedirComparacao(t *testing.T, s *web.Servidor, corpo api.ComparacaoPedido) *httptest.ResponseRecorder {
 	t.Helper()
 	bruto, err := json.Marshal(corpo)
 	if err != nil {

@@ -113,3 +113,32 @@ SELECT
 FROM catalogo_taxas
 WHERE varrimento_id = $1 AND sucesso
 ORDER BY id;
+
+-- ObservacoesDeCadaBanco devolve, para CADA banco, as linhas do varrimento mais
+-- recente em que ele teve sucesso — e não as de uma corrida só (ARQUITETURA.md
+-- §4, «Que observações compõem a série servida», KAN-50).
+--
+-- ⚠️ O `DISTINCT ON` corre sobre linhas de sucesso, e é isso que faz um banco
+-- cuja última corrida falhou inteira cair na anterior em vez de desaparecer.
+-- Quão velha é essa anterior não se decide aqui: quem chama aplica a guarda da
+-- viragem do dia (§7.3), que precisa do fuso de Lisboa e não de SQL.
+--
+-- Não traz `varrimento_id`: com um por banco, ele deixou de identificar a
+-- resposta e guardá-lo convidava a voltar a raciocinar por corrida.
+-- name: ObservacoesDeCadaBanco :many
+WITH ultimo AS (
+    SELECT DISTINCT ON (banco_id) banco_id, varrimento_id
+    FROM catalogo_taxas
+    WHERE sucesso
+    ORDER BY banco_id, capturado_em DESC
+)
+SELECT
+    t.capturado_em, t.cenario, t.banco_id, t.banco_nome, t.rate_type,
+    t.valor_imovel, t.montante, t.prazo_anos, t.fixed_period_years, t.euribor_indexante,
+    t.tan, t.taeg, t.spread, t.euribor_valor, t.prestacao_mensal, t.mtic,
+    t.ltv_min, t.ltv_max, t.spread_minimo, t.base_fixa,
+    t.produtos, t.aplicado
+FROM catalogo_taxas t
+JOIN ultimo u ON t.banco_id = u.banco_id AND t.varrimento_id = u.varrimento_id
+WHERE t.sucesso
+ORDER BY t.id;

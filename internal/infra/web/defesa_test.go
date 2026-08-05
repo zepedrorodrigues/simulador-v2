@@ -52,7 +52,7 @@ func TestOsCabecalhosDeDefesaVaoNasRespostasBoas(t *testing.T) {
 func TestOsCabecalhosDeDefesaVaoTambemNasRespostasDeErro(t *testing.T) {
 	t.Run("400 de um handler", func(t *testing.T) {
 		s := servidor(t, observacoesDeQuatroBancos(t))
-		resposta := comparar(t, s, corpoDePedido([]string{"banco-que-nao-existe"}))
+		resposta := pedirComparacao(t, s, corpoDePedido([]string{"banco-que-nao-existe"}))
 
 		if resposta.Code != http.StatusBadRequest {
 			t.Fatalf("estado %d, esperava 400", resposta.Code)

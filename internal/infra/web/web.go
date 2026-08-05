@@ -24,7 +24,6 @@ import (
 
 	"github.com/zepedrorodrigues/simulador-v2/api"
 	"github.com/zepedrorodrigues/simulador-v2/internal/aplicacao/comparar"
-	"github.com/zepedrorodrigues/simulador-v2/internal/aplicacao/varrimento"
 	"github.com/zepedrorodrigues/simulador-v2/internal/bancos"
 	"github.com/zepedrorodrigues/simulador-v2/internal/dominio"
 )
@@ -36,7 +35,7 @@ import (
 // em memória, sem Postgres — e é a mesma razão por que o `varrimento.Catalogo`
 // existe.
 type Fonte interface {
-	UltimoVarrimento(ctx context.Context) ([]varrimento.Observacao, error)
+	SerieServivel(ctx context.Context) (comparar.Serie, error)
 }
 
 // Servidor serve o contrato.
@@ -218,7 +217,7 @@ func (s *Servidor) compararOfertas(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	obs, err := s.fonte.UltimoVarrimento(r.Context())
+	serie, err := s.fonte.SerieServivel(r.Context())
 	if err != nil {
 		// ⚠️ Um serviço sem varrimento nenhum não é «erro do banco»: é este
 		// serviço ainda não ter dados. Dizê-lo assim evita que quem lê conclua
@@ -228,10 +227,10 @@ func (s *Servidor) compararOfertas(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	catalogo, err := comparar.NovoCatalogo(obs)
+	catalogo, err := comparar.NovoCatalogo(serie)
 	if err != nil {
 		erro(w, http.StatusServiceUnavailable, "sem_varrimento",
-			fmt.Sprintf("O último varrimento não serve para responder: %v", err))
+			fmt.Sprintf("A série varrida não serve para responder: %v", err))
 		return
 	}
 

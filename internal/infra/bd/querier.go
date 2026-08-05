@@ -68,6 +68,18 @@ type Querier interface {
 	// autoridade sobre o que existe, e assim não entra no go.mod uma dependência
 	// de UUID para gerar dezasseis bytes.
 	NovoVarrimentoID(ctx context.Context) (pgtype.UUID, error)
+	// ObservacoesDeCadaBanco devolve, para CADA banco, as linhas do varrimento mais
+	// recente em que ele teve sucesso — e não as de uma corrida só (ARQUITETURA.md
+	// §4, «Que observações compõem a série servida», KAN-50).
+	//
+	// ⚠️ O `DISTINCT ON` corre sobre linhas de sucesso, e é isso que faz um banco
+	// cuja última corrida falhou inteira cair na anterior em vez de desaparecer.
+	// Quão velha é essa anterior não se decide aqui: quem chama aplica a guarda da
+	// viragem do dia (§7.3), que precisa do fuso de Lisboa e não de SQL.
+	//
+	// Não traz `varrimento_id`: com um por banco, ele deixou de identificar a
+	// resposta e guardá-lo convidava a voltar a raciocinar por corrida.
+	ObservacoesDeCadaBanco(ctx context.Context) ([]ObservacoesDeCadaBancoRow, error)
 	// ObservacoesDoVarrimento devolve as linhas de uma corrida, com TUDO o que a
 	// resposta local precisa de reconstruir.
 	//
