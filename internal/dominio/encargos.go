@@ -11,38 +11,15 @@ import (
 // O modelo de encargos de um banco: dois parâmetros, AJUSTADOS a observações e
 // não escolhidos por nós.
 //
-// A TAEG excede a TAN pelos encargos, e nós não os observamos. O que se observa
-// é a TAN e a TAEG que o banco devolve — a diferença entre elas é o que os
-// encargos custam, mas não diz de que encargos se trata. E isso importa, porque
-// as duas naturezas comportam-se ao contrário uma da outra quando o prazo muda:
+// O porquê das duas naturezas — antecipada e recorrente —, os rácios medidos que
+// as tornam identificáveis e as hipóteses que ficam declaradas estão na §4 do
+// ARQUITETURA.md («A TAEG deriva-se com os encargos MEDIDOS»).
 //
-//   - o ANTECIPADO (comissões de avaliação e processo, imposto do selo do
-//     crédito) é um valor único, e diluir-se por mais anos aproxima a TAEG da
-//     TAN. Medido neste repositório: 3 000 € num crédito de 320 000 € valem
-//     +0,204 p.p. de TAEG a 10 anos e +0,061 p.p. a 40 — uma razão de 3,3;
-//   - o RECORRENTE (o prémio do seguro de vida, sobretudo) renova-se todos os
-//     meses. Medido: 25 €/mês valem +0,173 p.p. a 10 anos e +0,136 p.p. a 40 —
-//     uma razão de 1,3.
-//
-// ⚠️ São essas duas razões diferentes — 3,3 contra 1,3 — que tornam os dois
-// parâmetros IDENTIFICÁVEIS a partir de observações em prazos diferentes. Com um
-// prazo só, qualquer repartição entre eles reproduz exactamente a mesma TAEG, e
-// escolher uma seria assunção nossa disfarçada de medição. É por isto que a 7.ª
-// família da grelha varre os EXTREMOS do prazo: é a distância entre eles que
-// separa as duas naturezas, e pontos próximos dariam um sistema mal condicionado
-// em que o ruído da medição aparece na repartição.
-//
-// O que continua a ser HIPÓTESE, e está declarado como tal nos Pressupostos:
-//
-//   - que os encargos se descrevem por estas duas naturezas e não por mais;
-//   - que o recorrente incide sobre o capital em DÍVIDA e não sobre o inicial.
-//     É como o prémio de um seguro de vida de capital decrescente se comporta, e
-//     é escolha de forma funcional, não medição. A grelha não a pode distinguir:
-//     separá-la exigiria observar a TAEG a montantes diferentes, e o montante não
-//     é dimensão da grelha (está medido que o spread não depende dele);
-//   - que os encargos não mudam com o prazo. Um banco que cobre uma comissão
-//     diferente a 40 anos aparece como resíduo, e é para isso que o resíduo
-//     existe.
+// ⚠️ Uma das hipóteses não se pode medir aqui, e é por isso que fica escrita: que
+// o recorrente incide sobre o capital em DÍVIDA e não sobre o inicial. Separá-la
+// exigia observar a TAEG a montantes diferentes, e o montante não é dimensão da
+// grelha — está medido que o spread não depende dele. É escolha de forma
+// funcional, não medição.
 
 var (
 	// ErrPoucasObservacoes: com menos de dois prazos os dois parâmetros não são

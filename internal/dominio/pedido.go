@@ -127,16 +127,9 @@ type Pedido struct {
 	// cada banco publicam ("cgd:packs"). Um pedido vai a vários bancos e cada um
 	// lê os seus, pelo prefixo.
 	//
-	// ⚠️ Vazio quer dizer **nenhum**, e não "os que cada banco liga por
-	// omissão". A diferença está medida, e não é de estilo: a 2026-07-26, no
-	// mesmo cenário (250 000 € / 200 000 € / 30 anos, própria), a CGD respondia
-	// com o preçário base — spread 1,350 — e o Novo Banco com as duas
-	// bonificações já ligadas — spread 0,90 contra 1,600 sem elas. Lado a lado
-	// isso dizia que o Novo Banco era 0,45 p.p. mais barato, quando em pé de
-	// igualdade é a CGD a mais barata por 0,25 p.p. em qualquer das duas
-	// colunas. O preço de cada banco estava certo; a comparação estava
-	// invertida — que é precisamente o que a Directiva 2006/114/CE, art. 4.º,
-	// proíbe ao exigir que se comparem características representativas.
+	// ⚠️ Vazio quer dizer **nenhum**, e não «os que cada banco liga por omissão».
+	// A diferença está medida e inverte a ordem dos bancos — os números e a base
+	// legal estão na §4 do ARQUITETURA.md e no ECRAS.md §1.3.
 	//
 	// Quem escolhe é a pessoa: o PorOmissao do Produto diz à app o que
 	// pré-seleccionar, e mais nada.

@@ -57,19 +57,14 @@ type medidoDeUmBanco struct {
 
 	// porCenario são TODAS as observações de cada chave, e não uma.
 	//
-	// ⚠️ A chave `cenario` não identifica uma observação, e isso é desenho e não
-	// defeito: a §4 di-lo — «duas linhas do mesmo varrimento podem partilhar o
-	// cenario e distinguir-se só por essas colunas — a linha com produtos e a
-	// linha sem eles». Medido a 2026-07-28 sobre os quatro bancos registados: a
-	// chave `variavel/0/propria` aparece **4 vezes na CGD, 6 no Banco CTT, 7 no
-	// Montepio e 9 no Novo Banco**, porque é a chave das famílias dos produtos e
-	// da do prazo.
+	// ⚠️ A chave `cenario` não identifica uma observação — é desenho, e a §4
+	// di-lo. Medido a 2026-07-28: `variavel/0/propria` aparece **4 vezes na CGD,
+	// 6 no Banco CTT, 7 no Montepio e 9 no Novo Banco**.
 	//
-	// ⚠️ Um `map[string]Observacao` perderia 3 a 8 observações por banco, em
-	// silêncio e ficando com a última — e o que se perdia era exactamente o que
-	// esta resposta precisa: as linhas com produtos (donde saem os descontos) e
-	// as de prazos diferentes (donde sai a TAEG). Foi o primeiro desenho deste
-	// ficheiro, e a medição matou-o.
+	// ⚠️ Um `map[string]Observacao` perdia 3 a 8 observações por banco, em
+	// silêncio e ficando com a última — e o que se perdia era o que esta resposta
+	// precisa: as linhas com produtos (donde saem os descontos) e as de prazos
+	// diferentes (donde sai a TAEG). Foi o primeiro desenho, e a medição matou-o.
 	porCenario map[string][]varrimento.Observacao
 
 	// descontos é o desvio de spread de cada produto, em pontos percentuais e

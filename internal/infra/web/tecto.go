@@ -10,24 +10,12 @@ import (
 	"time"
 )
 
-// O tecto de pedidos por IP, e o bug de produção que ele existe para não repetir.
+// O tecto de pedidos por IP.
 //
-// ⚠️ **No v1, atrás de um proxy noutro contentor, o `X-Forwarded-For` não era
-// aceite e o IP do cliente passava a ser o do proxy — igual para toda a gente.**
-// O tecto de «10 pedidos por 10 minutos por IP» virava o tecto do SITE INTEIRO,
-// e o primeiro visitante trancava todos os outros.
-//
-// ⚠️ E a correcção **não é confiar em toda a gente**. Aceitar o
-// `X-Forwarded-For` de quem quer que seja deixa qualquer cliente escolher o seu
-// IP num cabeçalho e contornar o tecto de vez — que é pior do que não ter tecto,
-// porque parece que se tem. A correcção é uma lista **explícita** de proxies de
-// confiança, com default **vazio**.
-//
-// ⚠️ A razão do tecto mudou a 2026-07-25 e ele fica. Existia porque cada
-// submissão custava dezenas de segundos de scraping a partir do nosso IP; hoje
-// custa uma consulta a Postgres. Mantém-se porque um endpoint público sem tecto
-// é um convite — mas é uma medida contra abuso banal, e não o travão que protege
-// a relação com os bancos. Esse é o do varrimento (§7.2).
+// O bug do v1 que ele existe para não repetir — o `X-Forwarded-For` recusado a
+// transformar o tecto por IP no tecto do site inteiro —, a razão de a correcção
+// não ser confiar em toda a gente, e a mudança de propósito de 2026-07-25 estão
+// na §7 do ARQUITETURA.md («IP atrás de proxy»).
 
 // Contador é o que sabe quantos pedidos uma chave já fez na janela.
 //

@@ -197,43 +197,13 @@ func Pontos(r dominio.Requisitos, ref Referencia, hoje dominio.Data) ([]varrimen
 		}
 	}
 
-	// 7 — o prazo, para os ENCARGOS serem mensuráveis e não assumidos.
+	// 7 — os extremos do prazo, para a repartição dos encargos ser identificável.
 	//
-	// ⚠️ Esta família não existe para medir o spread. Está medido que o spread
-	// NÃO depende do prazo — é o que o comentário no topo deste ficheiro
-	// registou na CGD a 2026-07-26, e é o que justifica a grelha somar-se em vez
-	// de se multiplicar. Sobre o spread, estes pontos são redundantes de
-	// propósito, e essa redundância é útil: contradiz a medição se ela deixar de
-	// valer.
-	//
-	// O que estes pontos existem para medir é a TAEG, que ao contrário do spread
-	// depende do prazo — e é daí que sai a única coisa que uma comparação local
-	// não consegue derivar do resto da grelha. A TAEG excede a TAN pelos
-	// encargos, e os encargos têm duas naturezas que se comportam ao contrário
-	// uma da outra quando o prazo muda:
-	//
-	//   · um encargo ANTECIPADO (comissões, imposto do selo do crédito) é um
-	//     valor único, e diluir-se por mais anos APROXIMA a TAEG da TAN;
-	//   · um encargo RECORRENTE (o prémio do seguro de vida, sobretudo) renova-se
-	//     todos os meses, e alongar o prazo mantém — ou agrava — a distância.
-	//
-	// ⚠️ Com uma observação só, as duas naturezas são INDISTINGUÍVEIS: qualquer
-	// repartição entre elas reproduz exactamente a mesma TAEG naquele prazo, e a
-	// escolha entre repartições seria assunção nossa disfarçada de medição. É o
-	// modo de falha da §7.4 — um número errado com ar de certo — e num campo que
-	// a MCD trata como o número de comparação por excelência. Com observações em
-	// prazos diferentes, a repartição passa a ser identificável, e o que era
-	// hipótese vira ajuste com resíduo.
-	//
-	// ⚠️ E são os EXTREMOS que o banco serve, não dois prazos quaisquer perto da
-	// referência. A separação das duas naturezas lê-se na distância entre os
-	// prazos: pontos próximos dariam um sistema mal condicionado, onde o ruído da
-	// medição se amplifica na repartição. Dois pontos bastam para identificar
-	// dois parâmetros; com a referência são três, e o terceiro é o resíduo que
-	// diz se o modelo de encargos descreve o banco ou não.
-	//
-	// Custa dois pedidos por banco, sobre dezenas — e é o que transforma a TAEG
-	// de valor assumido em valor medido.
+	// ⚠️ Não medem spread: está medido que o spread não depende do prazo, e essa
+	// redundância é o travão que contradiz a medição se ela deixar de valer. O
+	// porquê dos EXTREMOS e não de dois prazos quaisquer está na §4 do
+	// ARQUITETURA.md («A TAEG deriva-se com os encargos MEDIDOS»), com os rácios
+	// medidos. Custa dois pedidos por banco, sobre dezenas.
 	for _, anos := range prazosExtremos(r, ref, base.PrazoAnos) {
 		p := base
 		p.PrazoAnos = anos

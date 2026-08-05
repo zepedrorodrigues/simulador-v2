@@ -1,15 +1,12 @@
 // Package travao implementa em Postgres a regra da §7.2: nunca dois
 // varrimentos do mesmo banco ao mesmo tempo.
 //
-// ⚠️ Vive na base e não no processo, e isso é a decisão inteira. O v1 tinha o
-// gate por banco dentro do processo e avisava no arranque que, com mais do que
-// um worker, o mesmo banco levava N scrapes em paralelo — precisamente o que o
-// gate existia para evitar. Várias PaaS decidem a concorrência sozinhas, e um
-// travão que só trava dentro de um processo não trava nada.
+// ⚠️ Vive na base e não no processo, e isso é a decisão inteira — o porquê, com
+// o que o v1 fez, está na §7.5 do ARQUITETURA.md.
 //
-// Usa-se um advisory lock e não uma linha de tabela: o travão não é dado, não
-// sobrevive à morte da sessão, e a §4 tem duas tabelas e não abre uma terceira
-// para isto.
+// ⚠️ Usa-se um advisory lock e não uma linha de tabela: o travão **não é dado**
+// e não deve sobreviver à morte da sessão. Uma linha sobrevivia, e um processo
+// morto deixava um banco trancado até alguém reparar.
 package travao
 
 import (

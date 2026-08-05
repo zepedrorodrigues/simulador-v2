@@ -1,14 +1,11 @@
 // Package varrer monta o varrimento para o subcomando `simulador varrer`.
 //
-// ⚠️ Existe porque o binário não pode montar isto sozinho, e é de propósito: o
-// depguard nega ao `cmd` os imports de `dominio`, `bancos` e `aplicacao`
-// (ARQUITETURA.md §3, «cmd → infra»). O binário monta o que a infra construir.
-// Aqui é onde o registo dos bancos, os transportes, a grelha, o travão e o
-// catálogo se encontram — e é a única função deste pacote.
+// ⚠️ Existe porque o `cmd` não pode montar isto: o depguard nega-lhe os imports
+// de `dominio`, `bancos` e `aplicacao` (§3). É aqui que o registo dos bancos, os
+// transportes, a grelha, o travão e o catálogo se encontram, e é a única função
+// deste pacote.
 //
-// O varrimento corre por subcomando e não por rota HTTP (§7.1): uma rota teria
-// de ser protegida, e autenticação foi o que o v1 ganhou sem decidir e teve de
-// apagar em três migrações.
+// Corre por subcomando e não por rota HTTP — o porquê está na §7.1.
 package varrer
 
 import (
