@@ -156,8 +156,20 @@ func (e EscalaDeLTV) SpreadEm(ltv Racio) (Taxa, string, error) {
 
 // percentagem escreve um rácio em pontos percentuais e com vírgula decimal,
 // para as frases que as pessoas lêem: 0.6675 dá "66,75".
+// ⚠️ NÃO arredonda, e é para as fronteiras de LTV: elas são medidas e têm até
+// sete casas (0,6659375 na CGD). Arredondá-las aqui deitava fora ~18 pedidos por
+// banco de refinamento. Para uma fracção que não é fronteira — a dos encargos —
+// há a percentagemArredondada (KAN-51).
 func percentagem(r Racio) string {
 	return virgula(r.v.Mul(decimal.NewFromInt(100)).String())
+}
+
+// percentagemArredondada escreve uma fracção como percentagem com um número
+// escolhido de casas. É para valores em que a precisão não é o ponto — uma
+// hipótese declarada de encargos não ganha nada com catorze casas, e perde: um
+// número assim ensina a saltar o parágrafo em que está.
+func percentagemArredondada(r Racio, casas int32) string {
+	return virgula(r.v.Mul(decimal.NewFromInt(100)).Round(casas).String())
 }
 
 // taxaTexto escreve uma taxa com vírgula decimal. A Taxa já está em pontos

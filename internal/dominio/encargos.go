@@ -343,7 +343,7 @@ func (e Encargos) Pressupostos(capital Dinheiro) []string {
 			"Os encargos foram estimados a partir da distância entre a TAN e a TAEG que este banco "+
 				"publicou em prazos diferentes, e deram %s € de encargos iniciais (%s %% do montante) "+
 				"mais o equivalente a %s %% ao ano sobre o capital que falta pagar.",
-			antecipado, percentagem(e.Antecipado), taxaTexto(e.Recorrente)),
+			antecipado.ParaPessoa(), percentagemArredondada(e.Antecipado, 2), taxaTexto(e.Recorrente)),
 		"Os encargos reais dependem do seguro de vida, que depende da sua idade e do seu estado " +
 			"de saúde, e das comissões que o banco lhe aplicar. O valor que vai pagar pode ser " +
 			"diferente deste. A TAEG que vincula um banco vem na ficha de informação normalizada, " +

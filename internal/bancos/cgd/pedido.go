@@ -3,6 +3,7 @@ package cgd
 import (
 	"fmt"
 	"net/url"
+	"strings"
 
 	"github.com/shopspring/decimal"
 
@@ -212,7 +213,8 @@ func dentroDosLimites(p dominio.Pedido, lim limites) error {
 	if lim.LTVMaximo > 0 && maior(ltv.Decimal(), lim.LTVMaximo) {
 		return recusa(fmt.Sprintf(
 			"A CGD financia no máximo %.0f %% do valor do imóvel: com um imóvel de %s €, são %s €. O pedido é de %s €.",
-			lim.LTVMaximo*100, euros(p.ValorImovel), tectoEmEuros(p.ValorImovel, lim.LTVMaximo), euros(p.Montante)))
+			lim.LTVMaximo*100, eurosParaPessoa(p.ValorImovel),
+			tectoEmEuros(p.ValorImovel, lim.LTVMaximo), eurosParaPessoa(p.Montante)))
 	}
 	// ⚠️ A Medida Jovem tem LTV **mínimo**, e não só máximo: a Garantia do
 	// Estado cobre a fatia dos 85 % aos 100 %, e abaixo disso não há o que
@@ -220,14 +222,16 @@ func dentroDosLimites(p dominio.Pedido, lim limites) error {
 	if lim.LTVMinimo > 0 && menor(ltv.Decimal(), lim.LTVMinimo) {
 		return recusa(fmt.Sprintf(
 			"Com a Garantia Pública Jovens a CGD exige financiar pelo menos %.0f %% do imóvel: com um imóvel de %s €, são %s €. O pedido é de %s €. Sem a garantia, este montante é simulável.",
-			lim.LTVMinimo*100, euros(p.ValorImovel), tectoEmEuros(p.ValorImovel, lim.LTVMinimo), euros(p.Montante)))
+			lim.LTVMinimo*100, eurosParaPessoa(p.ValorImovel),
+			tectoEmEuros(p.ValorImovel, lim.LTVMinimo), eurosParaPessoa(p.Montante)))
 	}
 	return nil
 }
 
 // tectoEmEuros é a fatia do valor do imóvel que uma percentagem representa.
 func tectoEmEuros(valorImovel dominio.Dinheiro, fraccao float64) string {
-	return valorImovel.Decimal().Mul(decimal.NewFromFloat(fraccao)).Truncate(0).String()
+	tecto := valorImovel.Decimal().Mul(decimal.NewFromFloat(fraccao)).Truncate(0)
+	return eurosParaPessoa(dominio.DinheiroDeDecimal(tecto))
 }
 
 // requisitosVivos monta uns Requisitos a partir dos limites que a CGD acabou de
@@ -257,7 +261,22 @@ func destino(f dominio.Finalidade) string {
 // euros escreve o montante como a CGD o quer: euros inteiros, sem separadores.
 // Trunca em vez de arredondar — pedir mais do que se pediu podia atravessar um
 // degrau de LTV, e o degrau é o preço.
+// euros escreve um montante para o PAYLOAD da CGD: inteiro, sem separadores.
+//
+// ⚠️ É formato de máquina e não muda (KAN-51). O simulador recebe isto num
+// formulário; um espaço de milhares lá dentro é um pedido que o banco não lê.
+// Para as frases que as pessoas lêem há o `eurosParaPessoa` — e a distinção
+// custou uma corrida do portão a descobrir, com cinco payloads a falhar.
 func euros(d dominio.Dinheiro) string { return d.Decimal().Truncate(0).String() }
+
+// eurosParaPessoa é o mesmo montante para uma frase de recusa: «250 000».
+//
+// ⚠️ Sem cêntimos: numa frase sobre tectos de LTV eles são ruído, e o valor
+// entra aqui já truncado — daí o sufixo `,00` ser sempre removível.
+func eurosParaPessoa(d dominio.Dinheiro) string {
+	inteiro := dominio.DinheiroDeDecimal(d.Decimal().Truncate(0))
+	return strings.TrimSuffix(inteiro.ParaPessoa(), ",00")
+}
 
 func booleano(b bool) string {
 	if b {

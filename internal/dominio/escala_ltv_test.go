@@ -304,3 +304,31 @@ func TestEscalaDeLTVNovoBancoFechaEmCima(t *testing.T) {
 		})
 	}
 }
+
+// ⚠️ As fronteiras de LTV continuam com a precisão MEDIDA, e é o travão da
+// correcção da KAN-51: ela arredondou a percentagem dos encargos, e o passo
+// seguinte óbvio — arredondar o `percentagem()` — deitaria fora os ~18 pedidos
+// por banco que estreitaram estas fronteiras.
+//
+// O 0,6659375 é da CGD, medido a 2026-07-27, com sete casas.
+func TestAsFronteirasDeLTVNaoSaoArredondadasNaNota(t *testing.T) {
+	minimo := taxa(t, "1.950")
+	escala, err := dominio.NovaEscalaDeLTV([]dominio.DegrauLTV{
+		{
+			De: racio(t, "0.30"), Ate: racio(t, "0.6659375"),
+			Spread: taxa(t, "2.000"), SpreadMinimo: &minimo,
+		},
+		{De: racio(t, "0.6659375"), Ate: racio(t, "0.90"), Spread: taxa(t, "1.350")},
+	})
+	if err != nil {
+		t.Fatalf("NovaEscalaDeLTV: %v", err)
+	}
+
+	_, nota, err := escala.SpreadEm(racio(t, "0.50"))
+	if err != nil {
+		t.Fatalf("SpreadEm: %v", err)
+	}
+	if !strings.Contains(nota, "66,59375") {
+		t.Errorf("a fronteira perdeu casas na nota, e elas foram medidas:\n  %s", nota)
+	}
+}
