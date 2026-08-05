@@ -1,15 +1,12 @@
 // Package esquema aplica e verifica as migrações da base de dados.
 //
-// A regra é a do ARQUITETURA: numa base que existe, quem manda são as
-// migrações, corridas de propósito — o arranque NÃO migra sozinho. Foi o
-// create_all automático do v1 que deixou a base num estado híbrido que o
-// Alembic desconhecia, e a migração seguinte morreu sobre uma tabela que já
-// existia. Aqui o arranque só verifica (ExigirEmDia) e recusa-se a servir com
-// uma base por migrar; aplicar é um acto explícito (Migrar).
+// O arranque **não** migra sozinho: só verifica (ExigirEmDia) e recusa-se a
+// servir com uma base por migrar. Aplicar é acto explícito (Migrar). O porquê —
+// o create_all do v1 e a migração que morreu sobre uma tabela que já existia —
+// está na §4 do ARQUITETURA.md.
 //
-// As migrações correm por database/sql (o que o goose usa), pelo driver pgx.
-// É uma ligação à parte do pool pgx das queries: só o goose a usa, e só o
-// tempo de migrar ou verificar.
+// ⚠️ As migrações correm por database/sql, que é o que o goose usa, numa ligação
+// à parte do pool pgx das queries: só o goose a usa, e só o tempo de migrar.
 package esquema
 
 import (

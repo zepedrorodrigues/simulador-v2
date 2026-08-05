@@ -104,11 +104,8 @@ var ErrPanico = errors.New("pânico ao simular")
 // mesmo tempo.
 //
 // ⚠️ A implementação vive na base — advisory lock em Postgres — e não no
-// processo. Não é preferência de estilo: o v1 tinha o gate por banco dentro do
-// processo e avisava no arranque que, com mais do que um worker, o mesmo banco
-// levava N scrapes em paralelo — precisamente o que o gate existia para evitar.
-// Duas instâncias de um travão em memória não se travam uma à outra; duas
-// sessões de Postgres travam-se.
+// processo. Duas instâncias de um travão em memória não se travam uma à outra;
+// duas sessões de Postgres travam-se. O que o v1 fez está na §7.5.
 //
 // A porta declara-se aqui, do lado de quem a usa, e implementa-se na infra: é o
 // que mantém este pacote sem SQL (§3).

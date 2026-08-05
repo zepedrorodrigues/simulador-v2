@@ -26,11 +26,9 @@ import (
 // ⚠️ Com sinal. Positivo é o banco a cobrar mais do que a nossa conta prevê,
 // negativo o contrário; um valor absoluto perdia a direcção sem poupar nada.
 //
-// ⚠️ A PRIMEIRA fase e não outra. A segunda de uma mista amortiza um capital que
+// ⚠️ A PRIMEIRA fase e não outra: a segunda de uma mista amortiza um capital que
 // já vem do arredondamento aos cêntimos de dezenas de prestações, e esse ruído é
-// do banco: medido no e2e da CGD, a primeira fecha dentro de 0,05 € e a segunda
-// precisa de 2 € de tolerância. Um resíduo que só é pequeno quando está tudo bem
-// serve para alguma coisa; um que já nasce grande não avisa de nada.
+// do banco. Os números que o mostram estão na §4 do ARQUITETURA.md.
 func Residuo(o Observacao) (dominio.Dinheiro, bool) {
 	if !o.Sucesso() || len(o.Oferta.Fases) == 0 {
 		return dominio.Dinheiro{}, false
