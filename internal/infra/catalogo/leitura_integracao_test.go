@@ -116,8 +116,9 @@ func verTaxaIgual(t *testing.T, nome string, foi, voltou *dominio.Taxa) {
 // que a KAN-50 corrigiu.
 //
 // ⚠️ Antes da correcção, a leitura pegava no último `varrimento_id` e este teste
-// falhava a nomear o Novo Banco. É essa a reversão: trocar o
-// `ObservacoesDeCadaBanco` pelo par `UltimoVarrimentoID` + `ObservacoesDoVarrimento`.
+// falhava a nomear o Novo Banco. A reversão é pôr o `SerieServivel` a ler as
+// linhas de uma corrida só — as duas queries que o faziam saíram na mesma
+// KAN-50 e recuperam-se em `git show 90b69cc^:db/queries/catalogo_taxas.sql`.
 func TestUmRevarrimentoDeUmBancoNaoApagaOsOutros(t *testing.T) {
 	pool := subirBase(t)
 	cat := catalogo.NovoPostgres(pool)

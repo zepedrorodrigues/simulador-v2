@@ -258,6 +258,7 @@ func (q *Queries) NovoVarrimentoID(ctx context.Context) (pgtype.UUID, error) {
 }
 
 const observacoesDeCadaBanco = `-- name: ObservacoesDeCadaBanco :many
+
 WITH ultimo AS (
     SELECT DISTINCT ON (banco_id) banco_id, varrimento_id
     FROM catalogo_taxas
@@ -301,6 +302,11 @@ type ObservacoesDeCadaBancoRow struct {
 	Aplicado         []byte
 }
 
+// ⚠️ Aqui viviam o `UltimoVarrimentoID` e o `ObservacoesDoVarrimento`, que
+// serviam a resposta pelas linhas de UMA corrida. Saíram na KAN-50, e saíram em
+// vez de ficarem sem uso: a leitura por «último varrimento» é exactamente o
+// defeito corrigido, e uma consulta com esse nome à mão é o convite a
+// reintroduzi-lo. Recuperam-se em git.
 // ObservacoesDeCadaBanco devolve, para CADA banco, as linhas do varrimento mais
 // recente em que ele teve sucesso — e não as de uma corrida só (ARQUITETURA.md
 // §4, «Que observações compõem a série servida», KAN-50).
@@ -355,96 +361,6 @@ func (q *Queries) ObservacoesDeCadaBanco(ctx context.Context) ([]ObservacoesDeCa
 	return items, nil
 }
 
-const observacoesDoVarrimento = `-- name: ObservacoesDoVarrimento :many
-SELECT
-    capturado_em, cenario, banco_id, banco_nome, rate_type,
-    valor_imovel, montante, prazo_anos, fixed_period_years, euribor_indexante,
-    tan, taeg, spread, euribor_valor, prestacao_mensal, mtic,
-    ltv_min, ltv_max, spread_minimo, base_fixa,
-    produtos, aplicado
-FROM catalogo_taxas
-WHERE varrimento_id = $1 AND sucesso
-ORDER BY id
-`
-
-type ObservacoesDoVarrimentoRow struct {
-	CapturadoEm      pgtype.Timestamptz
-	Cenario          string
-	BancoID          string
-	BancoNome        string
-	RateType         string
-	ValorImovel      pgtype.Numeric
-	Montante         pgtype.Numeric
-	PrazoAnos        int32
-	FixedPeriodYears pgtype.Int4
-	EuriborIndexante pgtype.Text
-	Tan              pgtype.Numeric
-	Taeg             pgtype.Numeric
-	Spread           pgtype.Numeric
-	EuriborValor     pgtype.Numeric
-	PrestacaoMensal  pgtype.Numeric
-	Mtic             pgtype.Numeric
-	LtvMin           pgtype.Numeric
-	LtvMax           pgtype.Numeric
-	SpreadMinimo     pgtype.Numeric
-	BaseFixa         pgtype.Numeric
-	Produtos         []byte
-	Aplicado         []byte
-}
-
-// ObservacoesDoVarrimento devolve as linhas de uma corrida, com TUDO o que a
-// resposta local precisa de reconstruir.
-//
-// ⚠️ Difere do ListarPontos, que serve o /api/rate-catalog congelado e traz um
-// subconjunto: aqui vêm também ltv_min, ltv_max, spread_minimo e base_fixa, sem
-// os quais não se reconstrói a escala de LTV nem a base da taxa fixa — ou seja,
-// sem os quais não há preço para quem não caia exactamente no ponto medido.
-//
-// Só linhas de sucesso: uma observação falhada é informação sobre o banco, e não
-// preço com que se responda a alguém.
-func (q *Queries) ObservacoesDoVarrimento(ctx context.Context, varrimentoID pgtype.UUID) ([]ObservacoesDoVarrimentoRow, error) {
-	rows, err := q.db.Query(ctx, observacoesDoVarrimento, varrimentoID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []ObservacoesDoVarrimentoRow{}
-	for rows.Next() {
-		var i ObservacoesDoVarrimentoRow
-		if err := rows.Scan(
-			&i.CapturadoEm,
-			&i.Cenario,
-			&i.BancoID,
-			&i.BancoNome,
-			&i.RateType,
-			&i.ValorImovel,
-			&i.Montante,
-			&i.PrazoAnos,
-			&i.FixedPeriodYears,
-			&i.EuriborIndexante,
-			&i.Tan,
-			&i.Taeg,
-			&i.Spread,
-			&i.EuriborValor,
-			&i.PrestacaoMensal,
-			&i.Mtic,
-			&i.LtvMin,
-			&i.LtvMax,
-			&i.SpreadMinimo,
-			&i.BaseFixa,
-			&i.Produtos,
-			&i.Aplicado,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const ultimoVarrimentoEm = `-- name: UltimoVarrimentoEm :one
 SELECT max(capturado_em)::timestamptz AS capturado_em FROM catalogo_taxas
 `
@@ -463,25 +379,4 @@ func (q *Queries) UltimoVarrimentoEm(ctx context.Context) (pgtype.Timestamptz, e
 	var capturado_em pgtype.Timestamptz
 	err := row.Scan(&capturado_em)
 	return capturado_em, err
-}
-
-const ultimoVarrimentoID = `-- name: UltimoVarrimentoID :one
-SELECT varrimento_id
-FROM catalogo_taxas
-ORDER BY capturado_em DESC
-LIMIT 1
-`
-
-// UltimoVarrimentoID é o id da corrida mais recente. É por ele que a leitura da
-// comparação escolhe as linhas: uma resposta mistura-se de um varrimento só.
-//
-// ⚠️ Não se juntam varrimentos para «preencher buracos». Um banco que falhou no
-// último não é servido com o preço do anterior sem que alguém o decida — e a
-// §7.3 tem a razão dura: a Euribor fixa diariamente, e um valor de 23:50 não se
-// serve às 00:10.
-func (q *Queries) UltimoVarrimentoID(ctx context.Context) (pgtype.UUID, error) {
-	row := q.db.QueryRow(ctx, ultimoVarrimentoID)
-	var varrimento_id pgtype.UUID
-	err := row.Scan(&varrimento_id)
-	return varrimento_id, err
 }

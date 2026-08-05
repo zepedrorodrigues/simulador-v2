@@ -280,9 +280,12 @@ func listaDeJSON(b []byte) ([]string, error) {
 //
 // ⚠️ É a leitura da fronteira CONGELADA, e por isso usa a `ListarPontos` — a
 // query antiga, com o subconjunto de colunas que o v1 publicava — e não a
-// `ObservacoesDoVarrimento`. As duas parecem-se e servem coisas diferentes:
+// `ObservacoesDeCadaBanco`. As duas parecem-se e servem coisas diferentes:
 // aquela alimenta a resposta ao cliente e precisa da escala e da base; esta
 // devolve o que o `viabilidade-imobiliaria` lê há meses.
+//
+// ⚠️ E a composição por banco da KAN-50 **não lhe toca**: esta fronteira publica
+// pontos com o seu `varrimento_id`, e quem a lê filtra como sempre filtrou.
 func (p *Postgres) PontosDoCatalogo(
 	ctx context.Context, filtro dominio.FiltroDoCatalogo,
 ) ([]dominio.PontoDeMercado, error) {
