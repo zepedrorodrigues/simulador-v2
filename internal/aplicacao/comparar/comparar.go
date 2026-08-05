@@ -36,6 +36,11 @@ var (
 type Catalogo struct {
 	// porBanco tem, para cada banco, tudo o que dele se mediu.
 	porBanco map[string]*medidoDeUmBanco
+
+	// desactualizados são os bancos com série que a viragem do dia pôs de fora.
+	// Não estão em `porBanco` — não há preço deles com que responder — e existem
+	// aqui só para a recusa poder dizer a verdade em vez de `sem_serie`.
+	desactualizados map[string]bool
 }
 
 // medidoDeUmBanco é o que a grelha sabe de um banco.
@@ -73,20 +78,37 @@ type medidoDeUmBanco struct {
 	temEncargos bool
 }
 
-// NovoCatalogo organiza as observações de um varrimento para se poder responder
-// com elas.
+// Serie é a fotografia com que se responde: as observações que entram, e os
+// bancos que a composição deixou de fora por estarem do outro lado da viragem do
+// dia (`ARQUITETURA.md` §4, «Que observações compõem a série servida»; §7.3).
+//
+// ⚠️ Os postos de fora **viajam com a série** em vez de sumirem, e é o ponto do
+// tipo: só quem a compôs sabe a diferença entre «tem preços que hoje não se
+// podem servir» e «nunca foi varrido», e as duas dão códigos diferentes a quem
+// lê — `serie_desactualizada` e `sem_serie`. Separá-las em dois argumentos
+// deixava construir um catálogo que esquecesse a segunda metade.
+type Serie struct {
+	Observacoes     []varrimento.Observacao
+	Desactualizados []string
+}
+
+// NovoCatalogo organiza uma série varrida para se poder responder com ela.
 //
 // ⚠️ Um banco cujas observações não cheguem para uma escala, ou para ajustar
 // encargos, **não desaparece**: entra com o que tem, e o que lhe faltar aparece
 // na resposta como recusa nomeada em vez de como um número inventado. É a mesma
 // escolha da §5 — falhar com clareza em vez de servir um número com ar de certo.
-func NovoCatalogo(obs []varrimento.Observacao) (*Catalogo, error) {
+func NovoCatalogo(s Serie) (*Catalogo, error) {
+	obs := s.Observacoes
 	if len(obs) == 0 {
 		return nil, ErrSemObservacoes
 	}
 
 	escalas := varrimento.EscalasPorBanco(obs)
-	c := &Catalogo{porBanco: map[string]*medidoDeUmBanco{}}
+	c := &Catalogo{porBanco: map[string]*medidoDeUmBanco{}, desactualizados: map[string]bool{}}
+	for _, id := range s.Desactualizados {
+		c.desactualizados[id] = true
+	}
 
 	for _, o := range obs {
 		if !o.Sucesso() {
@@ -360,6 +382,14 @@ func (c *Catalogo) conhecidos(requisitos map[string]dominio.Requisitos) []string
 			ids = append(ids, id)
 		}
 	}
+	// ⚠️ Um banco posto de fora pela viragem do dia não está em `porBanco`, e sem
+	// esta volta desaparecia da lista de todos — que é o defeito da KAN-45 a
+	// entrar pela porta que a KAN-50 abriu.
+	for id := range c.desactualizados {
+		if _, jaLa := requisitos[id]; !jaLa {
+			ids = append(ids, id)
+		}
+	}
 	return ordenados(ids)
 }
 
@@ -369,12 +399,26 @@ func (c *Catalogo) ofertaDe(
 ) dominio.Oferta {
 	banco, medido := c.porBanco[id]
 	if !medido {
+		nome := nomeNoRegisto(id, req)
+
+		// ⚠️ Há preços deste banco e não se servem: são do outro lado da viragem
+		// do dia, e a Euribor fixou entretanto (§7.3). Dizer `sem_serie` aqui era
+		// afirmar que não se foi lá, quando se foi e se trouxe preço.
+		if c.desactualizados[id] {
+			return dominio.Falhar(id, nome, &dominio.ErroOferta{
+				Codigo: dominio.ErroSerieDesactualizada,
+				Mensagem: fmt.Sprintf(
+					"Os preços que temos do %s são de antes da última viragem do dia, e a Euribor fixa "+
+						"diariamente. Compará-los com os dos outros bancos seria comparar preços de dias "+
+						"diferentes, por isso este fica de fora até ao próximo varrimento.", nome),
+			})
+		}
+
 		// ⚠️ O banco existe e não foi varrido. A recusa nomeia-o e diz de quem é
 		// a falta — nossa —, porque o contrário fazia a pessoa concluir que o
 		// banco está em baixo. E é `sem_serie` e não `produto_indisponivel`: esse
 		// é «varreu-se e não se mediu ESTE cenário», que é outra frase e outra
 		// decisão para quem lê.
-		nome := nomeNoRegisto(id, req)
 		return dominio.Falhar(id, nome, &dominio.ErroOferta{
 			Codigo: dominio.ErroSemSerie,
 			Mensagem: fmt.Sprintf(

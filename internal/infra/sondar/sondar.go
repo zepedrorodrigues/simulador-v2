@@ -125,11 +125,16 @@ func Correr(ctx context.Context, url string, o Opcoes) (Relatorio, error) {
 	// neutro, e com ela o prazo máximo.
 	hoje := dominio.DataDeInstante(time.Now().In(lisboa()))
 
-	obs, err := catalogo.NovoPostgres(pool).UltimoVarrimento(ctx)
+	// ⚠️ Sonda-se a série que se SERVE, e não tudo o que está na base (KAN-50).
+	// Um banco cuja grelha ficou do outro lado da viragem do dia já não é
+	// servido, portanto não tem grelha em uso que confirmar — e gastar-lhe
+	// pedidos era pagar por uma resposta que ninguém ia usar. Quem o traz de
+	// volta é o `varrer`, não a sonda.
+	serie, err := catalogo.NovoPostgres(pool).SerieServivel(ctx)
 	if err != nil {
-		return Relatorio{}, fmt.Errorf("ler o último varrimento: %w", err)
+		return Relatorio{}, fmt.Errorf("ler a série servível: %w", err)
 	}
-	escalas := varrimento.EscalasPorBanco(obs)
+	escalas := varrimento.EscalasPorBanco(serie.Observacoes)
 
 	escolhidos, err := escolher(o.Bancos, escalas)
 	if err != nil {

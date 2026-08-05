@@ -201,7 +201,7 @@ func TestATAEGDerivaDosEncargosAjustadosEDeclaraOsPressupostos(t *testing.T) {
 // medição — e é isso que o AjustarEncargos recusa.
 func TestSemDoisPrazosNaoHaTAEG(t *testing.T) {
 	// O mesmo catálogo, sem as observações da família do prazo.
-	cat, err := comparar.NovoCatalogo(semFamiliaDoPrazo(observacoesDeProva(t)))
+	cat, err := comparar.NovoCatalogo(comparar.Serie{Observacoes: semFamiliaDoPrazo(observacoesDeProva(t))})
 	if err != nil {
 		t.Fatalf("NovoCatalogo: %v", err)
 	}
@@ -315,7 +315,7 @@ func TestUmPedidoInvalidoNaoChegaAOlharParaBancoNenhum(t *testing.T) {
 }
 
 func TestSemObservacoesNaoHaCatalogo(t *testing.T) {
-	if _, err := comparar.NovoCatalogo(nil); err == nil {
+	if _, err := comparar.NovoCatalogo(comparar.Serie{}); err == nil {
 		t.Fatal("construiu-se um catálogo sem observações")
 	}
 }
@@ -475,7 +475,7 @@ func TestSemBancosNoPedidoRespondeSePelosDoRegisto(t *testing.T) {
 
 func catalogoDeProva(t *testing.T) *comparar.Catalogo {
 	t.Helper()
-	c, err := comparar.NovoCatalogo(observacoesDeProva(t))
+	c, err := comparar.NovoCatalogo(comparar.Serie{Observacoes: observacoesDeProva(t)})
 	if err != nil {
 		t.Fatalf("NovoCatalogo: %v", err)
 	}
@@ -651,7 +651,7 @@ func catalogoDeDoisBancos(t *testing.T, filtros ...func([]varrimento.Observacao)
 		doSegundo = filtro(doSegundo)
 	}
 
-	c, err := comparar.NovoCatalogo(append(obs, doSegundo...))
+	c, err := comparar.NovoCatalogo(comparar.Serie{Observacoes: append(obs, doSegundo...)})
 	if err != nil {
 		t.Fatalf("NovoCatalogo: %v", err)
 	}
@@ -851,4 +851,78 @@ func TestOAjusteDosEncargosNaoDependeDaOrdemDeIteracao(t *testing.T) {
 		}
 	}
 	t.Logf("TAEG estável em 20 catálogos: %s %%", primeira)
+}
+
+// Um banco posto de fora pela viragem do dia não é «não se foi lá» (KAN-50).
+//
+// A reversão: tirar o ramo do `desactualizados` do `ofertaDe`. O terceiro banco
+// volta a sair como `sem_serie`, e a falha nomeia o código que veio — que é a
+// diferença entre dizer «não temos preço dele» e «temos, e é de outro dia».
+func TestUmBancoDesactualizadoNaoSeConfundeComUmSemSerie(t *testing.T) {
+	obs := observacoesDeProva(t)
+	doSegundo := doBanco(observacoesDeProva(t), segundoID, segundoNome)
+
+	cat, err := comparar.NovoCatalogo(comparar.Serie{
+		Observacoes:     append(obs, doSegundo...),
+		Desactualizados: []string{terceiroID},
+	})
+	if err != nil {
+		t.Fatalf("NovoCatalogo: %v", err)
+	}
+
+	ofertas, err := cat.Comparar(
+		pedido(t, "320000", 30, dominio.TaxaVariavel),
+		[]string{bancoID, segundoID, terceiroID}, requisitosDeTres(), hoje())
+	if err != nil {
+		t.Fatalf("Comparar: %v", err)
+	}
+
+	vieram := map[string]dominio.Oferta{}
+	for _, o := range ofertas {
+		vieram[o.BancoID] = o
+	}
+
+	desactualizado, veio := vieram[terceiroID]
+	if !veio {
+		t.Fatalf("o %q tem série, ainda que de outro dia, e desapareceu da resposta", terceiroID)
+	}
+	if desactualizado.Sucesso() {
+		t.Fatalf("o %q está do outro lado da viragem do dia e mesmo assim deu oferta", terceiroID)
+	}
+	if desactualizado.Erro.Codigo != dominio.ErroSerieDesactualizada {
+		t.Errorf("o banco com série de outro dia veio como %q, e a §7.3 pede %q — %q diz que não se foi lá, e foi-se",
+			desactualizado.Erro.Codigo, dominio.ErroSerieDesactualizada, dominio.ErroSemSerie)
+	}
+
+	// ⚠️ E os outros dois não apanham o código por contágio: uma nota em toda a
+	// gente é o mesmo que nota nenhuma.
+	for _, id := range []string{bancoID, segundoID} {
+		if !vieram[id].Sucesso() {
+			t.Errorf("o %q está em dia e mesmo assim não deu oferta: %s", id, vieram[id].Erro.Mensagem)
+		}
+	}
+}
+
+// E um banco desconhecido do registo, mas posto de fora pela viragem, aparece na
+// lista de todos — senão a KAN-50 reabria a KAN-45 pela porta do lado.
+func TestUmDesactualizadoForaDoRegistoAindaAssimAparece(t *testing.T) {
+	cat, err := comparar.NovoCatalogo(comparar.Serie{
+		Observacoes:     observacoesDeProva(t),
+		Desactualizados: []string{"banco-que-so-a-serie-conhece"},
+	})
+	if err != nil {
+		t.Fatalf("NovoCatalogo: %v", err)
+	}
+
+	ofertas, err := cat.Comparar(pedido(t, "320000", 30, dominio.TaxaVariavel), nil, nil, hoje())
+	if err != nil {
+		t.Fatalf("Comparar: %v", err)
+	}
+
+	for _, o := range ofertas {
+		if o.BancoID == "banco-que-so-a-serie-conhece" {
+			return
+		}
+	}
+	t.Error("um banco que só a série conhece, e que a viragem do dia pôs de fora, não veio na lista de todos")
 }

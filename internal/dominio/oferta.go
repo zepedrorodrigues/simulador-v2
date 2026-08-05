@@ -135,6 +135,14 @@ const (
 	// ⚠️ E também não é o ErroProdutoIndisponivel: esse é «foi varrido e não
 	// mediu ESTE cenário», que é sobre o pedido; este é sobre o banco inteiro.
 	ErroSemSerie CodigoErro = "sem_serie"
+	// ErroSerieDesactualizada: há preços deste banco, e são do outro lado da
+	// viragem do dia — a Euribor fixou entretanto (ARQUITETURA.md §4, «Que
+	// observações compõem a série servida»; §7.3).
+	//
+	// ⚠️ Não é o ErroSemSerie: ali não há preço nenhum, aqui há e não se serve.
+	// Dá-lo como «não se foi lá» era falso, e servi-lo à mesma era comparar
+	// preços de fixings diferentes.
+	ErroSerieDesactualizada CodigoErro = "serie_desactualizada"
 )
 
 // ErroOferta é a falha de um banco, estruturada.

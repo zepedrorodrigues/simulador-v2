@@ -53,8 +53,11 @@ Tudo o que a app precisa para montar o formulário adaptativo. **É a única fon
 | `banco_indisponivel` | foi-se lá e não respondeu, expirou, deu 5xx | esperando |
 | `resposta_ilegivel` | respondeu, e não se consegue ler | do nosso lado |
 | `sem_serie` | **não se foi lá**: não há preços varridos deste banco | correndo o varrimento |
+| `serie_desactualizada` | há preços deste banco, e são do outro lado da viragem do dia | correndo o varrimento |
 
 ⚠️ O `sem_serie` não é o `banco_indisponivel` — esse culpa o banco, e aqui a falta é nossa. E não é o `produto_indisponivel` — esse é sobre o **pedido**, este é sobre o **banco inteiro**. Empacotá-los mandava a pessoa esperar por uma coisa que não vai acontecer sozinha, ou mudar um pedido que estava bem.
+
+⚠️ **E o `serie_desactualizada` não é o `sem_serie`, apesar de os dois se resolverem varrendo** (`KAN-50`). A diferença é o que se sabe: no `sem_serie` não há preço nenhum deste banco; no `serie_desactualizada` **há**, e não se serve porque a Euribor mudou de dia entretanto e compará-lo com os outros seria comparar preços de fixings diferentes. Servi-lo à mesma era o defeito que a §7.3 do `ARQUITETURA.md` proíbe; dá-lo como `sem_serie` era dizer que não se foi lá, quando se foi.
 
 ## 2. `/api/rate-catalog` — congelada
 

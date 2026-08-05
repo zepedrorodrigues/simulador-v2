@@ -212,6 +212,27 @@ E o **Anexo II** (a FINE/ESIS) fecha o par: um custo que **não entra** na TAEG 
 
 É a mesma regra que governa o intervalo de LTV por resolver, o TAEG que não se consegue dar, e a questão em aberto da mista sem fases (`KAN-38`).
 
+### ⚠️ Que observações compõem a série servida — por BANCO, não por corrida
+
+Decidido a **2026-08-05** (`KAN-50`), revogando «uma resposta mistura-se de um varrimento só».
+
+A série que responde a um cliente compõe-se pegando, **para cada banco**, nas observações do varrimento mais recente **daquele banco**. Não é o último `varrimento_id` global.
+
+⚠️ **A regra antiga não estava errada em princípio; ficou errada quando apareceu quem produzisse varrimentos parciais.** Enquanto o `--bancos` era uma opção que uma pessoa escrevia à mão, «a corrida mais recente» e «a corrida completa mais recente» eram a mesma coisa. A `KAN-48` pôs a sonda a revarrer sozinha o banco que diverge, e a partir daí a corrida mais recente passou a ser, com frequência, **um banco**. Medido contra Postgres: um varrimento completo dá `map[cgd:6 novobanco:1]`, e um revarrimento só da CGD a seguir dá `map[cgd:6]` — os outros quatro bancos desaparecem da resposta por causa de um varrimento que não era deles.
+
+⚠️ **E desapareciam com o código errado colado:** a `KAN-45` devolve-os nomeados como `sem_serie`, que esta secção define como «não se foi lá». Fomos, com sucesso, e o preço estava na base.
+
+**Isto não custa nada ao que a §7.4 mede.** O resíduo é por **observação** e não por corrida (ver «O resíduo mora numa coluna»), portanto cada linha traz o seu e o resumo por banco do `simulador varrer` diz o mesmo que dizia. E o `capturado_em` que a resposta publica **já saía da observação**, ou seja já era por banco: o contrato sempre carregou idades heterogéneas, e o rodapé da lista sempre afirmou a mais antiga do conjunto.
+
+**A §7.3 continua inteira, e passa a ter guarda.** «Não se juntam varrimentos para preencher buracos» dizia duas coisas ao mesmo tempo, e só uma se mantém:
+
+- ❌ **Cai:** «um banco que falhou não é servido com o preço do anterior». Isso agora acontece — e é o que se quer, porque a alternativa medida é ele desaparecer.
+- ✅ **Fica, e passa a ser imposta:** nunca se compõe uma resposta com observações de **lados diferentes da viragem do dia**. A Euribor fixa diariamente e um valor de 23:50 não se serve às 00:10.
+
+A guarda é: toma-se a data (fuso de Lisboa) da observação **mais recente** da base, e só entram bancos cujo varrimento mais recente caia nessa mesma data. Um banco do lado de lá da viragem sai da série com o código **`serie_desactualizada`** — não com `sem_serie`, que significa outra coisa. ⚠️ Um código novo não é mudança de versão (`API.md` §4: o campo é `type: string` sem enum).
+
+⚠️ **A guarda é sobre coerência entre bancos, não sobre frescura absoluta.** Se ninguém varreu hoje, todos os bancos estão do mesmo lado da viragem e servem-se todos, com o `capturado_em` a dizer de quando são. Recusar servir até haver varrimento do dia é uma decisão diferente, não está tomada, e não se toma aqui.
+
 ### O que é consulta e o que é cálculo
 
 A resposta ao cliente sai destas duas colunas. É a distinção central do desenho novo, e a razão por que a grelha é pequena.
@@ -404,7 +425,7 @@ Sem chave configurada o catálogo fica aberto — é o comportamento de desenvol
 
 1. **O varrimento é o único caminho para os bancos.** Corre por **subcomando** (`cmd/simulador/`), não por rota HTTP. Uma rota teria de ser protegida, e autenticação foi o que o v1 ganhou sem decidir e teve de apagar em três migrações. Se um dia for preciso disparar de fora, acrescenta-se a rota então.
 2. **⚠️ Com travão: nunca dois varrimentos do mesmo banco ao mesmo tempo.** Dois arranques não valem duas cargas em cima do banco. O travão vive na base, não no processo (ver 5).
-3. **Cíclico ao longo do dia, e ⚠️ nunca a servir através da viragem do dia.** A Euribor fixa diariamente e a TAN depende dela. 
+3. **Cíclico ao longo do dia, e ⚠️ nunca a servir através da viragem do dia.** A Euribor fixa diariamente e a TAN depende dela. ⚠️ **Isto passou a ter guarda a 2026-08-05 (`KAN-50`); até aí era só uma frase.** A leitura pegava no último `varrimento_id` sem olhar para datas, e a regra cumpria-se por acidente — enquanto uma corrida fosse sempre completa, os seus pontos estavam todos do mesmo lado da viragem. Ver «Que observações compõem a série servida» na §4, que é onde a composição passou a ser decidida.
 
 ⚠️ **Executado a 2026-07-28 (KAN-22), e a decisão de varrer é do SUBCOMANDO, não do agendador.** A máquina agendada acorda **de hora a hora** e corre `simulador varrer`; quem decide se há alguma coisa a fazer é a guarda `--se-antigo`, com omissão de **6 horas**. Dá ~4 varrimentos por dia e 20 arranques que saem a dizer «varrimento saltado» — com código **0**, não com erro, porque um subcomando cíclico que saísse com 1 por não ter de correr enchia o log do agendador de falhas que não são falhas, e quem as visse deixava de as ler. ⚠️ A alternativa era pedir ao agendador uma hora exacta, e o do Fly não a tem (`hourly`/`daily`, sem escolha): pôr a regra no lado que a sabe é o que a torna independente da plataforma. Dois arranques sobrepostos não fazem mal — o travão do ponto 2 vive na base precisamente para travar **entre máquinas**.
 4. **⚠️ Cada varrimento mede o seu próprio resíduo.** É o travão contra o modo de falha deste desenho, e é obrigatório. Ao vivo, um campo mal lido estraga **uma** resposta; aqui envenena **todas** até ao varrimento seguinte, e envenena-as com ar de certas. Por isso cada varrimento leva um punhado de cenários em que se compara o número que o banco devolveu com o número que o nosso cálculo daria, e guarda a diferença. Se o resíduo cresce, alguma coisa mudou do lado do banco — e aparece como número, não como silêncio. O `DOSSIE-BANCOS.md` já registou a versão pequena desta lição: limites de idade medidos e escritos como constantes «sem nada que avise quando o banco os mudar».
@@ -430,6 +451,8 @@ O travão é o `internal/infra/travao`, sobre `pg_try_advisory_lock` (KAN-39).
 **O que a sonda NÃO apanha, e fica escrito:** uma fronteira que suba, e um patamar novo mais estreito do que a distância entre sondas. O segundo é o caso que a KAN-35 já mediu na CGD — o 2,050 entre 66,75 % e 67,75 %, 1 p.p. de largura e não monótono — e continua a exigir a descoberta densa. **A sonda não substitui o varrimento; encurta o intervalo em que se está às escuras.**
 
 **Na divergência, serve-se o antigo com menor fiabilidade declarada, e tenta-se revarrer AQUELE banco.** Não se recusa: uma grelha suspeita ainda é a melhor informação que há, e recusar dava um ecrã vazio onde havia um preço provavelmente certo. Não se cala: a oferta sai com a fiabilidade reduzida dita, pela mesma regra da §5 que faz um degrau por resolver sair com nota. E não se revarre o mundo: o âmbito é **um banco**, o que limita a carga a \~96 pedidos e a mantém previsível.
+
+⚠️ **O âmbito de um banco só é seguro porque a série se compõe por banco (§4, `KAN-50`), e não era antes.** Entre a `KAN-48` e a `KAN-50` este revarrimento apagava os outros quatro bancos da resposta: a leitura servia o último `varrimento_id`, e o revarrimento cunhava um id novo com um banco lá dentro. As duas decisões estavam certas isoladamente.
 
 ⚠️ **A escalada automática é segura por causa do ponto 2, e só por causa dele.** O travão em Postgres impede dois varrimentos do mesmo banco em paralelo, portanto uma sonda que diverja repetidamente não multiplica carga — a segunda tentativa não toma o travão e sai. Sem esse travão, isto seria um amplificador: um banco que mudou de preço faria cada sonda disparar um varrimento.
 

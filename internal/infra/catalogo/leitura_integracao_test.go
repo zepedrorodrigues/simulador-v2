@@ -2,6 +2,7 @@ package catalogo_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/zepedrorodrigues/simulador-v2/internal/aplicacao/comparar"
 	"github.com/zepedrorodrigues/simulador-v2/internal/aplicacao/varrimento"
@@ -25,10 +26,11 @@ func TestOQueSeGravaVoltaEServeParaResponder(t *testing.T) {
 		t.Fatalf("gravar: %v", err)
 	}
 
-	obs, err := cat.UltimoVarrimento(t.Context())
+	serie, err := cat.SerieServivel(t.Context())
 	if err != nil {
-		t.Fatalf("UltimoVarrimento: %v", err)
+		t.Fatalf("SerieServivel: %v", err)
 	}
+	obs := serie.Observacoes
 	if len(obs) != len(lote) {
 		t.Fatalf("gravaram-se %d observações e voltaram %d", len(lote), len(obs))
 	}
@@ -51,7 +53,7 @@ func TestOQueSeGravaVoltaEServeParaResponder(t *testing.T) {
 	}
 
 	// A prova final: o catálogo de resposta constrói-se com isto.
-	if _, err := comparar.NovoCatalogo(obs); err != nil {
+	if _, err := comparar.NovoCatalogo(serie); err != nil {
 		t.Fatalf("o que voltou da base não serve para responder: %v", err)
 	}
 }
@@ -67,10 +69,11 @@ func TestUmaObservacaoVoltaComOsNumerosQueLaForam(t *testing.T) {
 		t.Fatalf("gravar: %v", err)
 	}
 
-	obs, err := cat.UltimoVarrimento(t.Context())
+	serie, err := cat.SerieServivel(t.Context())
 	if err != nil {
-		t.Fatalf("UltimoVarrimento: %v", err)
+		t.Fatalf("SerieServivel: %v", err)
 	}
+	obs := serie.Observacoes
 	if len(obs) != 1 {
 		t.Fatalf("esperava uma observação, vieram %d", len(obs))
 	}
@@ -106,4 +109,70 @@ func verTaxaIgual(t *testing.T, nome string, foi, voltou *dominio.Taxa) {
 	if !foi.Equal(*voltou) {
 		t.Errorf("%s: foi %s, voltou %s", nome, foi, voltou)
 	}
+}
+
+// O revarrimento que a sonda dispara na divergência pede UM banco (KAN-48). Este
+// teste afirma que isso não apaga os outros da série servida — que é o defeito
+// que a KAN-50 corrigiu.
+//
+// ⚠️ Antes da correcção, a leitura pegava no último `varrimento_id` e este teste
+// falhava a nomear o Novo Banco. A reversão é pôr o `SerieServivel` a ler as
+// linhas de uma corrida só — as duas queries que o faziam saíram na mesma
+// KAN-50 e recuperam-se em `git show 90b69cc^:db/queries/catalogo_taxas.sql`.
+func TestUmRevarrimentoDeUmBancoNaoApagaOsOutros(t *testing.T) {
+	pool := subirBase(t)
+	cat := catalogo.NovoPostgres(pool)
+
+	// ⚠️ As duas corridas ficam no MESMO dia de Lisboa de propósito: o que se
+	// afirma aqui é a composição por banco, e não a guarda da viragem do dia.
+	// Misturá-las fazia o teste passar por outra razão que não a corrigida.
+	completo := append(degrausDaCGD(t), fixaDaCGD(t), observacaoDeProva())
+	completo = append(completo, observacaoDoBanco("novobanco", "Novo Banco"))
+	emQue := time.Now().Add(-2 * time.Hour)
+	for i := range completo {
+		completo[i].Oferta.CapturadoEm = emQue
+	}
+	if _, err := cat.GravarLote(t.Context(), completo); err != nil {
+		t.Fatalf("gravar o varrimento completo: %v", err)
+	}
+
+	// A sonda divergiu na CGD e revarreu-a — só a ela.
+	parcial := append(degrausDaCGD(t), fixaDaCGD(t), observacaoDeProva())
+	for i := range parcial {
+		parcial[i].Oferta.CapturadoEm = emQue.Add(time.Hour)
+	}
+	if _, err := cat.GravarLote(t.Context(), parcial); err != nil {
+		t.Fatalf("gravar o revarrimento da CGD: %v", err)
+	}
+
+	serie, err := cat.SerieServivel(t.Context())
+	if err != nil {
+		t.Fatalf("SerieServivel: %v", err)
+	}
+
+	presentes := map[string]bool{}
+	for _, o := range serie.Observacoes {
+		presentes[o.Oferta.BancoID] = true
+	}
+	for _, id := range []string{"cgd", "novobanco"} {
+		if !presentes[id] {
+			t.Errorf("o %s desapareceu da série por causa de um revarrimento que não era dele", id)
+		}
+	}
+	if len(serie.Desactualizados) != 0 {
+		t.Errorf("as duas corridas são do mesmo dia e mesmo assim ficaram de fora %v",
+			serie.Desactualizados)
+	}
+}
+
+// observacaoDoBanco é a observação de prova, atribuída a outro banco e com um
+// degrau próprio — sem escala, o comparar não responde por ele.
+func observacaoDoBanco(id, nome string) varrimento.Observacao {
+	o := observacaoDeProva()
+	o.Oferta.BancoID = id
+	o.Oferta.BancoNome = nome
+	o.Degrau = &dominio.DegrauLTV{
+		De: racioDe("0.30"), Ate: racioDe("0.90"), Spread: taxaDe("1.350"),
+	}
+	return o
 }

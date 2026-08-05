@@ -5,12 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 	"time"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/shopspring/decimal"
 
+	"github.com/zepedrorodrigues/simulador-v2/internal/aplicacao/comparar"
 	"github.com/zepedrorodrigues/simulador-v2/internal/aplicacao/grelha"
 	"github.com/zepedrorodrigues/simulador-v2/internal/aplicacao/varrimento"
 	"github.com/zepedrorodrigues/simulador-v2/internal/dominio"
@@ -35,41 +36,99 @@ import (
 // ErrSemVarrimento: a base ainda não tem nenhuma corrida gravada.
 var ErrSemVarrimento = errors.New("não há varrimento nenhum gravado")
 
-// UltimoVarrimento lê as observações da corrida mais recente.
+// SerieServivel compõe a série por BANCO — de cada um, o varrimento mais recente
+// em que teve sucesso — e não de uma corrida só (§4, KAN-50).
 //
-// ⚠️ De **uma** corrida, e não das últimas N horas. Misturar varrimentos era
-// servir preços de momentos diferentes na mesma comparação — e o resíduo da
-// §7.4, que se mede por corrida, deixava de dizer alguma coisa sobre o conjunto
-// que se serviu.
-func (p *Postgres) UltimoVarrimento(ctx context.Context) ([]varrimento.Observacao, error) {
-	q := bd.New(p.pool)
-
-	id, err := q.UltimoVarrimentoID(ctx)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, ErrSemVarrimento
-	}
+// ⚠️ A regra antiga («uma resposta mistura-se de um varrimento só») caiu porque
+// deixou de ser cumprível: desde que a sonda revarre sozinha o banco que diverge
+// (KAN-48), a corrida mais recente é, com frequência, **um** banco — e servir só
+// ela apagava os outros quatro da resposta.
+func (p *Postgres) SerieServivel(ctx context.Context) (comparar.Serie, error) {
+	linhas, err := bd.New(p.pool).ObservacoesDeCadaBanco(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("ler o último varrimento: %w", err)
+		return comparar.Serie{}, fmt.Errorf("ler as observações de cada banco: %w", err)
 	}
-
-	linhas, err := q.ObservacoesDoVarrimento(ctx, id)
-	if err != nil {
-		return nil, fmt.Errorf("ler as observações do varrimento %s: %w", uuidTexto(id), err)
+	if len(linhas) == 0 {
+		return comparar.Serie{}, ErrSemVarrimento
 	}
 
 	obs := make([]varrimento.Observacao, 0, len(linhas))
 	for i, l := range linhas {
 		o, err := observacaoDe(l)
 		if err != nil {
-			return nil, fmt.Errorf("observação %d do varrimento %s: %w", i+1, uuidTexto(id), err)
+			return comparar.Serie{}, fmt.Errorf("observação %d (%s): %w", i+1, l.BancoID, err)
 		}
 		obs = append(obs, o)
 	}
-	return obs, nil
+	return comporSerie(obs), nil
+}
+
+// comporSerie aplica a guarda da §7.3: só entram bancos cujo varrimento caia na
+// mesma data (fuso de Lisboa) do mais recente que a base tem.
+//
+// ⚠️ É sobre coerência ENTRE bancos, não sobre frescura. Se ninguém varreu hoje,
+// todos estão do mesmo lado da viragem e servem-se todos — o `capturado_em` de
+// cada oferta diz de quando são. Recusar servir até haver varrimento do dia é
+// outra decisão, e não está tomada (§4).
+//
+// Em Go e não em SQL porque precisa do fuso, e porque assim testa-se sem base.
+func comporSerie(obs []varrimento.Observacao) comparar.Serie {
+	maisRecente := time.Time{}
+	porBanco := map[string]time.Time{}
+	for _, o := range obs {
+		q := o.Oferta.CapturadoEm
+		if q.After(maisRecente) {
+			maisRecente = q
+		}
+		if q.After(porBanco[o.Oferta.BancoID]) {
+			porBanco[o.Oferta.BancoID] = q
+		}
+	}
+
+	dia := diaDeLisboa(maisRecente)
+	desactualizados := make([]string, 0)
+	for id, q := range porBanco {
+		if diaDeLisboa(q) != dia {
+			desactualizados = append(desactualizados, id)
+		}
+	}
+
+	servivel := make([]varrimento.Observacao, 0, len(obs))
+	for _, o := range obs {
+		if diaDeLisboa(porBanco[o.Oferta.BancoID]) == dia {
+			servivel = append(servivel, o)
+		}
+	}
+	return comparar.Serie{Observacoes: servivel, Desactualizados: ordenados(desactualizados)}
+}
+
+// diaDeLisboa é a data civil do instante no fuso onde os bancos praticam preço.
+// ⚠️ Não UTC: em Julho, 23:50 de Lisboa é 22:50 UTC do mesmo dia, mas 00:30 de
+// Lisboa é 23:30 UTC do dia ANTERIOR — e a viragem que a §7.3 nomeia é a de cá.
+func diaDeLisboa(t time.Time) string {
+	return t.In(lisboa()).Format("2006-01-02")
+}
+
+// lisboa é o fuso onde o preço é praticado. Sem base de dados de fusos (Windows,
+// contentor `scratch`) o `LoadLocation` falha, e aí UTC é a única resposta
+// honesta — errar a data por uma hora é melhor do que não responder.
+func lisboa() *time.Location {
+	loc, err := time.LoadLocation("Europe/Lisbon")
+	if err != nil {
+		return time.UTC
+	}
+	return loc
+}
+
+// ordenados dá ordem estável a uma lista de ids, para a resposta não mudar de
+// forma entre pedidos iguais.
+func ordenados(ids []string) []string {
+	sort.Strings(ids)
+	return ids
 }
 
 // observacaoDe reconstrói uma observação a partir de uma linha.
-func observacaoDe(l bd.ObservacoesDoVarrimentoRow) (varrimento.Observacao, error) {
+func observacaoDe(l bd.ObservacoesDeCadaBancoRow) (varrimento.Observacao, error) {
 	cenario, err := grelha.LerCenario(l.Cenario)
 	if err != nil {
 		// ⚠️ Falha alto e não devolve um ponto plausível. Uma chave que não se
@@ -146,7 +205,7 @@ func observacaoDe(l bd.ObservacoesDoVarrimentoRow) (varrimento.Observacao, error
 }
 
 // degrauDe reconstrói o intervalo de LTV quando a linha é um degrau da escala.
-func degrauDe(l bd.ObservacoesDoVarrimentoRow) (*dominio.DegrauLTV, error) {
+func degrauDe(l bd.ObservacoesDeCadaBancoRow) (*dominio.DegrauLTV, error) {
 	if !l.LtvMin.Valid || !l.LtvMax.Valid {
 		return nil, nil
 	}
@@ -221,9 +280,12 @@ func listaDeJSON(b []byte) ([]string, error) {
 //
 // ⚠️ É a leitura da fronteira CONGELADA, e por isso usa a `ListarPontos` — a
 // query antiga, com o subconjunto de colunas que o v1 publicava — e não a
-// `ObservacoesDoVarrimento`. As duas parecem-se e servem coisas diferentes:
+// `ObservacoesDeCadaBanco`. As duas parecem-se e servem coisas diferentes:
 // aquela alimenta a resposta ao cliente e precisa da escala e da base; esta
 // devolve o que o `viabilidade-imobiliaria` lê há meses.
+//
+// ⚠️ E a composição por banco da KAN-50 **não lhe toca**: esta fronteira publica
+// pontos com o seu `varrimento_id`, e quem a lê filtra como sempre filtrou.
 func (p *Postgres) PontosDoCatalogo(
 	ctx context.Context, filtro dominio.FiltroDoCatalogo,
 ) ([]dominio.PontoDeMercado, error) {
