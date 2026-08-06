@@ -10,7 +10,7 @@ Os ecrãs estão em `ECRAS.md`. Isto é o *como se constrói*.
 | --- | --- | --- |
 | Plataforma | **Expo** (fluxo *managed*), com *dev builds* se aparecer módulo nativo | Um código para iOS, Android e **web**. E o **EAS Build compila para iOS sem Mac** — nesta máquina, que é Windows, isso não é conveniência, é viabilidade. |
 | Navegação | **expo-router** | Ficheiros como rotas, e no alvo web dá **URLs a sério**. A versão web substitui o site público do v1, por isso ter `/ofertas` em vez de estado só em memória importa. |
-| Estado do servidor | **TanStack Query** | ⚠️ **A justificação mudou a 2026-07-28, e a escolha aguentou.** Dizia aqui «o ciclo desta app é submeter e **sondar**», e a sondagem morreu com a inversão da §1 — a resposta é imediata. O que sustenta a biblioteca é o resto, que continua todo de pé: `GET /api/v1/bancos` é o caso de cache por excelência (muda uma vez por varrimento, alimenta o formulário inteiro e é lido em três ecrãs), e a comparação precisa de dedup, de repetição com recuo e de estados de erro tipados. Nada disso se escreve à mão de graça. |
+| Estado do servidor | **TanStack Query** | ⚠️ **A justificação mudou a 2026-07-28, e a escolha aguentou.** Dizia aqui «o ciclo desta app é submeter e **sondar**», a sondagem morreu com a inversão da §1, e a §1 foi revertida a 2026-08-06. ⚠️ **A sondagem continua morta** — não há trabalho nosso a sondar —, mas volta o que a biblioteca faz melhor: **N pedidos em paralelo, um por banco**, com dedup, repetição com recuo, estados de erro tipados e resultados a chegar em alturas diferentes. É o caso de uso para que ela foi feita, e a escolha aguentou duas inversões. |
 | Estado do formulário | **Zustand**, uma loja só | Os três passos do pedido partilham estado e têm de sobreviver a navegar para trás. Limpa-se ao submeter. Não é estado de servidor, por isso não é do Query. |
 | Estilos | **StyleSheet + módulo de tokens + **`useTema()` | Sem NativeWind nem biblioteca de componentes. O desenho já tem um sistema de tokens apertado (`ECRAS.md`), o `StyleSheet` comporta-se igual no web via `react-native-web`, e é menos uma peça a manter. |
 | Testes | **Jest + React Native Testing Library**; Maestro para fluxos, mais tarde |  |
@@ -91,7 +91,11 @@ testes/              jest + a fábrica de bancos de teste
 | A7 | Acessibilidade e alvo web |
 | A8 | EAS Build e submissão — ⚠️ **bloqueado pelas perguntas jurídicas da** `KAN-24` (`prioridade-alta`): termos de serviço dos bancos, redistribuição da série, regulação de crédito, requisitos das lojas, RGPD e responsabilidade |
 
-⚠️ **A A4 não existe, e o buraco fica de propósito.** Era «ecrã de espera: sondagem, resultados progressivos, cancelamento», e não há espera nenhuma desde a inversão da §1 — a comparação é uma consulta e aritmética local. Renumerar apagava o vestígio de que se planeou uma coisa que o desenho deixou de precisar, e a A4 era **um quinto do trabalho da app**. Com ela saiu a rota `comparar/[id].tsx`, cujo `[id]` **nem existe no contrato**: uma rota dinâmica sobre uma chave inexistente teria falhado no primeiro build.
+⚠️ **A A4 VOLTA a 2026-08-06, com a §1 revertida — mas não é a A4 antiga.** Era «ecrã de espera: sondagem, resultados progressivos, cancelamento». Volta só o **meio**: resultados progressivos.
+
+⚠️ **Não volta a sondagem nem o `comparar/[id].tsx`.** Não há `id` de simulação porque não há trabalho em segundo plano do nosso lado: são N pedidos, `GET /api/v1/ofertas/{banco}`, um por banco escolhido. A rota dinâmica sobre uma chave inexistente continuaria a falhar no primeiro build — e continua a não se escrever.
+
+⚠️ **E traz trabalho novo que a A4 antiga não tinha: o fan-out passa a viver na app** (D2), e com ele a responsabilidade de não disparar dez pedidos de uma vez contra cinco bancos.
 
 ⚠️ **O alvo web não é polimento — é o primeiro alvo a publicar.** É o único que se aloja sem passar por uma loja, e as lojas estão bloqueadas pela `KAN-24`. A ordem é A1, A2, A3, A5, A6, A7; a A8 fica onde está.
 

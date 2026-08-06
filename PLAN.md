@@ -18,21 +18,25 @@ Toolchain, quatro camadas com `depguard` a impor a regra de dependência, `docke
 
 Quatro bancos de HTTP puro, escolhidos para exercitarem o máximo de dimensões ao mínimo custo: **CGD** (linha de base, períodos fixos descobertos em runtime), **Novo Banco** (produtos por omissão, erro estruturado como sinal, Euribor escolhível, finalidade muda o preço), **Montepio** (sessão `GET`→`POST`, sem taxa fixa, prova o «ajusta e anota»), **Banco CTT** (Euribor imposta e lida da resposta). `KAN-5`, `KAN-6`, `KAN-9`–`KAN-14`.
 
-**Três coisas morreram aqui com a inversão da §1** (2026-07-25):
+**Três coisas morreram aqui com a inversão da §1** (2026-07-25) — e **duas voltaram a nascer com a reversão de 2026-08-06**:
 
-| | porquê |
-|---|---|
-| `KAN-7` fan-out do `comparar` | deixou de falar com bancos: lê a série e calcula localmente. O fan-out passou para o `varrimento`, que é onde o `-race` do portão ganha valor |
-| `KAN-8` cache e *gate* em Redis | não há pedido ao banco no caminho do cliente. O *gate* é um advisory lock em Postgres |
-| `KAN-15` quantização do pedido | existia para acertos de cache. ⚠️ A guarda de degrau **sobreviveu e ficou melhor**: o LTV é dimensão da grelha, logo o pedido cai no seu intervalo por construção |
+| | 2026-07-25 | 2026-08-06 |
+|---|---|---|
+| `KAN-7` fan-out do `comparar` | morreu: lia a série e calculava localmente | ⚠️ **VIVO** — o `comparar` volta a falar com bancos, e é onde o `-race` ganha valor |
+| `KAN-8` cache e *gate* | morreu: não havia pedido ao banco no caminho do cliente | ⚠️ **VIVO, com outra forma** — cache em Postgres (não Redis), e o *gate* passa de fecho a **tecto de concorrência** por banco |
+| `KAN-15` quantização do pedido | morreu: existia para acertos de cache | ⛔ **continua morta, e agora por decisão e não por acaso.** A cache voltou e a quantização não vem com ela: a chave é o pedido exacto. A razão pela qual era perigosa — arredondar cruza um degrau de preço — volta a valer por inteiro, e **sem** a protecção estrutural que a grelha dava |
 
-## Fase 2 — Mercado ✅ *(menos um banco)*
+## Fase 2 — Mercado ⛔ *cancelada a 2026-08-06*
 
-O que o `viabilidade-imobiliaria` consome, com a fronteira congelada ao byte. `KAN-16`, `KAN-17`, `KAN-18`, `KAN-42` (teste de contrato que três documentos diziam existir e não existia), `KAN-44` (rota no contrato sem handler desde que o contrato existe).
+⚠️ **Cancelada pela reversão da §1, e fica escrita como cancelada.** O varrimento morreu (D1), e com ele a série temporal que esta fase existia para produzir.
 
-⏳ `KAN-19` — Crédito Agrícola, o último de HTTP puro.
+**O que fica de pé desta fase:** os parsers e as capturas dos bancos (`KAN-17`, `KAN-18`), que passam a ser o activo principal do repositório.
 
-⚠️ A `KAN-16` cresceu muito para além de «grelha + varrimento» e é onde estão as medições que mudaram o desenho: escala de LTV por fronteiras medidas, a **base** da fixa em vez da TAN (`KAN-41`), o resíduo numa coluna, e a TAEG derivada dos encargos medidos.
+**O que morreu:** a grelha, a escala de LTV por fronteiras medidas, a base da fixa (`KAN-41`), o resíduo em coluna e a TAEG derivada dos encargos. ⚠️ Toda a `KAN-16` para além de «ler um banco» era estrutura para guardar uma reconstrução do preço — ver `docs/DECISAO-AO-VIVO.md` §2.
+
+⚠️ **Dívida por saldar, e é com outro repositório:** o `/api/rate-catalog` fica sem fonte e o `viabilidade-imobiliaria` consome-o em produção. A retirada tem de ser combinada; as saídas estão na `DECISAO-AO-VIVO.md` §4, D1, e **falta escolher qual**.
+
+⏳ `KAN-19` — Crédito Agrícola. Continua a fazer sentido: é um banco a mais para perguntar.
 
 ## Fase 3 — Bancos de browser ⏳
 
@@ -52,9 +56,31 @@ Feito: `Dockerfile` não-root sem Chromium, logs com `X-Request-ID` (`KAN-43`), 
 
 ⏳ **Medir o `PROXIES_DE_CONFIANCA`** com um pedido real. ⚠️ Fica vazio até estar medido, e a razão é assimétrica: larga de mais deixa contornar o tecto de vez; vazia, o tecto do site inteiro passa a ser o de um utilizador — o bug de produção do v1. **Um tecto apertado de mais é visível; um contornável não é.**
 
-## Fase 5 — Ecrã de mercado
+## Fase 5 — Ecrã de mercado ⛔ *cancelada a 2026-08-06*
 
-`KAN-23` (Epic). A série do catálogo dentro da app. Fica para o fim de propósito: é a mais fácil de adiar e a mais fácil de fazer mal cedo demais.
+`KAN-23` (Epic). ⚠️ **Cancelada com a série que a alimentava.** Sem varrimento não há série temporal, e um ecrã de mercado sobre nada é um ecrã vazio.
+
+⚠️ Fica escrita como cancelada, e não apagada: é a funcionalidade mais óbvia de voltar a propor daqui a um mês, e a resposta é que **exige primeiro decidir se o varrimento volta** — o que contraria a D1.
+
+## Fase 6 — A fatia ao vivo 🆕 *(2026-08-06)*
+
+A fase que a reversão da §1 abre, e a que passa a ser o produto.
+
+⚠️ **Começa por medir, não por escrever.** O desenho depende de três números que não temos:
+
+| medir | porquê |
+|---|---|
+| latência por banco, a sério | fixa o timeout. Medido a 2026-08-06: o Montepio não respondeu em **10 s** em 4 cenários |
+| concorrência que cada banco tolera | fixa o tecto do §7.2. Fica **apertado** até estar medido |
+| validade útil da cache | fixa o TTL do §7.6. Fica **curta** até estar medida |
+
+Depois disso, e por esta ordem:
+
+1. `KAN-7` — o `comparar` volta a falar com bancos, com tecto e timeout por banco.
+2. `KAN-8` — cache em Postgres, chave = pedido exacto, com o pedido em claro **fora** do disco.
+3. `KAN-14` — o tecto por IP dimensionado para **N pedidos por comparação**, e o `PROXIES_DE_CONFIANCA` **medido**. ⚠️ Passa de dívida a bloqueante: é ele que separa um serviço de uma ferramenta de carga contra cinco bancos.
+4. `GET /api/v1/ofertas/{banco}` no contrato, e a app a fazer o fan-out.
+5. Retirar o que morreu: `sondagens`, a escala, os encargos, a grelha. ⚠️ **Depois** de a fatia ao vivo estar de pé, e não antes — apagar primeiro deixa o repositório sem nada que responda.
 
 ---
 
@@ -72,7 +98,7 @@ Repositório separado, `simulador-v2-app`. Arrancou a 2026-07-28 com as fases 0-
 | A7 acessibilidade e **publicação web** — primeiro alvo a publicar | ⏳ |
 | A8 EAS Build e submissão | ⛔ bloqueado pelo `KAN-24` |
 
-⚠️ **A A4 não existe, e o buraco é de propósito:** era o ecrã de espera com sondagem, e não há espera nenhuma.
+⚠️ **A A4 VOLTA (2026-08-06).** Tinha sido apagada com a nota «não há espera nenhuma», e passa a haver: cada banco é um pedido e a lista enche-se à medida que respondem. Não é o ecrã de espera do v1 — não há trabalho assíncrono nosso a que se pergunte «já está?» —, é a lista a preencher-se. ⚠️ E traz consigo o fan-out **do lado da app**, com a responsabilidade de não disparar dez pedidos de uma vez.
 
 ⚠️ **A app impõe uma restrição bloqueante ao backend:** com uma app nas lojas não se controla quem actualiza, por isso `/api/v1` **só pode mudar por acrescento**. O caminho de «esta versão é demasiado antiga» custa pouco agora e é impossível de acrescentar quando já houver versões antigas no terreno — que é quando faz falta. **Por fazer.**
 
