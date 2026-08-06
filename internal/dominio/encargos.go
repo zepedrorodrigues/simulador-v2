@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/shopspring/decimal"
 )
@@ -222,6 +223,24 @@ func AjustarEncargos(obs []ObservacaoDeEncargo) (Encargos, []Residuo, error) {
 		}
 	}
 
+	// ⚠️ Sair do ciclo NÃO é ter convergido, e até aqui as duas coisas saíam
+	// iguais: o `break` acima é por convergência, mas esgotar as 12 iterações cai
+	// no mesmo sítio e devolvia `nil` no erro na mesma (KAN-52). Acontece quando a
+	// solução do sistema quer um parâmetro fora do plausível — tipicamente um
+	// recorrente NEGATIVO —, porque aí o `limitar` prende-o na fronteira e o passo
+	// seguinte volta a empurrá-lo para lá. Medido a 2026-08-06: desvio de +0,26
+	// p.p. nas duas âncoras, e dois preçários diferentes a dar encargos iguais ao
+	// cêntimo, porque um ajuste preso deixa de responder aos dados.
+	if fc.Abs().GreaterThanOrEqual(convergenciaDoAjuste) || fl.Abs().GreaterThanOrEqual(convergenciaDoAjuste) {
+		return Encargos{}, nil, fmt.Errorf(
+			"%w: o ajuste não convergiu em %d iterações — sobra %s p.p. de desvio a %d meses e %s p.p. a %d meses, "+
+				"com %s. A repartição que daqui saísse não reproduz as TAEG que o banco publicou",
+			ErrEncargosNaoAjustaveis, iteracoesDoAjuste,
+			fc.Abs().Round(casasDaTaxa), curta.PrazoMeses,
+			fl.Abs().Round(casasDaTaxa), longa.PrazoMeses,
+			naFronteira(a, r))
+	}
+
 	ajustados := Encargos{Antecipado: RacioDeDecimal(a), Recorrente: TaxaDeDecimal(r)}
 
 	// O resíduo mede-se em TODAS as observações, incluindo as duas âncoras — nelas
@@ -269,6 +288,29 @@ var (
 // linear com o Jacobiano certo, duas ou três bastam; o tecto existe para o ciclo
 // ser provadamente finito.
 const iteracoesDoAjuste = 12
+
+// naFronteira nomeia o parâmetro que ficou encostado ao limite do plausível, que
+// é quase sempre a razão de o ajuste não fechar. Sem isto a mensagem dizia que
+// não convergiu e deixava quem a lê sem o passo seguinte.
+func naFronteira(a, r decimal.Decimal) string {
+	var presos []string
+	if a.IsZero() {
+		presos = append(presos, "o antecipado preso em 0")
+	}
+	if a.Equal(antecipadoMaximo) {
+		presos = append(presos, "o antecipado preso no máximo")
+	}
+	if r.IsZero() {
+		presos = append(presos, "o recorrente preso em 0 (o sistema pede-lhe um valor negativo, que seria um subsídio)")
+	}
+	if r.Equal(recorrenteMaximo) {
+		presos = append(presos, "o recorrente preso no máximo")
+	}
+	if len(presos) == 0 {
+		return "nenhum dos dois na fronteira"
+	}
+	return strings.Join(presos, " e ")
+}
 
 // limitar prende um valor ao intervalo. O Newton pode dar um passo para fora do
 // plausível numa primeira iteração, e prendê-lo é melhor do que abortar: a

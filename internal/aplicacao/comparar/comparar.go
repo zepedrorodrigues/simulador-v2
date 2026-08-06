@@ -75,6 +75,18 @@ type medidoDeUmBanco struct {
 	// encargos é o modelo ajustado às observações de prazos diferentes.
 	encargos    dominio.Encargos
 	temEncargos bool
+
+	// porqueSemEncargos é o erro que impediu o ajuste, guardado para a nota o
+	// poder dizer. ⚠️ Sem ele a nota dava sempre a mesma razão — «não observou
+	// prazos suficientemente diferentes» — mesmo quando a razão era outra, e uma
+	// frase errada sobre porque é que falta um número é pior do que nenhuma.
+	porqueSemEncargos error
+
+	// piorResiduo é o maior desvio do ajuste em qualquer das observações deste
+	// banco. ⚠️ É por BANCO e não por prazo porque é assim que o
+	// `dominio.ResiduoTolerado` está escrito: acima dele «o modelo de duas
+	// naturezas não descreve este banco».
+	piorResiduo dominio.Residuo
 }
 
 // Serie é a fotografia com que se responde: as observações que entram, e os
@@ -259,9 +271,19 @@ func (b *medidoDeUmBanco) ajustarEncargos() {
 		}
 	}
 
-	encargos, _, err := dominio.AjustarEncargos(obs)
+	encargos, residuos, err := dominio.AjustarEncargos(obs)
 	if err != nil {
+		b.porqueSemEncargos = err
 		return
+	}
+
+	// ⚠️ Os resíduos deixam de ser descartados (KAN-52). O `dominio` calcula-os
+	// para se poder ver se o modelo descreve o banco, e aqui iam para `_` — a
+	// medição existia e ninguém a lia. Guarda-se o pior, que é o que decide.
+	for _, r := range residuos {
+		if r.Desvio.Decimal().Abs().GreaterThan(b.piorResiduo.Desvio.Decimal().Abs()) {
+			b.piorResiduo = r
+		}
 	}
 	b.encargos, b.temEncargos = encargos, true
 }
@@ -707,9 +729,25 @@ func derivarTAEG(oferta *dominio.Oferta, banco *medidoDeUmBanco, p dominio.Pedid
 	}
 	if !banco.temEncargos {
 		oferta.Anotar(fmt.Sprintf(
-			"A TAEG e o MTIC não são apresentados para o %s: seriam calculados a partir dos encargos, e o "+
-				"último varrimento não observou este banco em prazos suficientemente diferentes para os "+
-				"separar. Um número aqui seria uma repartição escolhida por nós, e não medida.", nome))
+			"A TAEG e o MTIC não são apresentados para o %s: seriam calculados a partir dos encargos, e %s. "+
+				"Um número aqui seria uma repartição escolhida por nós, e não medida.",
+			nome, razaoSemEncargos(banco.porqueSemEncargos)))
+		return
+	}
+
+	// ⚠️ Um ajuste que fecha nas âncoras pode continuar a não descrever o banco:
+	// as observações do meio ficam livres para o contradizer, e é para isso que
+	// elas ficam de fora do sistema. Acima do `ResiduoTolerado` — meia casa da
+	// TAEG publicada — o modelo de duas naturezas não descreve este banco, e o
+	// `dominio` di-lo há muito. Faltava alguém agir sobre isso (KAN-52).
+	if banco.piorResiduo.Excede() {
+		oferta.Anotar(fmt.Sprintf(
+			"A TAEG e o MTIC não são apresentados para o %s: os encargos ajustados não reproduzem os preços "+
+				"que ele próprio publicou — a %d meses o modelo prevê %s %% e o banco publicou %s %% "+
+				"(desvio de %s p.p.). Servir a TAEG daqui saída era publicar um número que os dados deste "+
+				"banco contradizem.",
+			nome, banco.piorResiduo.PrazoMeses, banco.piorResiduo.Prevista,
+			banco.piorResiduo.Observada, banco.piorResiduo.Desvio))
 		return
 	}
 
@@ -722,6 +760,21 @@ func derivarTAEG(oferta *dominio.Oferta, banco *medidoDeUmBanco, p dominio.Pedid
 
 	oferta.TAEG, oferta.MTIC = &taeg, &mtic
 	oferta.Pressupor(banco.encargos.Pressupostos(p.Montante)...)
+}
+
+// razaoSemEncargos traduz o erro do ajuste para a metade da frase que a pessoa
+// lê. ⚠️ As duas razões são diferentes e a distinção importa a quem decide o que
+// varrer a seguir: «faltam prazos» resolve-se varrendo mais, «o ajuste não fecha»
+// não — os dados já lá estão e é o modelo que não os descreve.
+func razaoSemEncargos(err error) string {
+	switch {
+	case errors.Is(err, dominio.ErrPoucasObservacoes):
+		return "o último varrimento não observou este banco em prazos suficientemente diferentes para os separar"
+	case errors.Is(err, dominio.ErrEncargosNaoAjustaveis):
+		return "o ajuste aos preços que ele publicou não fecha"
+	default:
+		return "o ajuste aos preços que ele publicou não se conseguiu fazer"
+	}
 }
 
 // trechosDe converte as fases acumuladas do plano em troços de duração, que é o
