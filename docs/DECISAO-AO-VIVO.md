@@ -180,7 +180,7 @@ primeiro banco responder.
 | | |
 |---|---|
 | SSE de `/api/v1/comparacoes` | um pedido do cliente, servidor mantém a ligação aberta. ⚠️ O `fetch` do React Native **não** suporta SSE nativamente, e ligações longas atravessam mal proxies |
-| **um pedido por banco** | `GET /api/v1/ofertas/{banco}`. HTTP simples, cada resposta pequena, retry por banco, a app controla a concorrência e mostra o que já tem |
+| **um pedido por banco** | `POST /api/v1/ofertas/{banco}`. HTTP simples, cada resposta pequena, retry por banco, a app controla a concorrência e mostra o que já tem |
 
 ⚠️ **O custo desta escolha é que o *fan-out* passa para a app**, e com ele a
 responsabilidade de não disparar dez pedidos de uma vez. E o tecto por IP passa a
