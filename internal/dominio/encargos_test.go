@@ -3,6 +3,7 @@ package dominio_test
 import (
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -379,4 +380,37 @@ func TestDeslocarATAEGDeTodosOsPrazosMudaOAjuste(t *testing.T) {
 		semDeslocamento.Recorrente.Decimal().Equal(comDeslocamento.Recorrente.Decimal()) {
 		t.Error("deslocar a TAEG de todos os prazos em 0,150 p.p. não mudou os encargos ajustados")
 	}
+}
+
+// O recorrente ajustado não vai para a frase com dezasseis casas (KAN-55).
+//
+// ⚠️ O valor deste teste é o que um ajuste a sério produz — saiu do catálogo de
+// prova a 2026-08-06 — e não um número inventado com casas a mais. A KAN-51
+// arrumou o antecipado na mesma frase e o recorrente ficou para trás, porque a
+// fixture que a mediu tinha recorrente zero e zero não tem cauda decimal.
+func TestORecorrenteAjustadoNaoVaiParaAFraseComDezasseisCasas(t *testing.T) {
+	t.Parallel()
+
+	recorrente, err := decimal.NewFromString("0.2490802248339295")
+	if err != nil {
+		t.Fatal(err)
+	}
+	e := dominio.Encargos{
+		Antecipado: racio(t, "0.005066"),
+		Recorrente: dominio.TaxaDeDecimal(recorrente),
+	}
+
+	var frase string
+	for _, p := range e.Pressupostos(dominio.DinheiroDeInteiro(320_000)) {
+		if strings.Contains(p, "ao ano sobre o capital") {
+			frase = p
+		}
+	}
+	if frase == "" {
+		t.Fatal("não há pressuposto nenhum sobre o encargo recorrente")
+	}
+	if regexp.MustCompile(`\d,\d{4,}`).MatchString(frase) {
+		t.Errorf("o pressuposto traz um número com quatro ou mais casas decimais, e é para uma pessoa ler: %s", frase)
+	}
+	t.Logf("%s", frase)
 }

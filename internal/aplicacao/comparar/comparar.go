@@ -527,8 +527,11 @@ func (c *Catalogo) ofertaDe(
 				"não mediu quanto ele desconta.", produto, nome))
 	}
 
-	// 5. A TAEG e o MTIC, derivados — e os pressupostos que os sustentam.
-	derivarTAEG(&oferta, banco, pedido, nome)
+	// 5. A TAEG e o MTIC: os medidos, se o pedido caiu em cima de um ponto
+	//    varrido; derivados, se não caiu.
+	if !servirTAEGMedida(&oferta, banco, cenario.Chave(), pedido, nome) {
+		derivarTAEG(&oferta, banco, pedido, nome)
+	}
 	return oferta
 }
 
@@ -760,6 +763,70 @@ func derivarTAEG(oferta *dominio.Oferta, banco *medidoDeUmBanco, p dominio.Pedid
 
 	oferta.TAEG, oferta.MTIC = &taeg, &mtic
 	oferta.Pressupor(banco.encargos.Pressupostos(p.Montante)...)
+}
+
+// servirTAEGMedida serve a TAEG e o MTIC que o banco publicou, quando o crédito
+// que se montou é o MESMO que ele preçou. Diz se serviu (KAN-55).
+//
+// ⚠️ Até aqui a TAEG observada era lida só como entrada do ajuste de encargos, e
+// a servida saía sempre do modelo. Num ponto varrido isso não personalizava
+// nada — os encargos ajustados saem do mesmo varrimento de titular fictício — e
+// só acrescentava o erro do modelo a uma medição. Medido na CGD a 2026-08-06: o
+// modelo dava 4,712 % onde o banco publicou 4,500 %.
+//
+// ⚠️ «O mesmo crédito» compara-se pelo que SOBREVIVE à ida à base: capital,
+// prazo, taxa e produtos. **Não pelas fases** — o `catalogo/leitura.go` não as
+// reconstrói, e uma observação lida do Postgres traz-nas sempre vazias. Comparar
+// fases dava um critério que passa nos testes (a fixture constrói-as) e nunca
+// dispara em produção, que é o modo de falha da §7.4 escrito ao contrário.
+//
+// ⚠️ Exige-se UMA fase só, e é recusa deliberada e não limitação: com várias, o
+// contrato montado tem troços que a observação não descreve — ela traz uma TAN
+// e mais nada. Na mista, o preço do banco cobre um pós-período-fixo que ele
+// próprio não divulga, e reclamar a TAEG dele para o nosso plano seria dizer que
+// medimos o que não medimos. A variável e a fixa ao prazo todo — que é o grosso
+// do que se varre — têm uma fase e entram.
+// ⚠️ Procura-se em TODAS as observações do cenário, e não só naquela por que se
+// preçou. O `observacaoDe` escolhe de propósito a linha SEM produtos — é a que
+// dá o preço de tabela —, mas o varrimento também mede as colunas bonificadas, e
+// quem escolheu exactamente os produtos de uma dessas colunas tem o banco a
+// publicar a TAEG do crédito dele. Procurar só na escolhida deixava sem TAEG
+// medida precisamente os bancos cujos produtos a app traz ligados por omissão.
+func servirTAEGMedida(oferta *dominio.Oferta, banco *medidoDeUmBanco, cenario string, p dominio.Pedido, nome string) bool {
+	if !oferta.Sucesso() || len(oferta.Fases) != 1 {
+		return false
+	}
+
+	for _, o := range banco.porCenario[cenario] {
+		medida := o.Oferta
+		if medida.TAEG == nil || medida.MTIC == nil || medida.TAN == nil {
+			continue
+		}
+		if !o.Ponto.Pedido.Montante.Equal(p.Montante) {
+			continue
+		}
+		if oferta.Fases[0].AteMes != varrimento.PrazoAplicado(o) {
+			continue
+		}
+		// A taxa que se vai praticar é a mesma que o banco preçou. É isto que
+		// fecha o «mesmo crédito»: mesmo capital, mesmo prazo, mesma taxa.
+		if !oferta.Fases[0].Taxa.Equal(*medida.TAN) {
+			continue
+		}
+		// ⚠️ Os produtos entram no preço pela taxa, e a taxa já foi comparada —
+		// mas não só por aí: um produto pode custar sem mexer na taxa. É esta
+		// comparação que distingue a coluna de tabela da bonificada quando as
+		// duas dessem, por acaso, a mesma taxa.
+		if !slices.Equal(p.ProdutosDoBanco(medida.BancoID), medida.ProdutosAplicados) {
+			continue
+		}
+
+		taeg, mtic := *medida.TAEG, *medida.MTIC
+		oferta.TAEG, oferta.MTIC = &taeg, &mtic
+		oferta.Pressupor(dominio.PressupostosDeTAEGMedida(nome)...)
+		return true
+	}
+	return false
 }
 
 // razaoSemEncargos traduz o erro do ajuste para a metade da frase que a pessoa
