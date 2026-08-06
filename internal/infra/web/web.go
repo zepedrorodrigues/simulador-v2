@@ -364,10 +364,20 @@ func erroComCampo(w http.ResponseWriter, estado int, codigo, mensagem, campo str
 // PrazoDoBancoOmissao é quanto se espera por um banco antes de o dar como
 // indisponível.
 //
-// ⚠️ **É um valor de partida e não uma medição.** Os 15 s vêm de os 10 s do
-// varrimento não terem chegado ao Montepio a 2026-08-06 — 4 cenários passaram
-// desse prazo. O número certo mede-se banco a banco, e é um dos três que a Fase
-// 6 do `PLAN.md` diz que faltam.
+// ⚠️ **Medido, e já não um palpite** (2026-08-06, 17h13, hora de expediente; 25
+// simulações frias pelo caminho ao vivo — a tabela está no `DOSSIE-BANCOS.md`).
+// O máximo observado foi **8,4 s, no Montepio**, e os 15 s são ~1,8× isso.
+//
+// ⚠️ **A margem é grande de propósito, e a razão é o Montepio.** A cauda dele é
+// 4,2× a própria mediana, contra 1,7-2,5× nos outros quatro, e noutra medição do
+// mesmo dia passou dos **10 s** em 4 cenários. Logo o 8,4 s é um limite inferior
+// do pior caso — cinco amostras dão um máximo, não um percentil.
+//
+// ⚠️ **Continua a ser um número só para cinco bancos que diferem 7×**: o Novo
+// Banco nunca passou de 1,15 s. Um prazo por banco é o que a `KAN-7` pede, e a
+// medição que o permite fixar já existe (`make latencia`); o que falta é a
+// decisão, porque diferenciar com n=5 arrisca cortar um banco lento que ia
+// responder.
 const PrazoDoBancoOmissao = 15 * time.Second
 
 // construirAoVivo monta um banco com transportes **deste pedido**.

@@ -66,13 +66,19 @@ Feito: `Dockerfile` não-root sem Chromium, logs com `X-Request-ID` (`KAN-43`), 
 
 A fase que a reversão da §1 abre, e a que passa a ser o produto.
 
-⚠️ **Começa por medir, não por escrever.** O desenho depende de três números que não temos:
+⚠️ **Começa por medir, não por escrever.** Eram três números que não tínhamos; **um está medido** e os outros dois não se medem da mesma maneira:
 
 | medir | porquê |
 |---|---|
-| latência por banco, a sério | fixa o timeout. Medido a 2026-08-06: o Montepio não respondeu em **10 s** em 4 cenários |
-| concorrência que cada banco tolera | fixa o tecto do §7.2. Fica **apertado** até estar medido |
-| validade útil da cache | fixa o TTL do §7.6. Fica **curta** até estar medida |
+| ~~latência por banco~~ ✅ **medida** (2026-08-06, 17h13) | 25 simulações frias: Novo Banco 460 ms de mediana, Montepio 2,01 s e **cauda de 8,4 s**. Fixa o timeout — os 15 s passam a ser ~1,8× o pior observado, e não um palpite. `make latencia`, tabela no `DOSSIE-BANCOS.md` |
+| concorrência que cada banco tolera | fixa o tecto do §7.2. ⚠️ **Não se mede procurando onde parte** — ver abaixo. Fica **apertado**, e o apertado já está medido |
+| validade útil da cache | fixa o TTL do §7.6. ⚠️ **Não é uma corrida, é uma vigia**: pede horas ou dias de relógio, não pedidos. Fica **curta** até estar medida |
+
+⚠️ **A concorrência que um banco «tolera» não se mede subindo até ele recusar.** Isso é um teste de carga contra o simulador público de um terceiro, e o resultado que produz — o ponto onde parte — é exactamente o que não se quer usar. O que este repositório já fez, e é o método: mediu **1, 2 e 4 pedidos em paralelo** contra a CGD (2026-07-26, 8 pontos) — 1,086 s por ponto, 603 ms e 367 ms, **zero falhas nos três** — e escolheu **2**, não 4. A razão está escrita no `PorBancoOmissao`, e vale inteira aqui: comprar 40 % de velocidade ao preço de quadruplicar a carga que se põe num sistema alheio não é uma troca que se faça por se poder fazer.
+
+⚠️ **E ao vivo a pergunta é outra**, o que torna a medição menos urgente do que parecia: o travão do varrimento era um **fecho** contra duas corridas nossas; ao vivo, dois clientes a perguntar pelo mesmo banco é o normal, e o que se dimensiona é um tecto de simultâneos. Enquanto não houver clientes, não há número a medir — há um tecto a escolher, e escolhe-se **2 por banco**, que é o que está medido sem falhas.
+
+⚠️ **A validade da cache não se mede com pedidos, mede-se com tempo.** É perguntar o mesmo ao mesmo banco de hora a hora e ver quando a resposta muda — e o que decide não é a média, é a **primeira** mudança, porque servir um preço que mudou é o erro que a cache pode causar. Um preçário muda em dias; uma Euribor diária muda todos os dias úteis de manhã. ⚠️ Até haver vigia, o TTL fica **curto** e não a zero: zero é não ter cache, e a cache existe para não sermos um amplificador.
 
 Depois disso, e por esta ordem:
 

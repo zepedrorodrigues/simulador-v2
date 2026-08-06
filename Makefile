@@ -113,6 +113,25 @@ teste-fidelidade:
 medicao:
 	go test -race -tags medicao -timeout 90m -v ./internal/aplicacao/varrimento/
 
+# A latência por banco — o primeiro dos três números de que a Fase 6 depende.
+#
+# ⚠️ Custo: **poucas dezenas de pedidos**, repartidos pelos cinco bancos —
+# `LATENCIA_AMOSTRAS` (5 por omissão) × o custo por simulação de cada banco:
+# 1,00 no Banco CTT, 2,03 no Montepio, 4,00 no Santander. Minutos, com pausa de
+# 3 s entre amostras.
+#
+# ⚠️ **Sequencial e nunca em paralelo.** Mede-se latência, não carga. Um alvo
+# que disparasse as amostras juntas media o banco sob pico — e produzia esse
+# pico contra o simulador público de um terceiro.
+#
+# ⚠️ **A hora faz parte do número.** Corre-se em hora de EXPEDIENTE de propósito:
+# um timeout dimensionado com latências de madrugada corta clientes às 11h.
+#
+# Sem `-race`: o que se mede é tempo, e o detector de corridas paga um custo em
+# tempo que entraria na medição.
+latencia:
+	go test -tags latencia -timeout 30m -v ./internal/aplicacao/aovivo/
+
 # O PostgreSQL local. O `--wait` espera pelo healthcheck do
 # `docker-compose.yml`, e esse é literalmente o `pg_isready` — não um `sleep`,
 # que dá verde antes de o serviço existir.

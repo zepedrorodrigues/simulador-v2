@@ -478,4 +478,24 @@ A regra que daqui saiu: **publica-se o spread da última fase indexada**. A mesm
 
 ⚠️ **E a última coluna é a que decide o desenho do varrimento**, não a duração: o Banco CTT gasta **um** pedido por simulação e o Santander **quatro** — cada simulação repaga-lhe a configuração, os limites e o catálogo. Sondar o Santander custa quatro vezes mais ao banco pela mesma informação. É o argumento medido para reaproveitar config e catálogo dentro de uma corrida (KAN-16), e a medição veio antes da mudança, não a justificá-la depois.
 
+### Latência do caminho ao vivo, medida a 2026-08-06 às 17h13 (hora de expediente)
+
+⚠️ **Este é o primeiro dos três números de que a Fase 6 depende**, e mede outra coisa que a tabela acima: ali é o tempo por simulação **dentro de uma corrida**, com a configuração e o catálogo já pagos; aqui é o que uma pessoa espera por um pedido **frio**, transportes construídos de raiz, pelo mesmo caminho que o `POST /api/v1/ofertas/{banco}` percorre. 25 simulações, 5 por banco, sequenciais e com 3 s de pausa. Zero falhas.
+
+| banco | min | mediana | max | cauda (max ÷ mediana) |
+|---|---|---|---|---|
+| Novo Banco | 300 ms | 460 ms | 1,15 s | 2,5× |
+| Santander | 500 ms | 920 ms | 1,52 s | 1,7× |
+| CGD | 940 ms | 1,04 s | 1,87 s | 1,8× |
+| Banco CTT | 1,15 s | 1,22 s | 2,19 s | 1,8× |
+| **Montepio** | 1,89 s | 2,01 s | **8,4 s** | **4,2×** |
+
+⚠️ **O frio custa cerca do dobro do quente.** Confrontando a mediana com a coluna «tempo por simulação» da corrida de fidelidade: Banco CTT 1,22 s contra 703 ms, Santander 920 ms contra 460 ms, Montepio 2,01 s contra 1,721 s. Um pedido de cliente paga o que uma corrida amortiza — e é por isso que reaproveitar configuração e catálogo **dentro de um pedido** deixou de ser optimização.
+
+⚠️ **A cauda do Montepio é o número que decide o timeout, e não a mediana dele.** 4,2× a própria mediana, contra 1,7-2,5× em todos os outros. Não é ruído: é o único banco que paga um arranque `GET`→`POST` para fixar cookies em cada simulação, e é o mesmo banco que noutra medição do mesmo dia não respondeu dentro de **10 s** em 4 cenários. Um timeout dimensionado pela mediana cortava-o a meio de uma resposta que ia chegar.
+
+⚠️ **Cinco amostras dão um máximo observado, não um percentil.** O 8,4 s é um **limite inferior** do pior caso do Montepio — a prova é que outra medição do mesmo dia viu passar dos 10 s. Um p95 honesto pede dezenas de amostras por banco, e dezenas × 5 bancos × até 4 pedidos por simulação é carga a sério contra terceiros. O que estas 25 amostras servem para fazer é desmontar um timeout escolhido no ar; não servem para prometer um percentil.
+
+Reproduz-se com `make latencia` (`LATENCIA_AMOSTRAS` regula as amostras). ⚠️ **Corre-se em hora de expediente de propósito** — é a janela em que o número é mau, e um timeout dimensiona-se pelo mau.
+
 ⚠️ **A aritmética é um leitor independente, e é grátis.** No Montepio foi ela que decidiu qual de dois números da mesma resposta era o verdadeiro: a fase indexada traz TAN 4,350 e prestação 995,62, mas declara uma taxa de 3,839 — e só a primeira reproduz o `TotalInterest` que o banco publica para essa fase. Sem essa conta, a escolha entre os dois seria uma preferência.
