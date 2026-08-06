@@ -177,3 +177,14 @@ func percentagemArredondada(r Racio, casas int32) string {
 func taxaTexto(t Taxa) string { return virgula(t.v.String()) }
 
 func virgula(s string) string { return strings.Replace(s, ".", ",", 1) }
+
+// ParaPessoa escreve a taxa como se escreve em Portugal: vírgula decimal.
+//
+// ⚠️ É o par do `Dinheiro.ParaPessoa` (KAN-51), e existe pela mesma razão: o
+// `String()` é a forma da biblioteca decimal, com ponto, e há comparações e
+// testes que dependem dela. Uma frase que uma pessoa lê não usa essa.
+//
+// ⚠️ E é exportado porque as frases não vivem todas aqui: a nota do resíduo
+// excedido nasce no `comparar`, que não alcança o `taxaTexto` não exportado —
+// foi assim que ela saiu com «4.712 %» para o ecrã.
+func (t Taxa) ParaPessoa() string { return taxaTexto(t) }

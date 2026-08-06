@@ -2,6 +2,7 @@ package comparar_test
 
 import (
 	"errors"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -1073,6 +1074,13 @@ func TestUmAjusteQueFechaMasNaoDescreveOBancoNaoServeTAEG(t *testing.T) {
 	// A nota nomeia os números, para o desvio ser verificável e não afirmado.
 	if !contem(o.Notas(), "360 meses") {
 		t.Errorf("a nota não nomeia o prazo que denunciou o ajuste: %v", o.Notas())
+	}
+	// ⚠️ Os números da nota são para uma pessoa ler: vírgula decimal, como a
+	// KAN-51 fixou. Saiu para o ecrã como «4.712 %» antes de isto existir.
+	for _, n := range o.Notas() {
+		if strings.Contains(n, "não reproduzem os preços") && regexp.MustCompile(`\d\.\d`).MatchString(n) {
+			t.Errorf("a nota traz ponto decimal, e é para uma pessoa ler: %s", n)
+		}
 	}
 	if !o.Sucesso() || o.TAN == nil {
 		t.Error("a oferta devia sair na mesma, com o preço que está medido")
