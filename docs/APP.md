@@ -93,7 +93,7 @@ testes/              jest + a fábrica de bancos de teste
 
 ⚠️ **A A4 VOLTA a 2026-08-06, com a §1 revertida — mas não é a A4 antiga.** Era «ecrã de espera: sondagem, resultados progressivos, cancelamento». Volta só o **meio**: resultados progressivos.
 
-⚠️ **Não volta a sondagem nem o `comparar/[id].tsx`.** Não há `id` de simulação porque não há trabalho em segundo plano do nosso lado: são N pedidos, `GET /api/v1/ofertas/{banco}`, um por banco escolhido. A rota dinâmica sobre uma chave inexistente continuaria a falhar no primeiro build — e continua a não se escrever.
+⚠️ **Não volta a sondagem nem o `comparar/[id].tsx`.** Não há `id` de simulação porque não há trabalho em segundo plano do nosso lado: são N pedidos, `POST /api/v1/ofertas/{banco}`, um por banco escolhido. A rota dinâmica sobre uma chave inexistente continuaria a falhar no primeiro build — e continua a não se escrever.
 
 ⚠️ **E traz trabalho novo que a A4 antiga não tinha: o fan-out passa a viver na app** (D2), e com ele a responsabilidade de não disparar dez pedidos de uma vez contra cinco bancos.
 

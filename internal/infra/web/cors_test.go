@@ -160,6 +160,48 @@ func TestOPreflightDaComparacaoResponde(t *testing.T) {
 	}
 }
 
+// TestTodoOPostDaAppTemPreflight fecha a classe que o teste acima só cobria num
+// caso.
+//
+// ⚠️ **Um `POST` registado sem o `OPTIONS` ao lado é uma rota que funciona em
+// `curl` e falha no browser** — e falha com um erro de CORS que não nomeia
+// caminho nenhum, portanto quem o apanha é quem estiver a usar a app. Aconteceu
+// ao `/api/v1/ofertas/{banco}`: entrou em `Rotas()` sem preflight, e nada o
+// disse. A lista sai do contrato, logo um `POST` novo entra aqui sozinho.
+func TestTodoOPostDaAppTemPreflight(t *testing.T) {
+	servidor := servidorComOrigens(t, origemDaApp)
+
+	var houvePost bool
+	for _, r := range rotasDoSpec(t) {
+		// ⚠️ Só as da app. O `/api/rate-catalog` fica de fora de propósito, e é o
+		// teste a seguir que o afirma.
+		if r.metodo != http.MethodPost || !strings.HasPrefix(r.caminho, "/api/v1/") {
+			continue
+		}
+		houvePost = true
+
+		t.Run(r.caminho, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodOptions, comParametrosPreenchidos(r.caminho), nil)
+			req.Header.Set("Origin", origemDaApp)
+			req.Header.Set("Access-Control-Request-Method", http.MethodPost)
+			req.Header.Set("Access-Control-Request-Headers", "content-type")
+			resp := httptest.NewRecorder()
+			servidor.Rotas().ServeHTTP(resp, req)
+
+			if resp.Code != http.StatusNoContent {
+				t.Fatalf("o preflight de %s devolveu %d — do browser, esta rota não é chamável",
+					r.caminho, resp.Code)
+			}
+			if got := resp.Header().Get("Access-Control-Allow-Origin"); got != origemDaApp {
+				t.Errorf("o preflight de %s não permitiu a origem: %q", r.caminho, got)
+			}
+		})
+	}
+	if !houvePost {
+		t.Fatal("não se leu POST nenhum do contrato — o teste estaria a afirmar o vazio")
+	}
+}
+
 // TestOCatalogoNaoRespondeAUmBrowser é a afirmação central desta secção.
 //
 // ⚠️ O `/api/rate-catalog` autentica-se por `X-API-Key`. Se respondesse a

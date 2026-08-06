@@ -187,7 +187,7 @@ Duas, com estatutos diferentes. Contrato completo em `API.md`, esquema executáv
 
 `/api/v1/*` — a app React Native. Nossa, versionada, evolui connosco. Os tipos Go do servidor e os tipos TypeScript da app são **gerados** a partir do `openapi.yaml` (`oapi-codegen` e `openapi-typescript`). O contrato é código dos dois lados, não documentação.
 
-⚠️ **O ciclo das simulações muda outra vez com a reversão da §1 (2026-08-06), e é a terceira forma.** Foi `POST` → `202` + sondagem (v1), passou a `POST /api/v1/comparacoes` → `200` com tudo dentro (`KAN-32`), e passa agora a **um pedido por banco**: `GET /api/v1/ofertas/{banco}`, que a app dispara por banco escolhido e mostra à medida que chegam (D2).
+⚠️ **O ciclo das simulações muda outra vez com a reversão da §1 (2026-08-06), e é a terceira forma.** Foi `POST` → `202` + sondagem (v1), passou a `POST /api/v1/comparacoes` → `200` com tudo dentro (`KAN-32`), e passa agora a **um pedido por banco**: `POST /api/v1/ofertas/{banco}`, que a app dispara por banco escolhido e mostra à medida que chegam (D2).
 
 ⚠️ **Não volta o `202` com sondagem, e a distinção importa:** não há trabalho assíncrono do nosso lado a que se voltasse a perguntar «já está?». Cada pedido é síncrono, fala com um banco e devolve o que ele disse ou uma falha nomeada. O que era progresso de um trabalho nosso passa a ser, do lado da app, a lista a encher-se.
 

@@ -39,13 +39,15 @@ var ErrPanico = errors.New("pânico ao simular")
 // ⚠️ **O prazo é por banco.** Um banco lento não pode segurar a comparação, e ao
 // vivo a espera é de uma pessoa: medido a 2026-08-06, o Montepio não respondeu
 // dentro de 10 s em 4 cenários, em hora de expediente.
-// ⚠️ O `hoje` entra por argumento e não se lê aqui de um relógio: a validação do
-// pedido depende dele (a idade decide o prazo máximo), e um caso de uso que leia
-// o relógio deixa de ser afirmável sem o falsear. É a mesma escolha do `Comparar`.
+//
+// ⚠️ O relógio entra por argumento e não se lê aqui do `time.Now`: um caso de uso
+// que leia o relógio deixa de ser afirmável sem o falsear. É a mesma escolha do
+// `Varredor.Agora`. Serve duas coisas — a data valida o pedido (a idade decide o
+// prazo máximo) e o instante carimba a captura.
 func Pedir(
-	ctx context.Context, b bancos.Banco, p dominio.Pedido, hoje dominio.Data, prazo time.Duration,
+	ctx context.Context, b bancos.Banco, p dominio.Pedido, agora func() time.Time, prazo time.Duration,
 ) dominio.Oferta {
-	if err := p.Validar(hoje); err != nil {
+	if err := p.Validar(dominio.DataDeInstante(agora())); err != nil {
 		return dominio.Falhar(b.ID(), b.Nome(), &dominio.ErroOferta{
 			Codigo:   dominio.ErroRespostaIlegivel,
 			Mensagem: fmt.Sprintf("O pedido não é válido: %v", err),
@@ -90,6 +92,13 @@ func Pedir(
 	// Quem sabe a quem se perguntou é este lado, e a resposta tem de o dizer
 	// mesmo que o banco se esqueça de se identificar.
 	oferta.BancoID, oferta.BancoNome = b.ID(), b.Nome()
+
+	// ⚠️ **E quando se perguntou.** O `dominio.Oferta` diz que o `CapturadoEm` é
+	// preenchido por esta camada, e ao vivo o instante é este — o da conversa com
+	// o banco, e não o de um varrimento (`API.md`, §1). Sem ele a fronteira recusa
+	// servir a oferta («não diz de quando é o preço»), e recusa-a a **todas**: um
+	// preço sem data apresenta-se como se fosse de agora.
+	oferta.CapturadoEm = agora()
 	return oferta
 }
 

@@ -276,6 +276,14 @@ type OfertaErro struct {
 	Mensagem string `json:"mensagem"`
 }
 
+// OfertaPedido O pedido para UM banco. Não leva lista de bancos: o banco vem no caminho, e os produtos são só os desse banco.
+type OfertaPedido struct {
+	Pedido Pedido `json:"pedido"`
+
+	// Produtos Ids dos produtos escolhidos deste banco.
+	Produtos *[]string `json:"produtos,omitempty"`
+}
+
 // Pedido defines model for Pedido.
 type Pedido struct {
 	EuriborIndexante *PedidoEuriborIndexante `json:"euribor_indexante,omitempty"`
@@ -421,6 +429,9 @@ type ObterRateCatalogParams struct {
 // CompararOfertasJSONRequestBody defines body for CompararOfertas for application/json ContentType.
 type CompararOfertasJSONRequestBody = ComparacaoPedido
 
+// OfertaDeUmBancoJSONRequestBody defines body for OfertaDeUmBanco for application/json ContentType.
+type OfertaDeUmBancoJSONRequestBody = OfertaPedido
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// ObterRateCatalog ⚠️ CONGELADA — a série de mercado, compatível ao byte com o v1.
@@ -435,6 +446,9 @@ type ServerInterface interface {
 	// CompararOfertas Compara as ofertas dos bancos escolhidos. Síncrono.
 	// (POST /api/v1/comparacoes)
 	CompararOfertas(w http.ResponseWriter, r *http.Request)
+	// OfertaDeUmBanco Pergunta a UM banco o preço do crédito descrito. Ao vivo.
+	// (POST /api/v1/ofertas/{banco})
+	OfertaDeUmBanco(w http.ResponseWriter, r *http.Request, banco string)
 	// Saude Sondagem de saúde trivial para a plataforma.
 	// (GET /healthz)
 	Saude(w http.ResponseWriter, r *http.Request)
@@ -465,6 +479,12 @@ func (_ Unimplemented) ListarBancos(w http.ResponseWriter, r *http.Request) {
 // CompararOfertas Compara as ofertas dos bancos escolhidos. Síncrono.
 // (POST /api/v1/comparacoes)
 func (_ Unimplemented) CompararOfertas(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// OfertaDeUmBanco Pergunta a UM banco o preço do crédito descrito. Ao vivo.
+// (POST /api/v1/ofertas/{banco})
+func (_ Unimplemented) OfertaDeUmBanco(w http.ResponseWriter, r *http.Request, banco string) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -610,6 +630,32 @@ func (siw *ServerInterfaceWrapper) CompararOfertas(w http.ResponseWriter, r *htt
 	handler.ServeHTTP(w, r)
 }
 
+// OfertaDeUmBanco operation middleware
+func (siw *ServerInterfaceWrapper) OfertaDeUmBanco(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "banco" -------------
+	var banco string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "banco", chi.URLParam(r, "banco"), &banco, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "banco", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.OfertaDeUmBanco(w, r, banco)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // Saude operation middleware
 func (siw *ServerInterfaceWrapper) Saude(w http.ResponseWriter, r *http.Request) {
 
@@ -739,6 +785,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/bancos", wrapper.ListarBancos)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/ofertas/{banco}", wrapper.OfertaDeUmBanco)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/comparacoes", wrapper.CompararOfertas)

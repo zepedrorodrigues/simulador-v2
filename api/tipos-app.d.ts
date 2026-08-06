@@ -24,6 +24,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/ofertas/{banco}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pergunta a UM banco o preço do crédito descrito. Ao vivo.
+         * @description Vai ao simulador público do banco com os valores que a pessoa introduziu e devolve o que ele respondeu. Demora o que o banco demorar, com um prazo nosso por cima.
+         *
+         *     ⚠️ É POST e não GET porque o pedido leva data de nascimento e rendimento: num GET isso viajava na query string, e ficava no histórico do browser, nos logs de qualquer proxy pelo caminho e no Referer.
+         *
+         *     ⚠️ Um banco que não responde a tempo NÃO é um erro deste pedido: a resposta é 200 com a oferta em falha e o código `banco_indisponivel`. É o mesmo vocabulário do POST /api/v1/comparacoes.
+         */
+        post: operations["ofertaDeUmBanco"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/comparacoes": {
         parameters: {
             query?: never;
@@ -155,6 +179,12 @@ export interface components {
             rotulo: string;
             /** @example dinheiro */
             tipo: string;
+        };
+        /** @description O pedido para UM banco. Não leva lista de bancos: o banco vem no caminho, e os produtos são só os desse banco. */
+        OfertaPedido: {
+            pedido: components["schemas"]["Pedido"];
+            /** @description Ids dos produtos escolhidos deste banco. */
+            produtos?: string[];
         };
         ComparacaoPedido: {
             /**
@@ -435,6 +465,44 @@ export interface operations {
                     "application/json": components["schemas"]["BancosResposta"];
                 };
             };
+        };
+    };
+    ofertaDeUmBanco: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description O id do banco, como vem em GET /api/v1/bancos. */
+                banco: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OfertaPedido"];
+            };
+        };
+        responses: {
+            /** @description A oferta do banco, ou a recusa dele com o código nomeado. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Oferta"];
+                };
+            };
+            400: components["responses"]["PedidoInvalido"];
+            /** @description O id não é banco nenhum. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RespostaErro"];
+                };
+            };
+            429: components["responses"]["TectoExcedido"];
         };
     };
     compararOfertas: {
