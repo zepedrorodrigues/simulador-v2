@@ -170,7 +170,7 @@ func TestUmProdutoSemDescontoMedidoNaoDescontaEDizSe(t *testing.T) {
 // a §4 passou a permitir servir a TAEG (2026-07-28): com as hipóteses ao lado.
 func TestATAEGDerivaDosEncargosAjustadosEDeclaraOsPressupostos(t *testing.T) {
 	cat := catalogoDeProva(t)
-	o := ofertaUnica(t, cat, pedido(t, "320000", 30, dominio.TaxaVariavel))
+	o := ofertaUnica(t, cat, pedido(t, naoVarrido, 30, dominio.TaxaVariavel))
 
 	if o.TAEG == nil || o.MTIC == nil {
 		t.Fatalf("a oferta saiu sem TAEG (%v) ou sem MTIC (%v)", o.TAEG, o.MTIC)
@@ -207,7 +207,7 @@ func TestSemDoisPrazosNaoHaTAEG(t *testing.T) {
 		t.Fatalf("NovoCatalogo: %v", err)
 	}
 
-	o := ofertaUnica(t, cat, pedido(t, "320000", 30, dominio.TaxaVariavel))
+	o := ofertaUnica(t, cat, pedido(t, naoVarrido, 30, dominio.TaxaVariavel))
 
 	if o.TAEG != nil || o.MTIC != nil {
 		t.Errorf("derivou-se TAEG (%v) e MTIC (%v) de um só prazo", o.TAEG, o.MTIC)
@@ -473,6 +473,19 @@ func TestSemBancosNoPedidoRespondeSePelosDoRegisto(t *testing.T) {
 }
 
 // --- o catálogo de prova ---------------------------------------------------------
+
+// naoVarrido e o montante de referencia: 300 000 EUR nao foi varrido e 320 000 EUR
+// foi. Os dois caem no mesmo degrau de LTV do catalogo de prova — (0,70; 0,90] a
+// 400 000 EUR de imovel — logo levam o mesmo spread e a mesma TAN, e a unica
+// diferenca entre eles e haver ou nao observacao naquele ponto.
+//
+// ATENCAO: os testes que exercitam a DERIVACAO tem de usar o naoVarrido. Com o
+// varrido, o pedido cai em cima de uma observacao e serve-se a TAEG MEDIDA
+// (KAN-55) — e o caminho que eles dizem medir nao chega a correr.
+const (
+	naoVarrido = "300000"
+	varrido    = "320000"
+)
 
 func catalogoDeProva(t *testing.T) *comparar.Catalogo {
 	t.Helper()
@@ -1030,7 +1043,7 @@ func TestUmAjusteQueNaoFechaNaoServeTAEG(t *testing.T) {
 		t.Fatalf("NovoCatalogo: %v", err)
 	}
 
-	o := ofertaUnica(t, cat, pedido(t, "320000", 30, dominio.TaxaVariavel))
+	o := ofertaUnica(t, cat, pedido(t, naoVarrido, 30, dominio.TaxaVariavel))
 
 	if o.TAEG != nil || o.MTIC != nil {
 		t.Errorf("serviu-se TAEG (%v) e MTIC (%v) de um ajuste que não fecha", o.TAEG, o.MTIC)
@@ -1063,7 +1076,7 @@ func TestUmAjusteQueFechaMasNaoDescreveOBancoNaoServeTAEG(t *testing.T) {
 		t.Fatalf("NovoCatalogo: %v", err)
 	}
 
-	o := ofertaUnica(t, cat, pedido(t, "320000", 30, dominio.TaxaVariavel))
+	o := ofertaUnica(t, cat, pedido(t, naoVarrido, 30, dominio.TaxaVariavel))
 
 	if o.TAEG != nil || o.MTIC != nil {
 		t.Errorf("serviu-se TAEG (%v) e MTIC (%v) de um modelo que o próprio banco contradiz", o.TAEG, o.MTIC)
@@ -1127,4 +1140,155 @@ func comTAEGDeslocada(t *testing.T, obs []varrimento.Observacao, meses int, desv
 		saida = append(saida, o)
 	}
 	return saida
+}
+
+// TestUmPontoVarridoServeATAEGQueOBancoPublicou: o pedido cai em cima de uma
+// observação, e o que sai é o número do banco — não um derivado dele (KAN-55).
+//
+// ⚠️ Medido contra dados reais a 2026-08-06: a CGD publicou TAEG 4,500 % para
+// 320 000 € a 30 anos e o modelo dava 4,712 %. Derivar num ponto varrido não
+// personaliza nada — os encargos ajustados saem do mesmo varrimento de titular
+// fictício — e só acrescenta o erro do modelo a uma medição.
+func TestUmPontoVarridoServeATAEGQueOBancoPublicou(t *testing.T) {
+	cat := catalogoDeProva(t)
+	o := ofertaUnica(t, cat, pedido(t, varrido, 30, dominio.TaxaVariavel))
+
+	medida, ok := taegObservadaNoPonto(t, 360)
+	if !ok {
+		t.Fatal("o catálogo de prova não tem a observação de referência")
+	}
+	if o.TAEG == nil {
+		t.Fatal("o ponto está varrido e a oferta saiu sem TAEG")
+	}
+	if !o.TAEG.Equal(medida) {
+		t.Errorf("serviu-se TAEG %s e o banco publicou %s para este mesmo crédito", o.TAEG, medida)
+	}
+
+	// Os pressupostos de uma TAEG medida são outros, e a diferença é o ponto.
+	if !contem(o.Pressupostos(), "publicou para um crédito igual a este") {
+		t.Errorf("os pressupostos não dizem que a TAEG é do banco: %v", o.Pressupostos())
+	}
+	if contem(o.Pressupostos(), "estimados a partir da distância") {
+		t.Errorf("os pressupostos falam de encargos estimados numa TAEG que não foi estimada: %v", o.Pressupostos())
+	}
+	// ⚠️ Medida não quer dizer sem hipóteses: o titular fictício continua a ser uma.
+	if !contem(o.Pressupostos(), "titular fictício") {
+		t.Errorf("os pressupostos não declaram o titular fictício: %v", o.Pressupostos())
+	}
+	if !contem(o.Pressupostos(), "ficha de informação normalizada") {
+		t.Errorf("os pressupostos não remetem para a FINE: %v", o.Pressupostos())
+	}
+	t.Logf("TAEG servida %s (medida), MTIC %s", o.TAEG, o.MTIC)
+}
+
+// TestUmMontanteNaoVarridoContinuaADerivar: a KAN-55 não desliga a derivação —
+// ela é o que responde a tudo o que não foi varrido, que é a maioria.
+func TestUmMontanteNaoVarridoContinuaADerivar(t *testing.T) {
+	cat := catalogoDeProva(t)
+	o := ofertaUnica(t, cat, pedido(t, naoVarrido, 30, dominio.TaxaVariavel))
+
+	if o.TAEG == nil {
+		t.Fatal("um montante não varrido devia derivar a TAEG, e saiu sem ela")
+	}
+	if !contem(o.Pressupostos(), "estimados a partir da distância") {
+		t.Errorf("os pressupostos não declaram que a TAEG foi derivada: %v", o.Pressupostos())
+	}
+	// ⚠️ E não pode reclamar-se do banco um número que o banco não deu para este
+	// crédito: 300 000 € não foi varrido.
+	if contem(o.Pressupostos(), "publicou para um crédito igual a este") {
+		t.Errorf("os pressupostos dizem que o banco publicou isto, e este ponto não foi varrido: %v", o.Pressupostos())
+	}
+}
+
+// taegObservadaNoPonto dá a TAEG que o catálogo de prova traz para a observação
+// de referência — sem produtos, sem degrau, taxa variável, ao prazo pedido.
+func taegObservadaNoPonto(t *testing.T, meses int) (dominio.Taxa, bool) {
+	t.Helper()
+	for _, o := range observacoesDeProva(t) {
+		if o.Degrau != nil || len(o.Oferta.ProdutosAplicados) != 0 || o.Oferta.TAEG == nil {
+			continue
+		}
+		if o.Ponto.Pedido.TipoTaxa != dominio.TaxaVariavel {
+			continue
+		}
+		if n := len(o.Oferta.Fases); n > 0 && o.Oferta.Fases[n-1].AteMes == meses {
+			return *o.Oferta.TAEG, true
+		}
+	}
+	return dominio.Taxa{}, false
+}
+
+// TestATAEGMedidaServeSeTambemComOQueABaseDevolve: a mesma afirmação da
+// TestUmPontoVarridoServeATAEGQueOBancoPublicou, mas com as observações **sem
+// fases** — que é como o `catalogo/leitura.go` as devolve (KAN-55).
+//
+// ⚠️ Este teste existe por uma reversão que passou. O critério de «mesmo crédito»
+// começou por comparar as fases da oferta com as da observação, e isso passava
+// aqui — a fixture constrói-as — e **nunca disparava em produção**, onde elas vêm
+// sempre vazias. Medido contra o varrimento real de 2026-08-06: a CGD continuava
+// sem TAEG, com a TAEG medida na base ao lado.
+func TestATAEGMedidaServeSeTambemComOQueABaseDevolve(t *testing.T) {
+	cat, err := comparar.NovoCatalogo(comparar.Serie{Observacoes: semFases(observacoesDeProva(t))})
+	if err != nil {
+		t.Fatalf("NovoCatalogo: %v", err)
+	}
+
+	o := ofertaUnica(t, cat, pedido(t, varrido, 30, dominio.TaxaVariavel))
+
+	medida, ok := taegObservadaNoPonto(t, 360)
+	if !ok {
+		t.Fatal("o catálogo de prova não tem a observação de referência")
+	}
+	if o.TAEG == nil {
+		t.Fatal("o ponto está varrido e a oferta saiu sem TAEG — o critério não sobrevive à base")
+	}
+	if !o.TAEG.Equal(medida) {
+		t.Errorf("serviu-se TAEG %s e o banco publicou %s para este mesmo crédito", o.TAEG, medida)
+	}
+	if !contem(o.Pressupostos(), "publicou para um crédito igual a este") {
+		t.Errorf("os pressupostos não dizem que a TAEG é do banco: %v", o.Pressupostos())
+	}
+}
+
+// semFases devolve as observações como o Postgres as devolve: sem plano de
+// fases. ⚠️ O `leitura.go` não reconstrói a `Oferta.Fases` — reconstrói a TAN, o
+// prazo e o montante, e o prazo deriva-se pelo `varrimento.PrazoAplicado`.
+func semFases(obs []varrimento.Observacao) []varrimento.Observacao {
+	saida := make([]varrimento.Observacao, 0, len(obs))
+	for _, o := range obs {
+		o.Oferta.Fases = nil
+		saida = append(saida, o)
+	}
+	return saida
+}
+
+// TestUmaColunaBonificadaVarridaTambemServeATAEGMedida: escolher exactamente os
+// produtos de uma coluna que o varrimento mediu dá a TAEG que o banco publicou
+// para essa coluna (KAN-55).
+//
+// ⚠️ É o caso que a app traz por omissão em três dos cinco bancos, e o que ficava
+// de fora se se procurasse só na observação por que se preçou — essa é, de
+// propósito, a linha SEM produtos.
+func TestUmaColunaBonificadaVarridaTambemServeATAEGMedida(t *testing.T) {
+	cat, err := comparar.NovoCatalogo(comparar.Serie{Observacoes: semFases(observacoesDeProva(t))})
+	if err != nil {
+		t.Fatalf("NovoCatalogo: %v", err)
+	}
+
+	p := pedido(t, varrido, 30, dominio.TaxaVariavel)
+	p.Produtos = []string{produtoOrdenado}
+	o := ofertaUnica(t, cat, p)
+
+	if o.TAEG == nil {
+		t.Fatal("a coluna com este produto foi varrida e a oferta saiu sem TAEG")
+	}
+	if !contem(o.Pressupostos(), "publicou para um crédito igual a este") {
+		t.Errorf("os pressupostos não dizem que a TAEG é do banco: %v", o.Pressupostos())
+	}
+	// A TAEG servida é a da coluna bonificada, e não a da linha de tabela.
+	semProduto, _ := taegObservadaNoPonto(t, 360)
+	if o.TAEG.Equal(semProduto) {
+		t.Errorf("serviu-se a TAEG da linha SEM produtos (%s) a quem escolheu %s", semProduto, produtoOrdenado)
+	}
+	t.Logf("TAEG da coluna bonificada: %s (a de tabela é %s)", o.TAEG, semProduto)
 }

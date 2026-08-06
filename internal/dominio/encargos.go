@@ -366,6 +366,30 @@ func (e Encargos) Aplicar(capital Dinheiro, trechos []Trecho) (Taxa, Dinheiro, e
 	return taeg, MTICDeFluxos(antecipado, comEncargo), nil
 }
 
+// PressupostosDeTAEGMedida são as hipóteses de uma TAEG que NÃO foi derivada: o
+// banco publicou-a para um crédito igual a este, e é essa que se serve (KAN-55).
+//
+// ⚠️ São mais curtas do que as da TAEG derivada, e a diferença é o ponto. Cai o
+// parágrafo inteiro dos encargos estimados — não se estimou nada — e fica só o
+// que continua verdadeiro: o simulador do banco calcula para um titular
+// fictício, e quem vincula é a ficha de informação normalizada.
+//
+// ⚠️ A lista continua a ser OBRIGATÓRIA com a TAEG preenchida. Uma TAEG medida
+// não é uma TAEG sem hipóteses: a do titular fictício é uma hipótese, e é a que
+// mais mexe no número.
+func PressupostosDeTAEGMedida(banco string) []string {
+	return []string{
+		fmt.Sprintf(
+			"A TAEG e o MTIC são os que o %s publicou para um crédito igual a este — mesmo montante, "+
+				"mesmo prazo e mesma taxa. Não foram calculados por nós.", banco),
+		"⚠️ O simulador do banco calcula-os para um titular fictício: a TAEG depende de quem pede, " +
+			"sobretudo pelo seguro de vida, que depende da sua idade e do seu estado de saúde. " +
+			"O valor que vai pagar pode ser diferente deste.",
+		"A TAEG que vincula um banco vem na ficha de informação normalizada, por escrito, depois de " +
+			"ele avaliar quem pede.",
+	}
+}
+
 // Pressupostos são as hipóteses sob que a TAEG e o MTIC foram derivados, em
 // português e para uma pessoa ler.
 //
@@ -385,7 +409,13 @@ func (e Encargos) Pressupostos(capital Dinheiro) []string {
 			"Os encargos foram estimados a partir da distância entre a TAN e a TAEG que este banco "+
 				"publicou em prazos diferentes, e deram %s € de encargos iniciais (%s %% do montante) "+
 				"mais o equivalente a %s %% ao ano sobre o capital que falta pagar.",
-			antecipado.ParaPessoa(), percentagemArredondada(e.Antecipado, 2), taxaTexto(e.Recorrente)),
+			// ⚠️ O recorrente arredonda-se aqui, e não no `taxaTexto`: os outros
+			// chamadores dele são spreads MEDIDOS de degraus, e arredondá-los
+			// deitava fora medição. Este é um parâmetro AJUSTADO, e saía com
+			// dezasseis casas — «0,2490802248339295 % ao ano» — na mesma frase que
+			// a KAN-51 arrumou do lado do antecipado e não deste.
+			antecipado.ParaPessoa(), percentagemArredondada(e.Antecipado, 2),
+			taxaTexto(TaxaDeDecimal(e.Recorrente.v.Round(2)))),
 		"Os encargos reais dependem do seguro de vida, que depende da sua idade e do seu estado " +
 			"de saúde, e das comissões que o banco lhe aplicar. O valor que vai pagar pode ser " +
 			"diferente deste. A TAEG que vincula um banco vem na ficha de informação normalizada, " +
