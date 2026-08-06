@@ -6,6 +6,8 @@ O desenho está em `docs/ARQUITETURA.md`. O backlog é o projecto `KAN` do JIRA;
 
 ⚠️ **O trabalho cancelado fica escrito como cancelado, e não apagado.** Um plano onde o trabalho morto desaparece sem rasto é um plano onde alguém volta a propô-lo daqui a um mês.
 
+⚠️ **E isto vale para o tracker, não só para este ficheiro — aprendido a doer a 2026-08-06**, quando a triagem da reversão apagou cinco issues do `KAN` em vez de as cancelar, incluindo uma (`KAN-8`) que estava **viva**. A regra que daí sai: **o `KAN` organiza o trabalho; a prova mora aqui.** Uma issue apagada leva consigo a razão de uma decisão; um documento versionado não, porque tem histórico.
+
 ---
 
 ## Fase 0 — Fundações ✅
@@ -83,7 +85,7 @@ A fase que a reversão da §1 abre, e a que passa a ser o produto.
 Depois disso, e por esta ordem:
 
 1. `KAN-7` — o `comparar` volta a falar com bancos, com tecto e timeout por banco. 🔶 **O caminho está de pé** (2026-08-06): `aplicacao/aovivo` pergunta a um banco, e o `POST /api/v1/ofertas/{banco}` serve-o. ⚠️ **O timeout é de partida e não medido** — 15 s, escolhidos por os 10 s do varrimento não terem chegado ao Montepio; e o **tecto de concorrência por banco não existe**, porque o N ainda não está medido.
-2. `KAN-8` — cache em Postgres, chave = pedido exacto, com o pedido em claro **fora** do disco.
+2. `KAN-8` — cache em Postgres, chave = pedido exacto, com o pedido em claro **fora** do disco. ⚠️ **A issue foi apagada do `KAN` a 2026-08-06** na triagem da reversão, e não devia: é trabalho por fazer e não trabalho morto. Este passo fica sem item no backlog até alguém a reabrir — ver a tabela do `RESUME.md`.
 3. `KAN-14` — o tecto por IP dimensionado para **N pedidos por comparação**, e o `PROXIES_DE_CONFIANCA` **medido**. ⚠️ Passa de dívida a bloqueante: é ele que separa um serviço de uma ferramenta de carga contra cinco bancos.
 4. ~~`GET`~~ **`POST` `/api/v1/ofertas/{banco}`** no contrato ✅ *(2026-08-06)*, e a app a fazer o fan-out ⏳. ⚠️ O método mudou e não é detalhe: o pedido leva data de nascimento e rendimento, e num `GET` isso viajava na query string — histórico do browser, logs de qualquer proxy, `Referer`.
 5. Retirar o que morreu: `sondagens`, a escala, os encargos, a grelha. ⚠️ **Depois** de a fatia ao vivo estar de pé, e não antes — apagar primeiro deixa o repositório sem nada que responda.

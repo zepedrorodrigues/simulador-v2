@@ -48,9 +48,24 @@ Num só dia, quatro assunções do modelo de preço caíram contra dados varrido
 - ⚠️ **O fan-out na app é o ponto mais discutível do desenho novo.** Foi escolha contra SSE (o `fetch` do React Native não o suporta nativamente), e põe na app a responsabilidade de não disparar dez pedidos de uma vez.
 - ⚠️ **Somos um amplificador:** um pedido nosso vira ~10 aos bancos, com origem aparente nossa. Cruza a carga do varrimento às **~190 comparações/dia** — abaixo carregamos menos, acima cresce sem tecto.
 - ⚠️ **A latência existe e está medida:** o Montepio não respondeu dentro de **10 s** em 4 cenários, em hora de expediente.
-- **Canceladas pela reversão:** `KAN-54`, `KAN-55`, `KAN-56`, `KAN-57`, `KAN-41`, `KAN-34`, `KAN-38` — descrevem o modelo, não os bancos. ⚠️ Ficam escritas como canceladas, não apagadas.
+- **Canceladas pela reversão:** `KAN-54`, `KAN-55`, `KAN-56`, `KAN-57`, `KAN-41`, `KAN-34`, `KAN-38` — descrevem o modelo, não os bancos.
 - **`KAN-53`** (o relatório do varrimento subconta falhas) morre com o varrimento. ⚠️ A **lição** fica: uma corrida que parece boa e não é.
 - **Vivas e agora centrais:** `KAN-7`, `KAN-8`, `KAN-14`. **Continua morta:** `KAN-15` (quantização) — a cache volta, ela não.
+
+⚠️ **O que o tracker fez com estas chaves, verificado a 2026-08-06 às 18h4x — e não é o que está escrito acima.** O `KAN` passou de **57 para 52 issues**:
+
+| chave | o que se decidiu | o que o `KAN` tem |
+|---|---|---|
+| `KAN-8`, `KAN-53`, `KAN-55`, `KAN-56`, `KAN-57` | cancelar com razão escrita | **apagadas** |
+| `KAN-34`, `KAN-38`, `KAN-41` | cancelar | fechadas com resolução **«Itens concluídos»** |
+| `KAN-54` | cancelar | por tocar |
+| `KAN-7` | reabrir e retitular | reaberta; o título ainda é «Orquestrador do varrimento» |
+
+⚠️ **O `KAN-8` não era trabalho morto — é o passo 2 da Fase 6** (cache em Postgres) e ficou sem item no backlog. Quem o for procurar não o encontra.
+
+⚠️ **As medições que derrubaram o modelo estavam nas `KAN-55/56/57`, e sobrevivem** — o 4,500 % contra 4,712 %, o 0,500 + 0,200 = 0,600 do Novo Banco e os 0,5/0,8 p.p. do Santander estão no `DECISAO-AO-VIVO.md` §2 e na tabela do topo deste ficheiro. **É por isso que a evidência se escreve no repositório e não só na issue**: o tracker perdeu-as e os documentos não.
+
+⚠️ **«Itens concluídos» numa issue abandonada afirma uma coisa falsa** — que o modelo de encargos foi corrigido. Quem ler o `KAN` daqui a um mês conclui isso. O projecto não tem estado «Cancelado»: só `Tarefas pendentes`, `Em andamento`, `Em análise` e `Concluído`. Escrever «cancelada» tem de ser no **sumário e num comentário** — e não numa label nova, porque no JIRA as labels são texto livre e um sinónimo parte os filtros em silêncio.
 - **`KAN-19`** (Crédito Agrícola) continua a fazer sentido: é um banco a mais para perguntar.
 - ⚠️ **Bancos de browser** (`KAN-20`, `KAN-21`) ficam **mais** caros com este desenho: um browser por pedido de cliente é outra ordem de grandeza.
 
