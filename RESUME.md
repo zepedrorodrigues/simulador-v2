@@ -8,7 +8,7 @@ Estado actual e próximos passos. ⚠️ **Sem changelog** — o relato de sess�
 
 ⚠️ **Os documentos descrevem o desenho novo; o código do `development` ainda é o antigo.** Quando discordarem, é o **código** que está por mudar.
 
-**A Fase 6 começou** na branch `feat/o-comparar-volta-a-falar-com-bancos`: o `aplicacao/aovivo` pergunta a UM banco e o `POST /api/v1/ofertas/{banco}` serve-o, com o pedido validado à fronteira e sem tocar na série varrida. ⚠️ **Nada disto está no `development`**, e o resto da fase — cache, tecto de concorrência, retirada do varrimento — não está começado.
+**A Fase 6 começou, e já está no `development`:** o `aplicacao/aovivo` pergunta a UM banco e o `POST /api/v1/ofertas/{banco}` serve-o, com o pedido validado à fronteira e sem tocar na série varrida. ⚠️ **O resto da fase não está começado** — cache, tecto de concorrência por banco, e a retirada do varrimento.
 
 ## Onde estamos
 
@@ -36,9 +36,9 @@ Num só dia, quatro assunções do modelo de preço caíram contra dados varrido
 ## Próximo passo
 
 1. **Fechar a D1**: o que acontece ao `/api/rate-catalog`, que perde a fonte e é consumido pelo `viabilidade-imobiliaria` **em produção**. Bloqueia a §4 e a §6 do `ARQUITETURA.md`. Três saídas escritas, nenhuma escolhida.
-2. **Medir os três números** de que a Fase 6 depende e que não temos: latência por banco, concorrência que cada banco tolera, validade útil da cache.
+2. **Os três números da Fase 6:** a latência por banco está **medida** (`make latencia`, 2026-08-06 às 17h13 — tabela no `DOSSIE-BANCOS.md`). Os outros dois não se medem com uma corrida — ver o `PLAN.md`: a concorrência não se procura subindo até o banco recusar, e a validade da cache pede uma vigia de horas.
 3. **`KAN-7`** 🔶 — o caminho está de pé; falta o **tecto de concorrência por banco** (o N não está medido) e o timeout deixar de ser um palpite de 15 s.
-4. **`KAN-8`** — cache em Postgres, chave = pedido exacto, pedido em claro fora do disco.
+4. **`KAN-58`** — cache em Postgres, chave = pedido exacto, pedido em claro fora do disco. ⚠️ Era a `KAN-8`, apagada na triagem.
 5. **`KAN-14`** — tecto por IP dimensionado para **N pedidos por comparação**, e `PROXIES_DE_CONFIANCA` **medido**. Passou de dívida a bloqueante.
 6. **Só então** retirar o que morreu: `sondagens`, escala, encargos, grelha. ⚠️ Apagar antes deixa o repositório sem nada que responda.
 
@@ -47,27 +47,30 @@ Num só dia, quatro assunções do modelo de preço caíram contra dados varrido
 - ⚠️ **A D1 e a D4.** A primeira é dívida com outro repositório; a segunda é o parecer jurídico (`KAN-24`), que passou de «bloqueia as lojas» a **bloqueia o produto** — a fatia ao vivo é o produto inteiro, não uma funcionalidade dele.
 - ⚠️ **O fan-out na app é o ponto mais discutível do desenho novo.** Foi escolha contra SSE (o `fetch` do React Native não o suporta nativamente), e põe na app a responsabilidade de não disparar dez pedidos de uma vez.
 - ⚠️ **Somos um amplificador:** um pedido nosso vira ~10 aos bancos, com origem aparente nossa. Cruza a carga do varrimento às **~190 comparações/dia** — abaixo carregamos menos, acima cresce sem tecto.
-- ⚠️ **A latência existe e está medida:** o Montepio não respondeu dentro de **10 s** em 4 cenários, em hora de expediente.
+- ⚠️ **A latência está medida, e a cauda é o número que conta:** 25 simulações frias a 2026-08-06 às 17h13 — Novo Banco 460 ms de mediana, Montepio 2,01 s com **máximo de 8,4 s** (4,2× a própria mediana). Noutra medição do mesmo dia o Montepio passou dos **10 s**, logo o 8,4 s é um limite inferior do pior caso.
 - **Canceladas pela reversão:** `KAN-54`, `KAN-55`, `KAN-56`, `KAN-57`, `KAN-41`, `KAN-34`, `KAN-38` — descrevem o modelo, não os bancos.
 - **`KAN-53`** (o relatório do varrimento subconta falhas) morre com o varrimento. ⚠️ A **lição** fica: uma corrida que parece boa e não é.
-- **Vivas e agora centrais:** `KAN-7`, `KAN-8`, `KAN-14`. **Continua morta:** `KAN-15` (quantização) — a cache volta, ela não.
+- **Vivas e agora centrais:** `KAN-7`, `KAN-58` (ex-`KAN-8`), `KAN-14`. **Continua morta:** `KAN-15` (quantização) — a cache volta, ela não.
 
-⚠️ **O que o tracker fez com estas chaves, verificado a 2026-08-06 às 18h4x — e não é o que está escrito acima.** O `KAN` passou de **57 para 52 issues**:
+- **`KAN-19`** (Crédito Agrícola) continua a fazer sentido: é um banco a mais para perguntar.
+- ⚠️ **Bancos de browser** (`KAN-20`, `KAN-21`) ficam **mais** caros com este desenho: um browser por pedido de cliente é outra ordem de grandeza.
 
-| chave | o que se decidiu | o que o `KAN` tem |
-|---|---|---|
-| `KAN-8`, `KAN-53`, `KAN-55`, `KAN-56`, `KAN-57` | cancelar com razão escrita | **apagadas** |
-| `KAN-34`, `KAN-38`, `KAN-41` | cancelar | fechadas com resolução **«Itens concluídos»** |
-| `KAN-54` | cancelar | por tocar |
-| `KAN-7` | reabrir e retitular | reaberta; o título ainda é «Orquestrador do varrimento» |
+### O estado do tracker
 
-⚠️ **O `KAN-8` não era trabalho morto — é o passo 2 da Fase 6** (cache em Postgres) e ficou sem item no backlog. Quem o for procurar não o encontra.
+⚠️ **Cinco chaves não sobreviveram à triagem, e o `KAN` passou de 57 para 52 issues.** Estado reconciliado a 2026-08-06 às 20h:
+
+| chave | como ficou |
+|---|---|
+| `KAN-34`, `KAN-38`, `KAN-41`, `KAN-54` | ⛔ **CANCELADA** no sumário, com a razão em comentário. ⚠️ A resolução continua a dizer «Itens concluídos» — é o que o projecto tem |
+| `KAN-8`, `KAN-53`, `KAN-55`, `KAN-56`, `KAN-57` | **apagadas**, e não recuperáveis |
+| **`KAN-58`** 🆕 | substitui a `KAN-8`: cache em Postgres, chave = pedido exacto, pedido em claro fora do disco |
+| `KAN-7` | reaberta e **retitulada** — «O caminho do cliente pergunta ao banco» —, com o estado parcial em comentário |
+
+⚠️ **A `KAN-8` não era trabalho morto — é o passo 2 da Fase 6.** Apagá-la tirou do backlog trabalho por fazer; a `KAN-58` repõe-o e diz de onde vem. As outras quatro eram mesmo para cancelar, e o que se perdeu com elas foi a **razão escrita**, não a decisão.
 
 ⚠️ **As medições que derrubaram o modelo estavam nas `KAN-55/56/57`, e sobrevivem** — o 4,500 % contra 4,712 %, o 0,500 + 0,200 = 0,600 do Novo Banco e os 0,5/0,8 p.p. do Santander estão no `DECISAO-AO-VIVO.md` §2 e na tabela do topo deste ficheiro. **É por isso que a evidência se escreve no repositório e não só na issue**: o tracker perdeu-as e os documentos não.
 
 ⚠️ **«Itens concluídos» numa issue abandonada afirma uma coisa falsa** — que o modelo de encargos foi corrigido. Quem ler o `KAN` daqui a um mês conclui isso. O projecto não tem estado «Cancelado»: só `Tarefas pendentes`, `Em andamento`, `Em análise` e `Concluído`. Escrever «cancelada» tem de ser no **sumário e num comentário** — e não numa label nova, porque no JIRA as labels são texto livre e um sinónimo parte os filtros em silêncio.
-- **`KAN-19`** (Crédito Agrícola) continua a fazer sentido: é um banco a mais para perguntar.
-- ⚠️ **Bancos de browser** (`KAN-20`, `KAN-21`) ficam **mais** caros com este desenho: um browser por pedido de cliente é outra ordem de grandeza.
 
 ## Lições
 

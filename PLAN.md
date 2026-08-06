@@ -25,7 +25,7 @@ Quatro bancos de HTTP puro, escolhidos para exercitarem o máximo de dimensões 
 | | 2026-07-25 | 2026-08-06 |
 |---|---|---|
 | `KAN-7` fan-out do `comparar` | morreu: lia a série e calculava localmente | ⚠️ **VIVO** — o `comparar` volta a falar com bancos, e é onde o `-race` ganha valor |
-| `KAN-8` cache e *gate* | morreu: não havia pedido ao banco no caminho do cliente | ⚠️ **VIVO, com outra forma** — cache em Postgres (não Redis), e o *gate* passa de fecho a **tecto de concorrência** por banco |
+| `KAN-8` cache e *gate* (hoje **`KAN-58`** — a chave foi apagada na triagem) | morreu: não havia pedido ao banco no caminho do cliente | ⚠️ **VIVO, com outra forma** — cache em Postgres (não Redis), e o *gate* passa de fecho a **tecto de concorrência** por banco |
 | `KAN-15` quantização do pedido | morreu: existia para acertos de cache | ⛔ **continua morta, e agora por decisão e não por acaso.** A cache voltou e a quantização não vem com ela: a chave é o pedido exacto. A razão pela qual era perigosa — arredondar cruza um degrau de preço — volta a valer por inteiro, e **sem** a protecção estrutural que a grelha dava |
 
 ## Fase 2 — Mercado ⛔ *cancelada a 2026-08-06*
@@ -84,8 +84,8 @@ A fase que a reversão da §1 abre, e a que passa a ser o produto.
 
 Depois disso, e por esta ordem:
 
-1. `KAN-7` — o `comparar` volta a falar com bancos, com tecto e timeout por banco. 🔶 **O caminho está de pé** (2026-08-06): `aplicacao/aovivo` pergunta a um banco, e o `POST /api/v1/ofertas/{banco}` serve-o. ⚠️ **O timeout é de partida e não medido** — 15 s, escolhidos por os 10 s do varrimento não terem chegado ao Montepio; e o **tecto de concorrência por banco não existe**, porque o N ainda não está medido.
-2. `KAN-8` — cache em Postgres, chave = pedido exacto, com o pedido em claro **fora** do disco. ⚠️ **A issue foi apagada do `KAN` a 2026-08-06** na triagem da reversão, e não devia: é trabalho por fazer e não trabalho morto. Este passo fica sem item no backlog até alguém a reabrir — ver a tabela do `RESUME.md`.
+1. `KAN-7` — o `comparar` volta a falar com bancos, com tecto e timeout por banco. 🔶 **O caminho está de pé** (2026-08-06): `aplicacao/aovivo` pergunta a um banco, e o `POST /api/v1/ofertas/{banco}` serve-o. ⚠️ **O timeout está medido** — 15 s, ~1,8× o pior observado (8,4 s, no Montepio). O que falta é o **tecto de concorrência por banco**, e um **prazo por banco**: os cinco diferem 7× no máximo observado e há um número só.
+2. **`KAN-58`** — cache em Postgres, chave = pedido exacto, com o pedido em claro **fora** do disco. ⚠️ Era a `KAN-8`, **apagada do `KAN` a 2026-08-06** na triagem da reversão: é trabalho por fazer e não trabalho morto, e uma chave nova foi o que restou para o repor.
 3. `KAN-14` — o tecto por IP dimensionado para **N pedidos por comparação**, e o `PROXIES_DE_CONFIANCA` **medido**. ⚠️ Passa de dívida a bloqueante: é ele que separa um serviço de uma ferramenta de carga contra cinco bancos.
 4. ~~`GET`~~ **`POST` `/api/v1/ofertas/{banco}`** no contrato ✅ *(2026-08-06)*, e a app a fazer o fan-out ⏳. ⚠️ O método mudou e não é detalhe: o pedido leva data de nascimento e rendimento, e num `GET` isso viajava na query string — histórico do browser, logs de qualquer proxy, `Referer`.
 5. Retirar o que morreu: `sondagens`, a escala, os encargos, a grelha. ⚠️ **Depois** de a fatia ao vivo estar de pé, e não antes — apagar primeiro deixa o repositório sem nada que responda.
