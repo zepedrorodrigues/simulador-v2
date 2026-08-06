@@ -3,6 +3,7 @@ package comparar_test
 import (
 	"errors"
 	"regexp"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -1291,4 +1292,65 @@ func TestUmaColunaBonificadaVarridaTambemServeATAEGMedida(t *testing.T) {
 		t.Errorf("serviu-se a TAEG da linha SEM produtos (%s) a quem escolheu %s", semProduto, produtoOrdenado)
 	}
 	t.Logf("TAEG da coluna bonificada: %s (a de tabela é %s)", o.TAEG, semProduto)
+}
+
+// TestOsDescontosDeDoisProdutosNaoSeSomamQuandoACombinacaoFoiMedida: a §4 dizia
+// que a linha da combinação existia para poder contradizer a aditividade. Ela
+// contradiz, e é a medida que vale (KAN-56).
+//
+// ⚠️ Os números são os do Novo Banco a 2026-08-06: 0,500 e 0,200 em separado,
+// 0,600 juntos. Somar servia uma TAN 0,10 p.p. mais BARATA do que o banco cobra.
+func TestOsDescontosDeDoisProdutosNaoSeSomamQuandoACombinacaoFoiMedida(t *testing.T) {
+	obs := observacoesDeProva(t)
+	// A linha com os dois produtos passa a descontar menos do que a soma: 0,650
+	// era a soma (2,000 − 0,850 − 0,500); a medida fica 0,750.
+	obs = comSpreadDaCombinacao(t, obs, []string{produtoOrdenado, produtoSeguros}, "0.750")
+
+	cat, err := comparar.NovoCatalogo(comparar.Serie{Observacoes: obs})
+	if err != nil {
+		t.Fatalf("NovoCatalogo: %v", err)
+	}
+
+	p := pedido(t, varrido, 30, dominio.TaxaVariavel)
+	p.Produtos = []string{produtoOrdenado, produtoSeguros}
+	o := ofertaUnica(t, cat, p)
+
+	if o.Spread == nil {
+		t.Fatal("a oferta saiu sem spread")
+	}
+	medido, somado := taxa(t, "0.750"), taxa(t, "0.650")
+	if o.Spread.Equal(somado) {
+		t.Errorf("serviu-se o spread SOMADO (%s) e o banco mediu a combinação em %s — "+
+			"0,10 p.p. mais barato do que ele cobra", somado, medido)
+	}
+	if !o.Spread.Equal(medido) {
+		t.Errorf("spread servido %s, medido para esta combinação %s", o.Spread, medido)
+	}
+	t.Logf("spread servido %s (medido), e não %s (somado)", o.Spread, somado)
+}
+
+// comSpreadDaCombinacao põe um spread escolhido na linha que traz exactamente
+// aqueles produtos, e ajusta-lhe a TAN para o spread continuar coerente.
+func comSpreadDaCombinacao(
+	t *testing.T, obs []varrimento.Observacao, produtos []string, spread string,
+) []varrimento.Observacao {
+	t.Helper()
+	alvo := chaveDeProva(produtos)
+	saida := make([]varrimento.Observacao, 0, len(obs))
+	for _, o := range obs {
+		if o.Degrau == nil && chaveDeProva(o.Oferta.ProdutosAplicados) == alvo && o.Oferta.EuriborValor != nil {
+			novo := taxa(t, spread)
+			tan := o.Oferta.EuriborValor.Add(novo)
+			o.Oferta.Spread, o.Oferta.TAN = &novo, &tan
+			o.Oferta.Fases = fases(t, varrimento.PrazoAplicado(o), tan)
+		}
+		saida = append(saida, o)
+	}
+	return saida
+}
+
+func chaveDeProva(produtos []string) string {
+	c := append([]string(nil), produtos...)
+	sort.Strings(c)
+	return strings.Join(c, "|")
 }
