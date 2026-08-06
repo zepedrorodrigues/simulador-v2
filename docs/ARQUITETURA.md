@@ -254,7 +254,9 @@ cache». O varrimento morreu (D1) e a cache voltou.
    espera, e é a razão de o prazo ser por banco e não global.
 
 4. **A resposta vai por banco, à medida que chega** (D2). A app pede um banco de
-   cada vez — `GET /api/v1/ofertas/{banco}` — e mostra o que já tem.
+   cada vez — `POST /api/v1/ofertas/{banco}` — e mostra o que já tem.
+
+   ⚠️ **`POST` e não `GET`:** o pedido leva data de nascimento e rendimento, e num `GET` isso ia na query string — histórico, logs de proxies e `Referer`. Ver `API.md`.
 
    ⚠️ **O fan-out passa a viver na app**, e com ele a responsabilidade de não
    disparar tudo de uma vez. Foi escolha contra SSE: o `fetch` do React Native

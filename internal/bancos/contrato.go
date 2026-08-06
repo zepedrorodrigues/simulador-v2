@@ -31,8 +31,10 @@ type Banco interface {
 	// 52 s de um pedido de 52 s. Não é recomendação — é afirmável, e afirma-se
 	// com prova.RespeitaPrazo no teste de cada banco.
 	//
-	// ⚠️ Quem chama isto é o varrimento, em hora morta, e não um pedido de
-	// cliente: desde a inversão da §1 do ARQUITETURA.md (2026-07-25) uma
-	// comparação responde-se por cálculo local e nunca chega aqui.
+	// ⚠️ Quem chama isto é o CAMINHO DO CLIENTE, desde a reversão da §1
+	// (2026-08-06). Esteve escrito aqui o contrário — «o varrimento, em hora
+	// morta, e nunca um pedido de cliente» — entre a inversão de 2026-07-25 e a
+	// reversão. Agora um pedido de comparação chega mesmo aqui, e o prazo que o
+	// ctx traz é o de alguém à espera.
 	Simular(ctx context.Context, p dominio.Pedido) (dominio.Oferta, error)
 }

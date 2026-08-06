@@ -22,9 +22,13 @@ Tudo o que a app precisa para montar o formulário adaptativo. **É a única fon
 
 ⚠️ **O `custo` saiu deste contrato** (KAN-32). Existia para a app «dizer a verdade sobre o tempo», e a resposta passou a ser imediata para todos os bancos — publicá-lo convidava a avisar de uma espera que já não existe. Continua no domínio (`Requisitos.Custo`), onde decide o prazo de cada banco **no varrimento**.
 
-### ⚠️ `GET /api/v1/ofertas/{banco}` → `200` — o caminho novo (2026-08-06)
+### ⚠️ `POST /api/v1/ofertas/{banco}` → `200` — o caminho novo (2026-08-06)
 
 Um pedido, **um banco**. É o que a §1 revertida manda e o que a app passa a usar: dispara um por banco escolhido e mostra a lista a encher-se (D2).
+
+⚠️ **`POST` e não `GET`, e a razão é de privacidade e não de estilo.** Este documento chegou a dizer `GET`, e estava errado: o pedido leva `data_nascimento` e `rendimento_mensal`, e num `GET` isso viaja na **query string** — que fica no histórico do browser, nos logs de qualquer proxy pelo caminho e no `Referer`. É a mesma regra que a `KAN-43` já impõe do nosso lado ao registar `r.URL.Path` e nunca o URL inteiro; de nada serve cumpri-la em casa e mandar os dados na morada.
+
+⚠️ **Consequência prática: não é cacheável por HTTP**, e a cache do §7.6 é nossa, em Postgres, com o pedido em claro **fora** do disco.
 
 ⚠️ **Este pedido fala com o banco.** Não sai de nenhuma fotografia — vai ao simulador público do banco com os valores que a pessoa introduziu, e devolve o que ele respondeu. Logo:
 
