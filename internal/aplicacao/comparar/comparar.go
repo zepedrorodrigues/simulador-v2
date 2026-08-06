@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/zepedrorodrigues/simulador-v2/internal/aplicacao/grelha"
 	"github.com/zepedrorodrigues/simulador-v2/internal/aplicacao/varrimento"
@@ -71,6 +72,15 @@ type medidoDeUmBanco struct {
 	// com sinal — derivado da diferença entre a linha com ele e a linha sem
 	// produtos, que é o que a §4 quer dizer com «derivam-se na leitura».
 	descontos map[string]dominio.Taxa
+
+	// descontosDeCombinacao é o mesmo desvio, mas do CONJUNTO exacto de produtos
+	// de uma linha varrida, indexado pela chave do conjunto.
+	//
+	// ⚠️ Existe porque a aditividade é falsa, e está medido (KAN-56): no Novo
+	// Banco a 2026-08-06, `primeiro_banco` desconta 0,500 e `protecao` 0,200, e a
+	// linha com os dois desconta **0,600** e não 0,700. A §4 dizia que a linha da
+	// combinação existia para poder contradizer a soma; contradisse.
+	descontosDeCombinacao map[string]dominio.Taxa
 
 	// encargos é o modelo ajustado às observações de prazos diferentes.
 	encargos    dominio.Encargos
@@ -142,11 +152,12 @@ func NovoCatalogo(s Serie) (*Catalogo, error) {
 		if !jaLa {
 			escala, tem := escalas[id]
 			banco = &medidoDeUmBanco{
-				nome:       o.Oferta.BancoNome,
-				escala:     escala,
-				temEscala:  tem,
-				porCenario: map[string][]varrimento.Observacao{},
-				descontos:  map[string]dominio.Taxa{},
+				nome:                  o.Oferta.BancoNome,
+				escala:                escala,
+				temEscala:             tem,
+				porCenario:            map[string][]varrimento.Observacao{},
+				descontos:             map[string]dominio.Taxa{},
+				descontosDeCombinacao: map[string]dominio.Taxa{},
 			}
 			c.porBanco[id] = banco
 		}
@@ -185,7 +196,15 @@ func (b *medidoDeUmBanco) derivarDescontos() {
 			// Só as linhas com UM produto: a linha com todos (família 6) existe
 			// para verificar que os descontos são aditivos, e usá-la aqui era
 			// atribuir a soma a um só.
-			if len(o.Oferta.ProdutosAplicados) != 1 || o.Oferta.Spread == nil {
+			if len(o.Oferta.ProdutosAplicados) == 0 || o.Oferta.Spread == nil {
+				continue
+			}
+			// ⚠️ O desvio do CONJUNTO guarda-se sempre, tenha ele um produto ou
+			// vários. É este que se serve quando alguém escolhe exactamente esta
+			// combinação, e é o único número aqui que foi medido para ela.
+			b.descontosDeCombinacao[chaveDeProdutos(o.Oferta.ProdutosAplicados)] = o.Oferta.Spread.Sub(*semProdutos.Oferta.Spread)
+
+			if len(o.Oferta.ProdutosAplicados) != 1 {
 				continue
 			}
 			b.descontos[o.Oferta.ProdutosAplicados[0]] = o.Oferta.Spread.Sub(*semProdutos.Oferta.Spread)
@@ -333,12 +352,25 @@ func (b *medidoDeUmBanco) observacaoDe(cenario string, prazoMeses int) (varrimen
 // comProdutos aplica ao spread os descontos dos produtos escolhidos, e devolve
 // os que não têm desconto medido.
 //
-// ⚠️ **Somam-se, e essa aditividade é uma assunção da §4 — não uma medição.** O
-// varrimento gasta um ponto por banco (família 6) a medir a combinação de todos
-// precisamente para a poder contradizer: se a soma dos descontos individuais não
-// der o desconto da linha com todos, o resíduo denuncia-o. Enquanto não
-// denunciar, somam-se.
+// ⚠️ **A combinação exacta, quando foi varrida, ganha à soma — e a soma erra para
+// o lado barato.** A §4 dizia que a linha da combinação (família 6) existia para
+// poder contradizer a aditividade; contradisse-a, e está medido (KAN-56): no
+// Novo Banco a 2026-08-06, `primeiro_banco` desconta 0,500 e `protecao` 0,200,
+// e a linha com os dois desconta **0,600**. Somar dava 0,700 e servia uma TAN
+// 0,10 p.p. mais barata do que a que o banco cobra — a direcção contrária à que
+// o Anexo I, Parte II, alínea (d) da MCD manda presumir.
+//
+// ⚠️ Fora de uma combinação varrida continua a somar-se, porque não há mais nada
+// — e agora sabe-se que essa soma é um LIMITE INFERIOR do preço, não uma
+// estimativa centrada. Quem serve daí não tem medição para a combinação, e é o
+// que fica por decidir na própria KAN-56.
 func (b *medidoDeUmBanco) comProdutos(spread dominio.Taxa, escolhidos []string) (dominio.Taxa, []string) {
+	if len(escolhidos) > 0 {
+		if desconto, medido := b.descontosDeCombinacao[chaveDeProdutos(escolhidos)]; medido {
+			return spread.Add(desconto), nil
+		}
+	}
+
 	var semMedida []string
 	for _, produto := range escolhidos {
 		desconto, medido := b.descontos[produto]
@@ -349,6 +381,15 @@ func (b *medidoDeUmBanco) comProdutos(spread dominio.Taxa, escolhidos []string) 
 		spread = spread.Add(desconto)
 	}
 	return spread, semMedida
+}
+
+// chaveDeProdutos identifica um CONJUNTO de produtos, independentemente da ordem
+// por que vieram. ⚠️ O separador é o byte nulo de propósito: um id de produto
+// nunca o contém, e assim {"a:b", "c"} não colide com {"a", "b:c"}.
+func chaveDeProdutos(produtos []string) string {
+	ordenados := slices.Clone(produtos)
+	slices.Sort(ordenados)
+	return strings.Join(ordenados, "\x00")
 }
 
 // Bancos devolve os ids com que se pode responder, por ordem.
