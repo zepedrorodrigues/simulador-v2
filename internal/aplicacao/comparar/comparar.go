@@ -746,8 +746,8 @@ func derivarTAEG(oferta *dominio.Oferta, banco *medidoDeUmBanco, p dominio.Pedid
 				"que ele próprio publicou — a %d meses o modelo prevê %s %% e o banco publicou %s %% "+
 				"(desvio de %s p.p.). Servir a TAEG daqui saída era publicar um número que os dados deste "+
 				"banco contradizem.",
-			nome, banco.piorResiduo.PrazoMeses, banco.piorResiduo.Prevista,
-			banco.piorResiduo.Observada, banco.piorResiduo.Desvio))
+			nome, banco.piorResiduo.PrazoMeses, banco.piorResiduo.Prevista.ParaPessoa(),
+			banco.piorResiduo.Observada.ParaPessoa(), banco.piorResiduo.Desvio.ParaPessoa()))
 		return
 	}
 
