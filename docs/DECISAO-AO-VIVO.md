@@ -142,50 +142,68 @@ protecção estrutural que a grelha dava.
 
 ---
 
-## 4. O que fica por decidir
+## 4. As decisões, tomadas a 2026-08-06
 
-São as perguntas que mudam a documentação, e não me parece honesto escolher por ti.
+### D1 — O varrimento **morre por completo**
 
-### D1 — O varrimento sobrevive? *(recomendação: sim, muito reduzido)*
+Não sobrevive nem em versão reduzida. Não há série de mercado.
 
-⚠️ **Não é uma escolha livre:** o `/api/rate-catalog` está **congelado e é
-consumido pelo `viabilidade-imobiliaria` em produção** (`KAN-42`, com teste de
-contrato). A série temporal de mercado não sai de lado nenhum a não ser de
-observações periódicas.
+⚠️ **Consequência que passa a ser trabalho, e não detalhe:** o
+`/api/rate-catalog` fica sem fonte de dados. Ele está **congelado ao byte** e é
+**consumido pelo `viabilidade-imobiliaria` em produção**, com teste de contrato
+(`KAN-42`). Matar o varrimento sem mais parte um consumidor a sério.
 
-Mas o varrimento que ela precisa é **muito** mais pequeno: um cenário de
-referência por banco, periodicamente, para haver série. Não precisa das 7
-famílias, nem da escala de LTV, nem dos extremos de prazo — isso tudo existia
-para *responder a um cliente*, e é isso que deixa de ser preciso.
+Isto deixa de ser uma limpeza interna e passa a ser uma **retirada coordenada
+entre dois repositórios**. As saídas, por ordem de preferência:
 
-**Proposta:** o varrimento passa a servir **só** a série de mercado, com um
-punhado de pontos por corrida em vez de 96.
+1. **Congelar a última fotografia.** O `/api/rate-catalog` continua a responder
+   com o último varrimento gravado, que deixa de envelhecer. ⚠️ Uma série que não
+   avança é uma série morta, e o consumidor tem de o saber — não pode descobri-lo
+   por os números pararem.
+2. **Retirar com aviso**, depois de o `viabilidade-imobiliaria` deixar de
+   depender dela. É a única saída limpa, e o trabalho é do outro lado.
+3. **Manter um varrimento mínimo só para ela.** Contraria a D1 e fica registada
+   por ser a alternativa óbvia que foi recusada.
 
-### D2 — Uma resposta só, ou por banco à medida que chegam?
+**Por decidir qual**, e é a primeira coisa a fechar — bloqueia a §4 e a §6.
 
-- **Uma resposta só** (como hoje): API e app quase não mudam; o cliente espera
-  pelo banco mais lento.
-- **Por banco** (SSE, ou um pedido por banco a partir da app): o primeiro preço
-  aparece em ~1 s; muda o `/api/v1/comparacoes`, a app e o `ECRAS.md`.
+⚠️ E morre com o varrimento tudo o que dependia dele: o ecrã de mercado
+(`KAN-23`, Fase 5) e a medição passiva do *market-diff*.
 
-**Recomendação:** começar por **uma resposta só**, com timeout por banco e os que
-falharem a saírem como `banco_indisponivel` — código que já existe. É a mudança
-menor e mede-se depressa se chega.
+### D2 — A resposta vai **por banco, à medida que chega**
 
-### D3 — O que fazer com um banco que não responde a tempo?
+O cliente não espera pelo banco mais lento. O primeiro preço aparece assim que o
+primeiro banco responder.
 
-Hoje `banco_indisponivel` é excepcional; ao vivo será rotina. A oferta sai em
-falta, com o banco nomeado — mas **fica por decidir** se se tenta o último preço
-conhecido do varrimento de mercado como recurso, e com que declaração.
+**Mecanismo proposto: um pedido por banco a partir da app**, e não SSE.
 
-⚠️ **Recomendação: não.** Servir um preço velho ao lado de quatro frescos, na
-mesma lista, é o modo de falha que este projecto passou o dia a corrigir.
+| | |
+|---|---|
+| SSE de `/api/v1/comparacoes` | um pedido do cliente, servidor mantém a ligação aberta. ⚠️ O `fetch` do React Native **não** suporta SSE nativamente, e ligações longas atravessam mal proxies |
+| **um pedido por banco** | `GET /api/v1/ofertas/{banco}`. HTTP simples, cada resposta pequena, retry por banco, a app controla a concorrência e mostra o que já tem |
 
-### D4 — Legal
+⚠️ **O custo desta escolha é que o *fan-out* passa para a app**, e com ele a
+responsabilidade de não disparar dez pedidos de uma vez. E o tecto por IP passa a
+contar N pedidos por comparação em vez de um — tem de ser dimensionado para isso,
+ou tranca um utilizador normal.
+
+**Isto é escolha minha dentro da D2, e é o ponto mais discutível desta página.**
+
+### D3 — Um banco que não responde **sai em falta, nomeado**
+
+`banco_indisponivel`, que já existe. Não se recorre a preço antigo: servir um
+preço velho ao lado de quatro frescos, na mesma lista, é o modo de falha que este
+projecto passou o dia a corrigir. ⚠️ E com a D1 nem sequer haveria preço velho
+que servisse.
+
+### D4 — Legal, por decidir
 
 Um pedido por cliente, com os dados que ele introduziu, é uma relação diferente
-com os simuladores dos bancos do que uma recolha periódica. **Não sou a pessoa
-que decide isto**, e liga-se ao `KAN-24`, que já bloqueia a publicação nas lojas.
+com os simuladores dos bancos do que uma recolha periódica. **Não é decisão
+minha**, e liga-se ao `KAN-24`, que já bloqueia a publicação nas lojas.
+
+⚠️ Passa de «bloqueia as lojas» a **bloqueia o produto**: a fatia ao vivo é o
+produto inteiro, e não uma funcionalidade dele.
 
 ---
 

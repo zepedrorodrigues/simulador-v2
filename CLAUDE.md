@@ -2,6 +2,10 @@
 
 Reescrita em **Go** do `simulador-credito-habitacao`. Serve **só JSON**; a interface é uma app React Native noutro repositório.
 
+⚠️ **A §1 foi revertida a 2026-08-06: o pedido do cliente volta a ir ao banco.** Não há varrimento, não há grelha, não há modelo de preço nosso. O porquê está em `docs/DECISAO-AO-VIVO.md`, e a razão curta é que guardar uma cópia do modelo de preço de cada banco obriga a acertar em como eles preçam — e num só dia de confronto com dados reais falhámos isso quatro vezes (`KAN-54` a `KAN-57`).
+
+⚠️ **Enquanto a Fase 6 do `PLAN.md` não estiver feita, o código no `development` ainda é o do desenho antigo.** Os documentos descrevem para onde se vai; o código descreve de onde se vem. Quando discordarem, é o código que está por mudar — e não o documento que está errado.
+
 As convenções da casa (pt-PT, branches, commits, labels, verificação por reversão) estão em `~/.claude/convencoes-repos.md` — não se repetem aqui.
 
 ## Antes de mudar seja o que for
@@ -16,33 +20,13 @@ make gerar        # sqlc + oapi-codegen — nunca editar código gerado à mão
 make verificar    # o portão completo (ver abaixo)
 ```
 
-⚠️ **Os alvos que falam com os bancos são três, e escolhem-se pelo que custam a
-terceiros** — não por «toca ou não toca na rede». Nenhum entra no portão.
+⚠️ **Todo o caminho do cliente fala com bancos.** Deixou de haver «alvos de rede» à parte, porque a rede deixou de ser a excepção — ver `docs/ARQUITETURA.md` §7.
 
-| alvo | pedidos a terceiros | duração | quando |
-|---|---|---|---|
-| `make teste-rede` | dezenas, por cinco bancos | minutos | confirmar que um parser ainda corresponde ao que o banco devolve |
-| `make teste-fidelidade` | **~2000** (250 amostras por banco) | até 3h | confirmar que nada se perde entre o corpo que chega e a `dominio.Oferta` |
-| `make medicao` | **>1000, todos à CGD** | 1h+ | o cartesiano e o e2e da grelha — perguntas de desenho, não de parser |
+⚠️ **E o custo passou a ser por cliente, não por corrida.** Pedidos HTTP por simulação, medidos: **1,00** no Banco CTT, **2,03** no Montepio, **4,00** no Santander. Uma comparação a cinco bancos custa **~10 pedidos a terceiros**. Reaproveitar configuração e catálogo dentro de um pedido deixou de ser optimização e passou a ser defesa.
 
-⚠️ **`make medicao` e `make teste-fidelidade` correm-se em hora morta, e a hora
-escolhe-se antes de os disparar.** Aplica-se-lhes o «Reduzir a carga nos bancos
-ao mínimo que funciona». Até 2026-08-02 os três
-viviam sob a mesma tag `rede`, e pedir uma confirmação de parser disparava mil
-pedidos à CGD (KAN-47).
+⚠️ **Somos um amplificador.** Um pedido nosso vira ~10 aos bancos, com origem aparente nossa. O tecto por IP é **estrutural** e o `PROXIES_DE_CONFIANCA` é **bloqueante** — sem ele medido, ou o tecto é contornável, ou é o tecto do site inteiro (o bug de produção do v1).
 
-⚠️ **E o binário também fala com os bancos, pelo mesmo critério.** Dois
-subcomandos, dois custos:
-
-| subcomando | pedidos a terceiros | quando |
-|---|---|---|
-| `simulador varrer` | **~96 por banco** (~480 pelos cinco) | reconstruir a grelha; corre em hora morta, com guarda `--se-antigo` de 6h |
-| `simulador sondar` | **~4 por banco** (~20 pelos cinco) | confirmar que a grelha ainda descreve o banco (KAN-48) |
-
-A sonda é **vinte e quatro vezes mais barata** do que o varrimento, e é isso que
-a torna corrível de hora a hora. ⚠️ **Mas na divergência ela revarre aquele
-banco** — logo uma corrida que encontre um preçário mudado custa os ~96 desse
-banco. Para sondar sem pagar o revarrimento: `simulador sondar --sem-revarrer`. ⚠️ **Não é «ver sem mexer»** desde a KAN-49: o veredicto é gravado à mesma, e uma divergência passa a aparecer nas ofertas como `em_duvida`. O que o sinalizador poupa são os ~96 pedidos ao banco, não a declaração — medir e não contar a ninguém é o defeito que a KAN-49 corrige.
+⚠️ **Os subcomandos `varrer` e `sondar` vão desaparecer** com a Fase 6. Enquanto existirem, continuam a custar ~96 e ~4 pedidos por banco — não se correm sem razão.
 
 O portão são cinco coisas, e passa-se o portão **inteiro**:
 
@@ -59,7 +43,7 @@ go test -race ./...           # o -race não é opcional: o modelo é fan-out co
 cmd/simulador/     o binário
 internal/dominio/  tipos e regras puras. Não importa mais nada do projecto.
 internal/bancos/   um pacote por banco + as 4 estratégias de transporte
-internal/aplicacao/casos de uso. Sem HTTP, sem SQL.
+internal/aplicacao/casos de uso: comparar (fala com bancos), limites. Sem HTTP, sem SQL.
 internal/infra/    chi, pgx/sqlc, travão por banco, config
 api/openapi.yaml   o contrato — fonte da verdade dos tipos Go e TypeScript
 db/                migrações goose + queries sqlc
@@ -79,8 +63,8 @@ Um comentário ganha o seu lugar quando diz o que o código não pode dizer: um 
 
 - **Não editar código gerado.** O do `sqlc` e o do `oapi-codegen` são reconstruídos; edições à mão desaparecem no `make gerar` seguinte.
 - **Não escrever um banco sem captura primeiro.** A ordem está em `docs/CONTRATO-BANCO.md` §3: capturar → parser contra a captura → payload → só então ligar a rede. E ver o teste **falhar** antes de o pôr a passar.
-- ⚠️ **A** `/api/rate-catalog` **está congelada.** Campos em inglês e `snake_case`, ao contrário de todo o resto do repositório. O `viabilidade-imobiliaria` lê-a em produção; mudar o formato parte-o sem aviso. Há um teste de contrato — se ele falha, o erro é teu, não dele.
-- **Nada de estado em-processo** para dedup ou *gate* por banco. Vive em **Postgres**, no `internal/infra/travao` (`pg_try_advisory_lock`). O v1 tinha-o em memória e avisava no arranque que com mais de um worker o mesmo banco levava N scrapes em paralelo. ⚠️ Dizia aqui «Vive em Redis», e o Redis saiu do desenho na §7 — e do ambiente na KAN-39. Não volta sem uma entrada nova na §7.
+- ⚠️ **A** `/api/rate-catalog` **está congelada E em retirada.** Campos em inglês e `snake_case`, ao contrário de todo o resto do repositório. O `viabilidade-imobiliaria` lê-a em produção; mudar o formato parte-o sem aviso, e **apagá-la também**. A série que a alimentava morreu com o varrimento (D1) — a retirada é trabalho combinado com o outro repositório, e **falta escolher como** (`DECISAO-AO-VIVO.md` §4, D1). Há um teste de contrato — se ele falha, o erro é teu, não dele.
+- **Nada de estado em-processo** para dedup, cache ou tecto por banco. Vive em **Postgres**. ⚠️ **E o travão muda de natureza com a §1 revertida:** o `pg_try_advisory_lock` era um **fecho** contra dois varrimentos do mesmo banco, e ao vivo isso está errado — dois clientes a perguntar pelo mesmo banco é o normal. O que é preciso é um **tecto de concorrência**, e o N mede-se banco a banco. O v1 tinha-o em memória e avisava no arranque que com mais de um worker o mesmo banco levava N scrapes em paralelo. ⚠️ Dizia aqui «Vive em Redis», e o Redis saiu do desenho na §7 — e do ambiente na KAN-39. Não volta sem uma entrada nova na §7.
 - **Sem pasta de scripts.** Foi onde o v1 acumulou 50+ ficheiros ad-hoc e 338 erros de lint permanentes que cegaram o portão. Trabalho de sondagem vive numa branch e não é submetido, ou vira um teste.
 - **Nada de dados pessoais nem segredos nas capturas** — o repositório é público. Titular fictício; cookies, tokens e cabeçalhos de autenticação removidos.
 - **Confirmar o** `git branch --show-current` **antes de commitar.** O `main` só recebe merges de `development`.
