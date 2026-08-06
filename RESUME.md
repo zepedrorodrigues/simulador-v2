@@ -38,6 +38,20 @@ Correu-se o ciclo contra Postgres em contentor, com o binário a sério e a sér
 
 ⚠️ E a divergência que a sonda encontrou era **da grelha semeada**, não do banco: a CGD respondeu 1,350 onde a série inventada dizia 2,250. Serviu para exercitar o caminho, e não é medição sobre a CGD.
 
+## O ensaio da app contra o servidor (2026-08-06)
+
+Mesma forma do anterior: Postgres em contentor, binário a sério, série semeada à mão — **sem varrimento**. Três bancos com série (um do dia anterior), dois sem.
+
+| | |
+|---|---|
+| pediram-se 5 bancos | vieram 5 — 2 como `sem_serie`, nomeados (`KAN-45`) |
+| o banco varrido no dia anterior | `serie_desactualizada` (`KAN-50`) |
+| os `pressupostos` no JSON servido | «**26 463,16 €** de encargos iniciais (**8,27 %** do montante)» (`KAN-51`) |
+| o domínio da app sobre esse JSON | `separar`, `ordenar`, `melhores`, `idadeDosPrecos`, `avisosDoCartao` — passa |
+| os ecrãs | ⚠️ **não confirmados** — a extensão do Chrome não estava ligada |
+
+⚠️ **E o ensaio pagou-se outra vez:** encontrou a `KAN-52`. Dois bancos com preçários diferentes saíram com encargos iguais ao cêntimo, porque o ajuste tinha ficado preso na fronteira `recorrente ≥ 0` e ninguém olha para os resíduos.
+
 ## O ensaio da forma de produção (2026-08-01)
 
 Correu-se em local o que um servidor vai correr: a imagem do `Dockerfile`, PostgreSQL **fechado**, migrações como passo próprio, Caddy com TLS à frente.
@@ -80,6 +94,7 @@ Correu-se em local o que um servidor vai correr: a imagem do `Dockerfile`, Postg
 - ⚠️ **Uma oferta ajustada não leva estrela de «melhor», e uma oferta sozinha também não.** A `KAN-45` não mexe nisto: o filtro por `sucesso` vem antes da contagem.
 - ⚠️ **A fiabilidade é declarada por OFERTA** (`KAN-49`, 2026-08-05): três estados, e só o `em_duvida` se mostra. Deriva-se de duas datas — a última sondagem e o último varrimento daquele banco — e por isso **expira sozinha**, sem prazo escolhido. Trouxe a **terceira tabela** (`sondagens`), com a entrada na §4 que o travão das duas exige.
 - ⚠️ **A série serve-se por BANCO** (`KAN-50`, 2026-08-05), revogando «uma resposta mistura-se de um varrimento só»: de cada banco, o varrimento mais recente em que teve sucesso. Um banco do outro lado da viragem do dia sai com `serie_desactualizada` — código novo, e a §4 do `API.md` permite-o sem versão nova.
+- ⚠️ **Os `pressupostos` escrevem-se para quem os lê** (`KAN-51`, 2026-08-06): duas casas, vírgula decimal e espaço nos milhares. O `Dinheiro.ParaPessoa()` é **método à parte** — o `String()` não muda, porque é a forma da biblioteca decimal e há comparações que dependem dela. ⚠️ E o `percentagem()` **não se arredondou**: os outros seis chamadores são fronteiras de LTV, medidas até sete casas (0,6659375 na CGD) a ~18 pedidos por banco. Há teste novo a travá-lo. ⚠️ O `euros()` construía o formulário enviado ao banco **e** as frases de recusa; separou-se em duas funções, porque um espaço de milhares dentro do payload é um pedido que o banco não lê.
 - ⚠️ **A resposta traz uma oferta por banco PEDIDO** (`KAN-45`). Lista vazia = todos os **conhecidos** (união do registo com a grelha). Um id que não é banco nenhum é 400 com `campo: "bancos"`.
 - ⚠️ **Cinco códigos de erro por oferta:** `prazo_impossivel`, `produto_indisponivel` (varreu-se e não mede **este** cenário), `banco_indisponivel` (foi-se lá e não respondeu), `resposta_ilegivel`, `sem_serie` (**não se foi lá**). Um código novo não é mudança de versão: o campo é `type: string` sem enum.
 - ⚠️ **A grelha confirma-se por sondagem barata** (§7, decisão 6; `simulador sondar`, `KAN-48`). ~4 pedidos por banco contra 96. Uma sonda por degrau, logo **abaixo do `Ate`**: apanha fronteira que desce, falha a que sobe — e o erro que fica é servir o spread mais alto, que é a direcção que a MCD manda presumir. Tolerância **lida do degrau**, não escolhida. Na divergência: servir o antigo com fiabilidade reduzida **e** revarrer aquele banco, seguro só por causa do travão em Postgres. ⚠️ Falta a **fiabilidade declarada** na resposta (`KAN-49`): hoje detecta-se e revarre-se, e quem lê a oferta não sabe que ela esteve em dúvida.
@@ -91,7 +106,7 @@ Correu-se em local o que um servidor vai correr: a imagem do `Dockerfile`, Postg
 ## Próximo passo
 
 1. **Acabar os comentários do código.** Ficou o padrão e a regra (ver «Comentários» no `CLAUDE.md`), não o trabalho: são **4506 linhas de comentário para 15 708 linhas não-teste, 29%**, com **148 blocos de 8+ linhas seguidas** por rever (medido 2026-08-05; os 4083/~140 anteriores são de antes de a sonda entrar). Os maiores estão em `dominio/` (taeg, encargos, oferta, dinheiro), `grelha/` e `bancos/`. ⚠️ A pergunta a fazer a cada um é «isto sobrevive noutro sítio?», e agora a maioria sobrevive — os documentos ficaram compactos e precisos de propósito, primeiro.
-2. **Confirmar a app contra o servidor** — a confirmação da A5 (2026-07-29) é anterior à `KAN-45` **e** à `KAN-50`, as duas que mudaram quem aparece na lista.
+2. **Confirmar a app contra o servidor — falta a metade que se vê.** O domínio da app já foi confrontado com o JSON servido (ensaio de 2026-08-06, abaixo) e passa; os **ecrãs não**, porque a extensão do Chrome não estava ligada. É o que fica: montar a lista e o detalhe contra o servidor a sério e olhar para eles. ⚠️ A `KAN-51` não tocou no `api/`: o `sincronizar-api` e o travão do CI não vêem diferença nenhuma, e o ecrã que mostra os `pressupostos` por inteiro (`app/ofertas/[banco].tsx:109`) muda sem que nada avise.
 3. A app, A6 e A7. ⚠️ Ver o ramo `wip/estados-a6-descartado` antes de começar a A6.
 4. `KAN-19` — Crédito Agrícola. ⚠️ O `reference_rate_value` é o **spread**, não a Euribor, apesar de o `rateIndexType` dizer `EUR12TM`.
 5. **Só então, alojamento.**
@@ -135,6 +150,8 @@ Correu-se em local o que um servidor vai correr: a imagem do `Dockerfile`, Postg
 - ⚠️ O `postgres:18` recusa o mount do v1: nas imagens 18+ é `/var/lib/postgresql`. E `pg_isready` sem `-h 127.0.0.1` dá pronto cedo demais.
 - ⚠️ **Os alvos de rede são três desde a `KAN-47`**, separados pelo que custam a terceiros: `teste-rede` (parsers, dezenas de pedidos, **108 s**), `teste-fidelidade` (~2000 pedidos, 250 amostras por banco, até 3h) e `medicao` (o cartesiano e o e2e, >1000 pedidos só à CGD, 1h+). Ver a tabela no `CLAUDE.md`.
 - ⚠️ **O `teste-rede` encolheu porque deixou de correr o que não é dele** (medido 2026-08-02, contra 2026-08-01): montepio 530→25 s, bancoctt 185→10 s, cgd 147→6 s, santander 119→7 s, novobanco 65→6 s, e o `varrimento` deixou de **falhar aos 601 s** para passar em 10 s.
+- ⚠️ **Semear a série à mão precisa das DUAS famílias de linhas.** Uma linha com `ltv_min`/`ltv_max` é um degrau da escala e **não entra como cenário** (`comparar.go:144`); uma sem eles é um ponto observado. Semear só degraus dá `produto_indisponivel` em todos os bancos, com a série toda lá dentro. E o `spread_minimo` é o lado barato de um degrau **por resolver** — num degrau resolvido é `NULL`, e pô-lo igual ao `spread` viola o CHECK.
+- ⚠️ **No `jest-expo` o `fetch` global não é o do Node** e devolve `undefined` em vez de uma resposta. Um teste que queira falar com o servidor a sério lê o JSON de ficheiro, gravado à parte.
 - ⚠️ **Na app:** o `openapi-typescript` 7 rebenta com o TypeScript 7 — fica no `~5.9`. O `@testing-library/react-native` traz matchers embutidos desde a v12.4; apontar-lhe o `extend-expect` faz o Jest recusar arrancar. O `expo start` reescreve o `tsconfig.json` sozinho — confirmar o `git diff` antes de commitar.
 - ⚠️ O `flyctl` está instalado (winget, v0.4.71) sem sessão. Ficou de um alojamento adiado; não é compromisso.
 
