@@ -73,6 +73,56 @@ paths:
               schema:
                 $ref: "#/components/schemas/BancosResposta"
 
+  /api/v1/ofertas/{banco}:
+    post:
+      operationId: ofertaDeUmBanco
+      tags: [v1]
+      summary: Pergunta a UM banco o preço do crédito descrito. Ao vivo.
+      description: >-
+        Vai ao simulador público do banco com os valores que a pessoa
+        introduziu e devolve o que ele respondeu. Demora o que o banco demorar,
+        com um prazo nosso por cima.
+
+
+        ⚠️ É POST e não GET porque o pedido leva data de nascimento e
+        rendimento: num GET isso viajava na query string, e ficava no histórico
+        do browser, nos logs de qualquer proxy pelo caminho e no Referer.
+
+
+        ⚠️ Um banco que não responde a tempo NÃO é um erro deste pedido: a
+        resposta é 200 com a oferta em falha e o código `banco_indisponivel`. É
+        o mesmo vocabulário do POST /api/v1/comparacoes.
+      parameters:
+        - name: banco
+          in: path
+          required: true
+          schema:
+            type: string
+          description: O id do banco, como vem em GET /api/v1/bancos.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OfertaPedido"
+      responses:
+        "200":
+          description: A oferta do banco, ou a recusa dele com o código nomeado.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Oferta"
+        "400":
+          $ref: "#/components/responses/PedidoInvalido"
+        "404":
+          description: O id não é banco nenhum.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespostaErro"
+        "429":
+          $ref: "#/components/responses/TectoExcedido"
+
   /api/v1/comparacoes:
     post:
       operationId: compararOfertas
@@ -373,6 +423,21 @@ components:
         tipo:
           type: string
           example: dinheiro
+
+    OfertaPedido:
+      type: object
+      required: [pedido]
+      description: >-
+        O pedido para UM banco. Não leva lista de bancos: o banco vem no
+        caminho, e os produtos são só os desse banco.
+      properties:
+        pedido:
+          $ref: "#/components/schemas/Pedido"
+        produtos:
+          type: array
+          description: Ids dos produtos escolhidos deste banco.
+          items:
+            type: string
 
     ComparacaoPedido:
       type: object

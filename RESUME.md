@@ -6,7 +6,9 @@ Estado actual e próximos passos. ⚠️ **Sem changelog** — o relato de sess�
 
 ⚠️ **A §1 foi revertida: o pedido do cliente volta a ir ao banco.** Decidido a 2026-08-06, depois de um dia a confrontar o servido com dados reais. O porquê, com os números, está em `docs/DECISAO-AO-VIVO.md`.
 
-⚠️ **Os documentos já descrevem o desenho novo; o código ainda é o antigo.** Quando discordarem, é o **código** que está por mudar. É a Fase 6 do `PLAN.md`, e não está começada.
+⚠️ **Os documentos descrevem o desenho novo; o código do `development` ainda é o antigo.** Quando discordarem, é o **código** que está por mudar.
+
+**A Fase 6 começou** na branch `feat/o-comparar-volta-a-falar-com-bancos`: o `aplicacao/aovivo` pergunta a UM banco e o `POST /api/v1/ofertas/{banco}` serve-o, com o pedido validado à fronteira e sem tocar na série varrida. ⚠️ **Nada disto está no `development`**, e o resto da fase — cache, tecto de concorrência, retirada do varrimento — não está começado.
 
 ## Onde estamos
 
@@ -35,7 +37,7 @@ Num só dia, quatro assunções do modelo de preço caíram contra dados varrido
 
 1. **Fechar a D1**: o que acontece ao `/api/rate-catalog`, que perde a fonte e é consumido pelo `viabilidade-imobiliaria` **em produção**. Bloqueia a §4 e a §6 do `ARQUITETURA.md`. Três saídas escritas, nenhuma escolhida.
 2. **Medir os três números** de que a Fase 6 depende e que não temos: latência por banco, concorrência que cada banco tolera, validade útil da cache.
-3. **`KAN-7`** — o `comparar` volta a falar com bancos, com tecto e timeout por banco.
+3. **`KAN-7`** 🔶 — o caminho está de pé; falta o **tecto de concorrência por banco** (o N não está medido) e o timeout deixar de ser um palpite de 15 s.
 4. **`KAN-8`** — cache em Postgres, chave = pedido exacto, pedido em claro fora do disco.
 5. **`KAN-14`** — tecto por IP dimensionado para **N pedidos por comparação**, e `PROXIES_DE_CONFIANCA` **medido**. Passou de dívida a bloqueante.
 6. **Só então** retirar o que morreu: `sondagens`, escala, encargos, grelha. ⚠️ Apagar antes deixa o repositório sem nada que responda.
@@ -63,6 +65,8 @@ Num só dia, quatro assunções do modelo de preço caíram contra dados varrido
 **Um teste cujos dois lados se constroem do mesmo sítio não vê a diferença entre eles.** O primeiro critério da `KAN-55` comparava fases da oferta com fases da observação: passava nos testes (a fixture constrói-as) e **nunca disparava em produção** (o `leitura.go` não as reconstrói). Só se viu ao correr contra o varrimento real.
 
 **Correr a forma de produção é um teste, e encontra o que nenhuma suite encontra.** Continua verdadeiro, e foi assim que este dia aconteceu.
+
+**Um caso de uso escrito à imagem de outro herda a forma e não as responsabilidades.** O `aovivo` nasceu com a forma do `varrimento` e sem o carimbo do `CapturadoEm` — e o efeito não era um preço sem data, era **nenhuma oferta servida**, porque a fronteira recusa um preço que não diz de quando é. Os testes do `aovivo` passavam todos: nenhum ia à fronteira. ⚠️ **A guarda que apanhou isto foi escrita a atravessar as duas camadas**, e é o único sítio onde se via.
 
 ## Notas de máquina
 

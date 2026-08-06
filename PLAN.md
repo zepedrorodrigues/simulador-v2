@@ -76,10 +76,10 @@ A fase que a reversão da §1 abre, e a que passa a ser o produto.
 
 Depois disso, e por esta ordem:
 
-1. `KAN-7` — o `comparar` volta a falar com bancos, com tecto e timeout por banco.
+1. `KAN-7` — o `comparar` volta a falar com bancos, com tecto e timeout por banco. 🔶 **O caminho está de pé** (2026-08-06): `aplicacao/aovivo` pergunta a um banco, e o `POST /api/v1/ofertas/{banco}` serve-o. ⚠️ **O timeout é de partida e não medido** — 15 s, escolhidos por os 10 s do varrimento não terem chegado ao Montepio; e o **tecto de concorrência por banco não existe**, porque o N ainda não está medido.
 2. `KAN-8` — cache em Postgres, chave = pedido exacto, com o pedido em claro **fora** do disco.
 3. `KAN-14` — o tecto por IP dimensionado para **N pedidos por comparação**, e o `PROXIES_DE_CONFIANCA` **medido**. ⚠️ Passa de dívida a bloqueante: é ele que separa um serviço de uma ferramenta de carga contra cinco bancos.
-4. `GET /api/v1/ofertas/{banco}` no contrato, e a app a fazer o fan-out.
+4. ~~`GET`~~ **`POST` `/api/v1/ofertas/{banco}`** no contrato ✅ *(2026-08-06)*, e a app a fazer o fan-out ⏳. ⚠️ O método mudou e não é detalhe: o pedido leva data de nascimento e rendimento, e num `GET` isso viajava na query string — histórico do browser, logs de qualquer proxy, `Referer`.
 5. Retirar o que morreu: `sondagens`, a escala, os encargos, a grelha. ⚠️ **Depois** de a fatia ao vivo estar de pé, e não antes — apagar primeiro deixa o repositório sem nada que responda.
 
 ---

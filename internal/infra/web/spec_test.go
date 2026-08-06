@@ -45,7 +45,7 @@ func TestTodaARotaDoSpecTemHandler(t *testing.T) {
 
 	for _, r := range rotas {
 		t.Run(r.metodo+" "+r.caminho, func(t *testing.T) {
-			req := httptest.NewRequest(r.metodo, r.caminho, strings.NewReader("{}"))
+			req := httptest.NewRequest(r.metodo, comParametrosPreenchidos(r.caminho), strings.NewReader("{}"))
 			req.Header.Set("Content-Type", "application/json")
 			req.Header.Set("X-API-Key", "chave-de-teste-com-32-caracteres!")
 			resp := httptest.NewRecorder()
@@ -54,16 +54,60 @@ func TestTodaARotaDoSpecTemHandler(t *testing.T) {
 			// O que se afirma é estreito de propósito: **existe handler**. Não se
 			// afirma o corpo, nem o estatuto de sucesso — um pedido vazio pode e
 			// deve dar 400, e isso prova que alguém o leu.
-			switch resp.Code {
-			case http.StatusNotFound:
+			switch {
+			case resp.Code == http.StatusNotFound && !respondeuUmHandler(resp):
 				t.Errorf("o contrato declara %s %s e ninguém o serve: 404. "+
 					"Falta registá-lo em Rotas().", r.metodo, r.caminho)
-			case http.StatusMethodNotAllowed:
+			case resp.Code == http.StatusMethodNotAllowed:
 				t.Errorf("o contrato declara %s %s e a rota existe noutro método: 405. "+
 					"Falta registar ESTE método em Rotas().", r.metodo, r.caminho)
 			}
 		})
 	}
+}
+
+// oParametroDeProva é o que se põe onde o caminho traz `{algo}`.
+//
+// ⚠️ Um valor que **não** é nada de verdade, e de propósito: com um id de banco
+// a sério, este teste ia à rede a cinco bancos de cada vez que o portão
+// corresse. O que aqui se mede é registo de rota, não resposta.
+const oParametroDeProva = "-parametro-de-prova-"
+
+func comParametrosPreenchidos(caminho string) string {
+	var partes []string
+	for _, p := range strings.Split(caminho, "/") {
+		if strings.HasPrefix(p, "{") && strings.HasSuffix(p, "}") {
+			p = oParametroDeProva
+		}
+		partes = append(partes, p)
+	}
+	return strings.Join(partes, "/")
+}
+
+// respondeuUmHandler distingue um 404 NOSSO do 404 do chi.
+//
+// ⚠️ **Sem isto o teste mentia nos dois sentidos**, e passou a mentir assim que
+// o contrato ganhou o primeiro caminho com parâmetro: um handler que responde
+// «não há banco nenhum com esse id» — que é a resposta certa ao parâmetro de
+// prova — era lido como rota em falta. E a correcção preguiçosa (aceitar
+// qualquer 404) apagava exactamente o defeito que a KAN-44 existe para apanhar.
+//
+// O que os separa é a forma: o nosso 404 é o envelope de erro em JSON, com
+// código; o do chi é `text/plain` com «404 page not found». Um envelope só
+// aparece se alguém leu o pedido.
+func respondeuUmHandler(resp *httptest.ResponseRecorder) bool {
+	if !strings.Contains(resp.Header().Get("Content-Type"), "application/json") {
+		return false
+	}
+	var corpo struct {
+		Erro struct {
+			Codigo string `json:"codigo"`
+		} `json:"erro"`
+	}
+	if err := json.Unmarshal(resp.Body.Bytes(), &corpo); err != nil {
+		return false
+	}
+	return corpo.Erro.Codigo != ""
 }
 
 type rotaDoSpec struct{ metodo, caminho string }

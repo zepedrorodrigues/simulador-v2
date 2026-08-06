@@ -23,7 +23,7 @@ func TestOQueOBancoRespondeEOQueSai(t *testing.T) {
 		},
 	}
 
-	o := aovivo.Pedir(context.Background(), b, pedido(t), hoje(), time.Second)
+	o := aovivo.Pedir(context.Background(), b, pedido(t), agora, time.Second)
 
 	if !o.Sucesso() {
 		t.Fatalf("a oferta saiu em falha: %v", o.Erro)
@@ -35,6 +35,37 @@ func TestOQueOBancoRespondeEOQueSai(t *testing.T) {
 	// mesmo que o banco se esqueça de se identificar — e este esqueceu-se.
 	if o.BancoID != "prova" || o.BancoNome != "Banco de Prova" {
 		t.Errorf("a oferta não se identifica: id=%q nome=%q", o.BancoID, o.BancoNome)
+	}
+}
+
+// TestAOfertaDizQuandoSeFalouComOBanco é a guarda que faltava, e a falta era
+// silenciosa: o `dominio.Oferta` diz que o `CapturadoEm` é preenchido por esta
+// camada, o varrimento preenchia-o, e o caminho ao vivo não.
+//
+// ⚠️ **O efeito não era um preço sem data — era não haver preço nenhum.** A
+// fronteira recusa servir uma oferta boa sem instante de captura («um preço sem
+// data apresenta-se como se fosse de agora»), portanto **todas** as ofertas ao
+// vivo saíam como falha. Reverter o carimbo faz falhar isto e mais o
+// TestUmaOfertaAoVivoESERVIDAComoBoa do `infra/web`, que é onde o estrago se vê.
+func TestAOfertaDizQuandoSeFalouComOBanco(t *testing.T) {
+	t.Parallel()
+
+	b := &bancoFalso{
+		id: "prova", nome: "Banco de Prova",
+		responder: func(context.Context, dominio.Pedido) (dominio.Oferta, error) {
+			return dominio.Oferta{}, nil // o banco não carimba nada, e é o contrato dele
+		},
+	}
+
+	o := aovivo.Pedir(context.Background(), b, pedido(t), agora, time.Second)
+
+	if o.CapturadoEm.IsZero() {
+		t.Fatal("a oferta não diz quando se falou com o banco, e sem isso a fronteira não a serve")
+	}
+	// ⚠️ O instante é o do relógio que entrou, e não o de um varrimento: ao vivo
+	// o preço é de agora, e é essa a afirmação que o `capturado_em` transporta.
+	if !o.CapturadoEm.Equal(agora()) {
+		t.Errorf("capturado em %s, e falou-se com o banco em %s", o.CapturadoEm, agora())
 	}
 }
 
@@ -50,7 +81,7 @@ func TestUmBancoEmBaixoSaiComoOfertaEmFaltaENaoComoErro(t *testing.T) {
 		},
 	}
 
-	o := aovivo.Pedir(context.Background(), b, pedido(t), hoje(), time.Second)
+	o := aovivo.Pedir(context.Background(), b, pedido(t), agora, time.Second)
 
 	if o.Sucesso() {
 		t.Fatal("o banco recusou a ligação e a oferta saiu como boa")
@@ -78,7 +109,7 @@ func TestUmBancoQueNaoRespondeADesistenciaNaoSeguraOPedido(t *testing.T) {
 	}
 
 	inicio := time.Now()
-	o := aovivo.Pedir(context.Background(), surdo, pedido(t), hoje(), 50*time.Millisecond)
+	o := aovivo.Pedir(context.Background(), surdo, pedido(t), agora, 50*time.Millisecond)
 	demorou := time.Since(inicio)
 
 	if demorou > time.Second {
@@ -107,7 +138,7 @@ func TestUmPanicoNossoNaoDerrubaARespostaAoCliente(t *testing.T) {
 		},
 	}
 
-	o := aovivo.Pedir(context.Background(), b, pedido(t), hoje(), time.Second)
+	o := aovivo.Pedir(context.Background(), b, pedido(t), agora, time.Second)
 
 	if o.Sucesso() {
 		t.Fatal("houve um pânico e a oferta saiu como boa")
@@ -132,7 +163,7 @@ func TestOErroQueOBancoEstruturouNaoSeSobrepoe(t *testing.T) {
 		},
 	}
 
-	o := aovivo.Pedir(context.Background(), b, pedido(t), hoje(), time.Second)
+	o := aovivo.Pedir(context.Background(), b, pedido(t), agora, time.Second)
 
 	if o.Erro.Codigo != dominio.ErroPrazoImpossivel {
 		t.Errorf("código %q, esperava %q — o erro do banco foi substituído pelo nosso",
@@ -156,7 +187,7 @@ func TestUmPedidoInvalidoNaoChegaAoBanco(t *testing.T) {
 	mau := pedido(t)
 	mau.Montante = dominio.DinheiroDeInteiro(0)
 
-	o := aovivo.Pedir(context.Background(), b, mau, hoje(), time.Second)
+	o := aovivo.Pedir(context.Background(), b, mau, agora, time.Second)
 
 	if foi {
 		t.Error("gastou-se um pedido a um banco com um pedido que não é válido")
@@ -180,7 +211,10 @@ func (b *bancoFalso) Simular(ctx context.Context, p dominio.Pedido) (dominio.Ofe
 	return b.responder(ctx, p)
 }
 
-func hoje() dominio.Data { return dominio.DataDeInstante(time.Now()) }
+// agora é o relógio destes testes, e está **parado**. Com o `time.Now` o
+// carimbo da captura só se podia afirmar por intervalo; com um instante fixo
+// afirma-se por igualdade, e a falha diz que valor saiu.
+var agora = func() time.Time { return time.Date(2026, 8, 6, 11, 30, 0, 0, time.UTC) }
 
 func pedido(t *testing.T) dominio.Pedido {
 	t.Helper()
@@ -196,7 +230,7 @@ func pedido(t *testing.T) dominio.Pedido {
 		Finalidade:  dominio.FinalidadePropria,
 		Localizacao: dominio.LocalizacaoContinente,
 		Titulares: []dominio.Titular{{
-			DataNascimento:   dominio.DataDeInstante(time.Now().AddDate(-36, 0, 0)),
+			DataNascimento:   dominio.DataDeInstante(agora().AddDate(-36, 0, 0)),
 			RendimentoMensal: dominio.DinheiroDeInteiro(3200),
 		}},
 	}
