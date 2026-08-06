@@ -22,6 +22,18 @@ Tudo o que a app precisa para montar o formulário adaptativo. **É a única fon
 
 ⚠️ **O `custo` saiu deste contrato** (KAN-32). Existia para a app «dizer a verdade sobre o tempo», e a resposta passou a ser imediata para todos os bancos — publicá-lo convidava a avisar de uma espera que já não existe. Continua no domínio (`Requisitos.Custo`), onde decide o prazo de cada banco **no varrimento**.
 
+### ⚠️ `GET /api/v1/ofertas/{banco}` → `200` — o caminho novo (2026-08-06)
+
+Um pedido, **um banco**. É o que a §1 revertida manda e o que a app passa a usar: dispara um por banco escolhido e mostra a lista a encher-se (D2).
+
+⚠️ **Este pedido fala com o banco.** Não sai de nenhuma fotografia — vai ao simulador público do banco com os valores que a pessoa introduziu, e devolve o que ele respondeu. Logo:
+
+- **demora o que o banco demorar**, com timeout nosso por cima;
+- um banco que não responde a tempo é `banco_indisponivel`, **nomeado**, e nunca substituído por preço antigo (D3);
+- o `capturado_em` da oferta é o instante em que se falou com o banco, e não o de um varrimento.
+
+⚠️ **O tecto por IP conta N pedidos por comparação**, e não um. Quem o dimensionar como se fosse um tranca um utilizador normal a meio da primeira comparação.
+
 ### `POST /api/v1/comparacoes` → `200`
 
 ⚠️ **Um pedido, uma resposta** (KAN-32). Não há `202`, identificador para sondar, `GET /{id}` nem `503` de «demasiadas em curso». A resposta sai de uma consulta à grelha e de cálculo local.
@@ -71,7 +83,11 @@ Tudo o que a app precisa para montar o formulário adaptativo. **É a única fon
 
 ⚠️ **E o `serie_desactualizada` não é o `sem_serie`, apesar de os dois se resolverem varrendo** (`KAN-50`). A diferença é o que se sabe: no `sem_serie` não há preço nenhum deste banco; no `serie_desactualizada` **há**, e não se serve porque a Euribor mudou de dia entretanto e compará-lo com os outros seria comparar preços de fixings diferentes. Servi-lo à mesma era o defeito que a §7.3 do `ARQUITETURA.md` proíbe; dá-lo como `sem_serie` era dizer que não se foi lá, quando se foi.
 
-## 2. `/api/rate-catalog` — congelada
+## 2. `/api/rate-catalog` — congelada **e em retirada**
+
+⚠️ **A fonte morreu a 2026-08-06.** A série que este endpoint publica vinha do varrimento, e o varrimento acabou com a reversão da §1 (D1). Ele **continua a responder** com a última fotografia gravada, que deixou de avançar.
+
+⚠️ **Uma série parada é pior do que uma série ausente se quem a lê não souber.** O consumidor é o `viabilidade-imobiliaria`, em produção, e a retirada tem de ser combinada com ele — as saídas estão em `DECISAO-AO-VIVO.md` §4, D1, e **falta escolher qual**. Até lá, o que está escrito abaixo continua a valer ao byte.
 
 ⚠️ **Compatível com o v1, ao byte.** O consumidor existe e está a correr: `viabilidade-imobiliaria/src/viabilidade/taxas.py`. Os nomes ficam **em inglês e em `snake_case`**, ao contrário de todo o resto do repositório. Mudá-los parte o outro repositório sem aviso.
 

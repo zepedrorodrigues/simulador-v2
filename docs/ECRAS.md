@@ -48,7 +48,9 @@ Um passo por ecrã, com barra de progresso. Nada de acordeões nem de secções 
 
 ⚠️ **O tempo por banco saiu deste ecrã a 2026-07-28, e o campo que o alimentava saiu do contrato (KAN-32).** Estava aqui «☑ CGD ~2 s / ☐ Banco BPI ~50 s / Tempo estimado: ~6 s», tirado do campo `custo` de `GET /api/v1/bancos`, e a justificação era boa: «é honesto e faz o utilizador entender porque é que uma comparação demora 6 s e outra 52 s».
 
-**Deixou de ser verdade.** Nenhum banco é interrogado no caminho do cliente desde a inversão da §1 — a resposta sai de uma consulta e de aritmética local, e custa o mesmo com um banco ou com dez. Anunciar «~2 s» era **avisar de uma espera que não existe**, e escolher bancos por causa dela era escolher pela razão errada. O `custo` continua no domínio (`Requisitos.Custo`), onde decide o prazo de cada banco **no varrimento** — que é onde o tempo ainda se paga.
+⚠️ **Voltou a ser verdade a 2026-08-06.** Isto tinha sido anulado pela inversão da §1 — «nenhum banco é interrogado no caminho do cliente» — e a §1 foi revertida. **Cada banco escolhido é um pedido**, e o tempo volta a ser do cliente: medido a 2026-08-06, o Montepio não respondeu dentro de **10 s** em 4 cenários.
+
+⚠️ **Mas não volta o «~2 s» anunciado no formulário**, e a razão mudou: com um pedido por banco (D2), a lista **enche-se à medida que chegam**. Anunciar um tempo total é anunciar o do banco mais lento a quem já está a ver quatro preços. O `custo` (`Requisitos.Custo`) volta ao caminho do cliente, onde decide o timeout de cada banco.
 
 ⚠️ **O formulário adapta-se ao que os bancos escolhidos precisam** — período fixo só na mista, indexante só onde é escolhível, profissão só no grupo BCP. A fonte é sempre `GET /api/v1/bancos`, nunca uma lista escrita na app.
 
@@ -58,11 +60,13 @@ Um passo por ecrã, com barra de progresso. Nada de acordeões nem de secções 
 
 ---
 
-## 2. ⚠️ Não há ecrã de espera, e o buraco é de propósito
+## 2. ⚠️ Volta a haver espera — mas não é um ecrã de espera
 
 Havia um — «A comparar», com barra de progresso, cada banco a aparecer assim que chegasse, e um `Cancelar` que propagava pelo `context`. **Estava certo, e o número que o justificava era real:** medido no v1, 7 dos 10 bancos prontos aos 7,4 s, 9 aos 25,9 s, o último aos 52,2 s — uma barra única que só completasse no fim desperdiçava 45 s de informação já disponível.
 
-⚠️ **O que mudou não foi o ecrã: foi o que está por baixo dele.** Com a inversão da §1, uma comparação deixou de falar com bancos: custa uma consulta a Postgres e aritmética. Não há espera, logo não há progresso a mostrar nem nada que faça sentido cancelar.
+⚠️ **Reescrito a 2026-08-06, com a §1 revertida.** Uma comparação volta a falar com bancos, e volta a haver espera. **Mas não volta o ecrã de espera do v1**, e a distinção decide o desenho: não há trabalho assíncrono nosso a que se pergunte «já está?» — há N pedidos, um por banco, cada um síncrono.
+
+⚠️ **O que a pessoa vê é a própria lista a encher-se**, e não uma barra de progresso sobre um trabalho invisível. Um banco que ainda não respondeu é uma linha em espera; um que falhou é uma linha com o banco nomeado (D3). Não há `id` de simulação, não há sondagem, e não há nada a cancelar a não ser sair do ecrã.
 
 ⚠️ **E voltar a pô-lo seria pior do que nada:** uma barra de progresso sobre uma consulta de milissegundos é teatro, e teatro num sítio onde se comparam créditos ensina a pessoa a desconfiar do resto do ecrã. O submeter do passo 3 vai direito às Ofertas.
 
