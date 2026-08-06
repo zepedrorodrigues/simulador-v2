@@ -69,6 +69,19 @@ Issues que deixam de fazer sentido: **`KAN-54`, `KAN-55`, `KAN-56`, `KAN-57`,
 `KAN-41`, `KAN-34`, `KAN-38`** — todas descrevem o modelo, não os bancos.
 ⚠️ Ficam **canceladas com razão escrita**, não apagadas (`PLAN.md`).
 
+⚠️ **Não foi isso que aconteceu ao tracker.** Verificado a 2026-08-06 à noite: as
+`KAN-55`, `KAN-56` e `KAN-57` **foram apagadas** do `KAN`, e as `KAN-34`, `38` e
+`41` fechadas como «Itens concluídos». O estado de cada uma está na tabela do
+`RESUME.md`, e as chaves ficam citadas aqui na mesma — uma referência a uma
+chave apagada diz mais do que o silêncio que sobrava se as removêssemos.
+
+⚠️ **E é a razão de os números estarem escritos aqui em baixo, e não só na
+issue.** As três linhas da tabela do §2 — 4,500 % contra 4,712 %, o
+0,500 + 0,200 = 0,600 do Novo Banco, os 0,5/0,8 p.p. do Santander — são a
+evidência inteira da reversão da §1. As issues que as continham já não existem;
+este documento existe. **Um tracker é onde o trabalho se organiza, não onde a
+prova mora.**
+
 ⚠️ **O `DOSSIE-BANCOS.md` sobrevive inteiro.** São 481 linhas de factos medidos
 banco a banco — limites de idade, o que cada simulador pergunta, o que ignora,
 esquisitices de payload. Nada disso é modelo nosso; é conhecimento sobre o
