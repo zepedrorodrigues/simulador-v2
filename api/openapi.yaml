@@ -122,6 +122,8 @@ paths:
                 $ref: "#/components/schemas/RespostaErro"
         "429":
           $ref: "#/components/responses/TectoExcedido"
+        "503":
+          $ref: "#/components/responses/BancoOcupado"
 
   /api/v1/comparacoes:
     post:
@@ -283,6 +285,27 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/RespostaErro"
+    BancoOcupado:
+      description: >-
+        Já vão pedidos nossos a mais em curso contra este banco: o tecto de
+        concorrência por banco está cheio (ARQUITETURA.md §7.2). Código
+        `banco_ocupado`, e a resposta traz `Retry-After`.
+
+        ⚠️ **Não confundir com a oferta em falha `banco_indisponivel`**, que vem
+        com 200. Essa diz que o banco não respondeu; esta diz que quem não tem
+        lugar somos nós, e o banco está bem. A distinção é para a app poder
+        voltar a pedir este banco daqui a um instante em vez de o riscar da
+        lista.
+      headers:
+        Retry-After:
+          description: Segundos a esperar antes de voltar a pedir este banco.
+          schema:
+            type: integer
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/RespostaErro"
+
     SerieIndisponivel:
       description: >-
         Não há série de mercado que responda a este pedido: nenhum dos bancos

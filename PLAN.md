@@ -73,7 +73,7 @@ A fase que a reversão da §1 abre, e a que passa a ser o produto.
 | medir | porquê |
 |---|---|
 | ~~latência por banco~~ ✅ **medida** (2026-08-06, 17h13) | 25 simulações frias: Novo Banco 460 ms de mediana, Montepio 2,01 s e **cauda de 8,4 s**. Fixa o timeout — os 15 s passam a ser ~1,8× o pior observado, e não um palpite. `make latencia`, tabela no `DOSSIE-BANCOS.md` |
-| concorrência que cada banco tolera | fixa o tecto do §7.2. ⚠️ **Não se mede procurando onde parte** — ver abaixo. Fica **apertado**, e o apertado já está medido |
+| ~~concorrência que cada banco tolera~~ ✅ **escolhida** (2026-08-06) | **2 vagas por banco**, o apertado que já estava medido. ⚠️ **Não se mediu procurando onde parte** — ver abaixo. Está no `internal/infra/lotacao`, e o que fica por medir é se 2 chega quando houver clientes a sério |
 | validade útil da cache | fixa o TTL do §7.6. ⚠️ **Não é uma corrida, é uma vigia**: pede horas ou dias de relógio, não pedidos. Fica **curta** até estar medida |
 
 ⚠️ **A concorrência que um banco «tolera» não se mede subindo até ele recusar.** Isso é um teste de carga contra o simulador público de um terceiro, e o resultado que produz — o ponto onde parte — é exactamente o que não se quer usar. O que este repositório já fez, e é o método: mediu **1, 2 e 4 pedidos em paralelo** contra a CGD (2026-07-26, 8 pontos) — 1,086 s por ponto, 603 ms e 367 ms, **zero falhas nos três** — e escolheu **2**, não 4. A razão está escrita no `PorBancoOmissao`, e vale inteira aqui: comprar 40 % de velocidade ao preço de quadruplicar a carga que se põe num sistema alheio não é uma troca que se faça por se poder fazer.
@@ -84,7 +84,11 @@ A fase que a reversão da §1 abre, e a que passa a ser o produto.
 
 Depois disso, e por esta ordem:
 
-1. `KAN-7` — o `comparar` volta a falar com bancos, com tecto e timeout por banco. 🔶 **O caminho está de pé** (2026-08-06): `aplicacao/aovivo` pergunta a um banco, e o `POST /api/v1/ofertas/{banco}` serve-o. ⚠️ **O timeout está medido** — 15 s, ~1,8× o pior observado (8,4 s, no Montepio). O que falta é o **tecto de concorrência por banco**, e um **prazo por banco**: os cinco diferem 7× no máximo observado e há um número só.
+1. `KAN-7` — o `comparar` volta a falar com bancos, com tecto e timeout por banco. 🔶 **O caminho está de pé** (2026-08-06): `aplicacao/aovivo` pergunta a um banco, e o `POST /api/v1/ofertas/{banco}` serve-o. ⚠️ **O timeout está medido** — 15 s, ~1,8× o pior observado (8,4 s, no Montepio).
+
+   ✅ **O tecto de concorrência por banco está feito** (2026-08-06): `internal/infra/lotacao`, **2 vagas por banco** em advisory locks de Postgres, o pedido a mais com `503 banco_ocupado` e não com uma oferta em falha. O número é o apertado já medido, e não o resultado de procurar onde um banco parte.
+
+   ⏳ **Falta o prazo por banco.** Os cinco diferem **7×** no máximo observado (1,15 s no Novo Banco, 8,4 s no Montepio) e há um número só. ⚠️ **E não se diferencia com o que está medido:** 5 amostras dão um máximo, não um percentil, e cortar um banco lento que ia responder é pior do que esperar 10 s a mais. Quem lhe pegar sobe primeiro o `LATENCIA_AMOSTRAS` — o que custa pedidos aos bancos, e é por isso que não se fez de passagem.
 2. **`KAN-58`** — cache em Postgres, chave = pedido exacto, com o pedido em claro **fora** do disco. ⚠️ Era a `KAN-8`, **apagada do `KAN` a 2026-08-06** na triagem da reversão: é trabalho por fazer e não trabalho morto, e uma chave nova foi o que restou para o repor.
 3. `KAN-14` — o tecto por IP dimensionado para **N pedidos por comparação**, e o `PROXIES_DE_CONFIANCA` **medido**. ⚠️ Passa de dívida a bloqueante: é ele que separa um serviço de uma ferramenta de carga contra cinco bancos.
 4. ~~`GET`~~ **`POST` `/api/v1/ofertas/{banco}`** no contrato ✅ *(2026-08-06)*, e a app a fazer o fan-out ⏳. ⚠️ O método mudou e não é detalhe: o pedido leva data de nascimento e rendimento, e num `GET` isso viajava na query string — histórico do browser, logs de qualquer proxy, `Referer`.

@@ -8,7 +8,9 @@ Estado actual e próximos passos. ⚠️ **Sem changelog** — o relato de sess�
 
 ⚠️ **Os documentos descrevem o desenho novo; o código do `development` ainda é o antigo.** Quando discordarem, é o **código** que está por mudar.
 
-**A Fase 6 começou, e já está no `development`:** o `aplicacao/aovivo` pergunta a UM banco e o `POST /api/v1/ofertas/{banco}` serve-o, com o pedido validado à fronteira e sem tocar na série varrida. ⚠️ **O resto da fase não está começado** — cache, tecto de concorrência por banco, e a retirada do varrimento.
+**A Fase 6 começou, e já está no `development`:** o `aplicacao/aovivo` pergunta a UM banco e o `POST /api/v1/ofertas/{banco}` serve-o, com o pedido validado à fronteira e sem tocar na série varrida.
+
+**E o tecto de concorrência por banco está escrito** (branch `feat/tecto-de-concorrencia-por-banco`, por submeter): `internal/infra/lotacao`, **2 vagas por banco** em advisory locks de Postgres, `503 banco_ocupado` para o pedido a mais. ⚠️ **Falta o resto da fase** — cache (`KAN-58`), prazo por banco, tecto por IP dimensionado (`KAN-14`), e a retirada do varrimento.
 
 ## Onde estamos
 
@@ -37,7 +39,7 @@ Num só dia, quatro assunções do modelo de preço caíram contra dados varrido
 
 1. **Fechar a D1**: o que acontece ao `/api/rate-catalog`, que perde a fonte e é consumido pelo `viabilidade-imobiliaria` **em produção**. Bloqueia a §4 e a §6 do `ARQUITETURA.md`. Três saídas escritas, nenhuma escolhida.
 2. **Os três números da Fase 6:** a latência por banco está **medida** (`make latencia`, 2026-08-06 às 17h13 — tabela no `DOSSIE-BANCOS.md`). Os outros dois não se medem com uma corrida — ver o `PLAN.md`: a concorrência não se procura subindo até o banco recusar, e a validade da cache pede uma vigia de horas.
-3. **`KAN-7`** 🔶 — o caminho está de pé; falta o **tecto de concorrência por banco** (o N não está medido) e o timeout deixar de ser um palpite de 15 s.
+3. **`KAN-7`** 🔶 — o caminho está de pé e o **tecto de concorrência por banco está feito** (2 vagas, `internal/infra/lotacao`). Falta o **prazo por banco**: o de 15 s está medido, mas é um só para cinco bancos que diferem 7× na cauda — e diferenciá-lo pede mais amostras (`LATENCIA_AMOSTRAS`), que custam pedidos aos bancos.
 4. **`KAN-58`** — cache em Postgres, chave = pedido exacto, pedido em claro fora do disco. ⚠️ Era a `KAN-8`, apagada na triagem.
 5. **`KAN-14`** — tecto por IP dimensionado para **N pedidos por comparação**, e `PROXIES_DE_CONFIANCA` **medido**. Passou de dívida a bloqueante.
 6. **Só então** retirar o que morreu: `sondagens`, escala, encargos, grelha. ⚠️ Apagar antes deixa o repositório sem nada que responda.

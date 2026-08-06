@@ -406,6 +406,9 @@ type Titular struct {
 	RendimentoMensal float64            `json:"rendimento_mensal"`
 }
 
+// BancoOcupado defines model for BancoOcupado.
+type BancoOcupado = RespostaErro
+
 // PedidoInvalido defines model for PedidoInvalido.
 type PedidoInvalido = RespostaErro
 
