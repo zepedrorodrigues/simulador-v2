@@ -283,3 +283,100 @@ func TestOPressupostoDosEncargosLeSeComoUmaFrase(t *testing.T) {
 		}
 	}
 }
+
+// Um ajuste que não fecha sai como ERRO, e não como medição (KAN-52).
+//
+// ⚠️ O caso é o do recorrente negativo: uma TAEG que decai com o prazo mais
+// depressa do que um encargo antecipado sozinho explica. O sistema pede um
+// recorrente abaixo de zero, o `limitar` prende-o em 0, e as iterações esgotam-se
+// sem nunca lá chegar. Até aqui isso saía com `err == nil` e uma repartição que
+// não reproduz observação nenhuma.
+func TestUmAjusteQueNaoFechaSaiComoErroENaoComoMedicao(t *testing.T) {
+	t.Parallel()
+
+	capital, err := dominio.DinheiroDeTexto("320000")
+	if err != nil {
+		t.Fatalf("DinheiroDeTexto: %v", err)
+	}
+	tan := taxa(t, "3.200")
+
+	// A distância entre a TAN e a TAEG estreita-se depressa demais para caber
+	// num antecipado com recorrente não-negativo.
+	var obs []dominio.ObservacaoDeEncargo
+	for _, o := range []struct {
+		meses int
+		taeg  string
+	}{
+		{120, "4.900"}, {360, "3.700"}, {480, "3.560"},
+	} {
+		obs = append(obs, dominio.ObservacaoDeEncargo{
+			Capital: capital, PrazoMeses: o.meses, TAN: tan, TAEG: taxa(t, o.taeg),
+		})
+	}
+
+	ajustados, _, err := dominio.AjustarEncargos(obs)
+	if err == nil {
+		t.Fatalf("o ajuste não fechou e saiu como bom: antecipado=%s recorrente=%s",
+			ajustados.Antecipado, ajustados.Recorrente)
+	}
+	if !errors.Is(err, dominio.ErrEncargosNaoAjustaveis) {
+		t.Errorf("o erro não é da família dos não-ajustáveis: %v", err)
+	}
+	// ⚠️ A mensagem tem de nomear a coisa certa. «Não deu» manda quem lê procurar
+	// no sítio errado — o que falta não são dados, é o modelo não os descrever.
+	for _, exigido := range []string{"não convergiu", "recorrente preso em 0"} {
+		if !strings.Contains(err.Error(), exigido) {
+			t.Errorf("a mensagem não diz %q:\n  %v", exigido, err)
+		}
+	}
+	t.Logf("recusado, e diz porquê: %v", err)
+}
+
+// Deslocar a TAEG de TODOS os prazos tem de mudar o ajuste (KAN-52).
+//
+// ⚠️ Era este o sintoma que denunciou o defeito: dois bancos com preçários
+// diferentes saíam com encargos iguais ao cêntimo. Um ajuste preso na fronteira
+// deixa de responder aos dados, e um modelo que não responde aos dados não é uma
+// medição — é uma constante com ar de medição.
+func TestDeslocarATAEGDeTodosOsPrazosMudaOAjuste(t *testing.T) {
+	t.Parallel()
+
+	capital, err := dominio.DinheiroDeTexto("320000")
+	if err != nil {
+		t.Fatalf("DinheiroDeTexto: %v", err)
+	}
+	tan := taxa(t, "3.200")
+
+	// Uma série que FECHA, para o que se mede aqui ser a resposta aos dados e
+	// não a recusa da anterior.
+	ajustar := func(deslocamento string) dominio.Encargos {
+		d := taxa(t, deslocamento)
+		var obs []dominio.ObservacaoDeEncargo
+		for _, o := range []struct {
+			meses int
+			taeg  string
+		}{
+			{120, "4.100"}, {360, "4.050"}, {480, "4.040"},
+		} {
+			obs = append(obs, dominio.ObservacaoDeEncargo{
+				Capital: capital, PrazoMeses: o.meses, TAN: tan, TAEG: taxa(t, o.taeg).Add(d),
+			})
+		}
+		e, _, err := dominio.AjustarEncargos(obs)
+		if err != nil {
+			t.Fatalf("deslocamento %s: %v", deslocamento, err)
+		}
+		return e
+	}
+
+	semDeslocamento := ajustar("0")
+	comDeslocamento := ajustar("0.150")
+
+	t.Logf("sem deslocamento: a=%s r=%s", semDeslocamento.Antecipado, semDeslocamento.Recorrente)
+	t.Logf("com +0,150 p.p.:  a=%s r=%s", comDeslocamento.Antecipado, comDeslocamento.Recorrente)
+
+	if semDeslocamento.Antecipado.Decimal().Equal(comDeslocamento.Antecipado.Decimal()) &&
+		semDeslocamento.Recorrente.Decimal().Equal(comDeslocamento.Recorrente.Decimal()) {
+		t.Error("deslocar a TAEG de todos os prazos em 0,150 p.p. não mudou os encargos ajustados")
+	}
+}

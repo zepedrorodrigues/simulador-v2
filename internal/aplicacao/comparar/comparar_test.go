@@ -1013,3 +1013,110 @@ func algumaNotaFala(notas []string, palavra string) bool {
 	}
 	return false
 }
+
+// TestUmAjusteQueNaoFechaNaoServeTAEG: o ajuste dos encargos não converge, e a
+// oferta sai sem TAEG em vez de sair com uma inventada (KAN-52).
+//
+// ⚠️ Antes disto o `AjustarEncargos` devolvia `err == nil` ao esgotar as
+// iterações, e o catálogo servia a repartição presa na fronteira como se fosse
+// medida. A nota tem de dizer a razão CERTA: não é falta de prazos.
+func TestUmAjusteQueNaoFechaNaoServeTAEG(t *testing.T) {
+	obs := comGapDaTAEG(t, observacoesDeProva(t), map[int]string{
+		120: "1.700", 360: "0.500", 480: "0.360",
+	})
+	cat, err := comparar.NovoCatalogo(comparar.Serie{Observacoes: obs})
+	if err != nil {
+		t.Fatalf("NovoCatalogo: %v", err)
+	}
+
+	o := ofertaUnica(t, cat, pedido(t, "320000", 30, dominio.TaxaVariavel))
+
+	if o.TAEG != nil || o.MTIC != nil {
+		t.Errorf("serviu-se TAEG (%v) e MTIC (%v) de um ajuste que não fecha", o.TAEG, o.MTIC)
+	}
+	if !contem(o.Notas(), "o ajuste aos preços que ele publicou não fecha") {
+		t.Errorf("a nota não dá a razão certa: %v", o.Notas())
+	}
+	// ⚠️ E não pode dar a razão ERRADA: os prazos estão lá todos.
+	if contem(o.Notas(), "prazos suficientemente diferentes") {
+		t.Errorf("a nota culpa a falta de prazos, e os prazos existem: %v", o.Notas())
+	}
+	if !o.Sucesso() || o.TAN == nil {
+		t.Error("a oferta devia sair na mesma, com o preço que está medido")
+	}
+	t.Logf("notas: %v", o.Notas())
+}
+
+// TestUmAjusteQueFechaMasNaoDescreveOBancoNaoServeTAEG: as âncoras batem certo e
+// a observação do meio contradi-las — que é exactamente para o que ela ficou de
+// fora do sistema (KAN-52).
+//
+// ⚠️ O `dominio` já dizia que acima do `ResiduoTolerado` «o modelo de duas
+// naturezas não descreve este banco», e já calculava o resíduo para se poder ver.
+// O catálogo é que o deitava fora com `_`.
+func TestUmAjusteQueFechaMasNaoDescreveOBancoNaoServeTAEG(t *testing.T) {
+	// Só os 360 meses saem do sítio. Os dois extremos — as âncoras — ficam.
+	obs := comTAEGDeslocada(t, observacoesDeProva(t), 360, "0.500")
+	cat, err := comparar.NovoCatalogo(comparar.Serie{Observacoes: obs})
+	if err != nil {
+		t.Fatalf("NovoCatalogo: %v", err)
+	}
+
+	o := ofertaUnica(t, cat, pedido(t, "320000", 30, dominio.TaxaVariavel))
+
+	if o.TAEG != nil || o.MTIC != nil {
+		t.Errorf("serviu-se TAEG (%v) e MTIC (%v) de um modelo que o próprio banco contradiz", o.TAEG, o.MTIC)
+	}
+	if !contem(o.Notas(), "não reproduzem os preços") {
+		t.Errorf("a nota não diz que o modelo contradiz o banco: %v", o.Notas())
+	}
+	// A nota nomeia os números, para o desvio ser verificável e não afirmado.
+	if !contem(o.Notas(), "360 meses") {
+		t.Errorf("a nota não nomeia o prazo que denunciou o ajuste: %v", o.Notas())
+	}
+	if !o.Sucesso() || o.TAN == nil {
+		t.Error("a oferta devia sair na mesma, com o preço que está medido")
+	}
+	t.Logf("notas: %v", o.Notas())
+}
+
+// comGapDaTAEG reescreve a TAEG das observações da família do prazo, pondo-a a
+// uma distância escolhida da TAN. Só as linhas SEM produtos e SEM degrau, que
+// são as que entram no ajuste dos encargos.
+func comGapDaTAEG(t *testing.T, obs []varrimento.Observacao, gapPorMes map[int]string) []varrimento.Observacao {
+	t.Helper()
+	saida := make([]varrimento.Observacao, 0, len(obs))
+	for _, o := range obs {
+		meses := 0
+		if n := len(o.Oferta.Fases); n > 0 {
+			meses = o.Oferta.Fases[n-1].AteMes
+		}
+		gap, temGap := gapPorMes[meses]
+		if temGap && o.Degrau == nil && len(o.Oferta.ProdutosAplicados) == 0 &&
+			o.Ponto.Pedido.TipoTaxa == dominio.TaxaVariavel && o.Oferta.TAN != nil {
+			taeg := o.Oferta.TAN.Add(taxa(t, gap))
+			o.Oferta.TAEG = &taeg
+		}
+		saida = append(saida, o)
+	}
+	return saida
+}
+
+// comTAEGDeslocada soma um desvio à TAEG de UMA observação da família do prazo.
+func comTAEGDeslocada(t *testing.T, obs []varrimento.Observacao, meses int, desvio string) []varrimento.Observacao {
+	t.Helper()
+	saida := make([]varrimento.Observacao, 0, len(obs))
+	for _, o := range obs {
+		fim := 0
+		if n := len(o.Oferta.Fases); n > 0 {
+			fim = o.Oferta.Fases[n-1].AteMes
+		}
+		if fim == meses && o.Degrau == nil && len(o.Oferta.ProdutosAplicados) == 0 &&
+			o.Ponto.Pedido.TipoTaxa == dominio.TaxaVariavel && o.Oferta.TAEG != nil {
+			taeg := o.Oferta.TAEG.Add(taxa(t, desvio))
+			o.Oferta.TAEG = &taeg
+		}
+		saida = append(saida, o)
+	}
+	return saida
+}
