@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/zepedrorodrigues/simulador-v2/internal/bancos"
+	"github.com/zepedrorodrigues/simulador-v2/internal/infra/cache"
 	"github.com/zepedrorodrigues/simulador-v2/internal/infra/catalogo"
 	"github.com/zepedrorodrigues/simulador-v2/internal/infra/lotacao"
 )
@@ -69,6 +70,32 @@ func VagasDe(bruto string) (int, error) {
 	return vagas, nil
 }
 
+// ValidadeDeCacheDe lê a validade da cache. Vazio vale ValidadeOmissao.
+//
+// ⚠️ Um valor ilegível **falha o arranque**, pela mesma razão das vagas: um
+// `CACHE_VALIDADE=5` — sem unidade, e portanto 5 nanossegundos para o
+// `time.ParseDuration`, ou lixo — que arrancasse nos 5 minutos de omissão deixava
+// alguém convencido de que tinha configurado a validade.
+//
+// ⚠️ **Zero é legítimo e quer dizer «sem cache»**, ao contrário do tecto, onde
+// zero seria não servir banco nenhum. Aqui desligar a cache é uma coisa que
+// alguém pode querer mesmo — para medir a validade, por exemplo — e tem de se
+// poder dizer sem editar código. É por isso que o `0s` passa e o `-1s` não.
+func ValidadeDeCacheDe(bruto string) (time.Duration, error) {
+	bruto = strings.TrimSpace(bruto)
+	if bruto == "" {
+		return cache.ValidadeOmissao, nil
+	}
+	validade, err := time.ParseDuration(bruto)
+	if err != nil {
+		return 0, fmt.Errorf("CACHE_VALIDADE %q não é uma duração (ex.: 5m, 30s)", bruto)
+	}
+	if validade < 0 {
+		return 0, fmt.Errorf("CACHE_VALIDADE %s: uma validade negativa não quer dizer nada", validade)
+	}
+	return validade, nil
+}
+
 // abrirPool abre o pool com ligações que cheguem para a lotação.
 //
 // ⚠️ **O omissão do pgxpool não chega, e o efeito seria invisível.** Ele abre o
@@ -104,6 +131,11 @@ func Servir(ctx context.Context, url, endereco string, saida io.Writer) error {
 	vagas, err := VagasDe(os.Getenv("VAGAS_POR_BANCO"))
 	if err != nil {
 		return fmt.Errorf("ler as vagas por banco: %w", err)
+	}
+
+	validade, err := ValidadeDeCacheDe(os.Getenv("CACHE_VALIDADE"))
+	if err != nil {
+		return fmt.Errorf("ler a validade da cache: %w", err)
 	}
 
 	registo := bancos.Predefinido()
@@ -168,6 +200,18 @@ func Servir(ctx context.Context, url, endereco string, saida io.Writer) error {
 	// de outra pessoa (§7.5); o que se configura é o número, não a existência.
 	servidor = servidor.ComLotacao(lotacao.NovoPostgres(pool, vagas))
 	_, _ = fmt.Fprintf(saida, "tecto de %d pedidos em voo por banco\n", vagas)
+
+	// ⚠️ A cache liga-se sempre que a validade não for zero, e o zero tem de ser
+	// dito à mão. Ela é a outra metade da defesa contra sermos um amplificador: o
+	// tecto impede que os pedidos saiam todos ao mesmo tempo, a cache impede que
+	// saiam de todo quando já se sabe a resposta.
+	if validade > 0 {
+		servidor = servidor.ComCache(cache.NovoPostgres(pool, validade), cache.Chave)
+		_, _ = fmt.Fprintf(saida, "cache das respostas ao vivo com validade de %s\n", validade)
+	} else {
+		_, _ = fmt.Fprintln(saida,
+			"⚠️ cache das respostas ao vivo DESLIGADA (CACHE_VALIDADE=0): cada pedido vai ao banco")
+	}
 
 	servidorHTTP := &http.Server{
 		Addr:              endereco,

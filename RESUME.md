@@ -8,9 +8,11 @@ Estado actual e próximos passos. ⚠️ **Sem changelog** — o relato de sess�
 
 ⚠️ **Os documentos descrevem o desenho novo; o código do `development` ainda é o antigo.** Quando discordarem, é o **código** que está por mudar.
 
-**A Fase 6 começou, e já está no `development`:** o `aplicacao/aovivo` pergunta a UM banco e o `POST /api/v1/ofertas/{banco}` serve-o, com o pedido validado à fronteira e sem tocar na série varrida.
+**A Fase 6 começou, e os passos 1 e 2 estão feitos.** No `development`: o `aplicacao/aovivo` pergunta a UM banco, o `POST /api/v1/ofertas/{banco}` serve-o, e o tecto de concorrência por banco está de pé (`internal/infra/lotacao`, **2 vagas**, `503 banco_ocupado` para o pedido a mais).
 
-**E o tecto de concorrência por banco está escrito** (branch `feat/tecto-de-concorrencia-por-banco`, por submeter): `internal/infra/lotacao`, **2 vagas por banco** em advisory locks de Postgres, `503 banco_ocupado` para o pedido a mais. ⚠️ **Falta o resto da fase** — cache (`KAN-58`), prazo por banco, tecto por IP dimensionado (`KAN-14`), e a retirada do varrimento.
+**E a cache está escrita** (branch `feat/cache-do-pedido-ao-vivo`, por submeter): `internal/infra/cache`, tabela `respostas_em_cache`, chave = `SHA-256` de (versão, banco, pedido), validade de **5 min**. Guarda o **servido** e não o objecto de domínio; lê-se **antes** do tecto, para um acerto não gastar vaga; uma falha nunca se guarda.
+
+⚠️ **Falta o resto da fase** — prazo por banco, tecto por IP dimensionado (`KAN-14`), e a retirada do varrimento.
 
 ## Onde estamos
 
@@ -40,8 +42,8 @@ Num só dia, quatro assunções do modelo de preço caíram contra dados varrido
 1. **Fechar a D1**: o que acontece ao `/api/rate-catalog`, que perde a fonte e é consumido pelo `viabilidade-imobiliaria` **em produção**. Bloqueia a §4 e a §6 do `ARQUITETURA.md`. Três saídas escritas, nenhuma escolhida.
 2. **Os três números da Fase 6:** a latência por banco está **medida** (`make latencia`, 2026-08-06 às 17h13 — tabela no `DOSSIE-BANCOS.md`). Os outros dois não se medem com uma corrida — ver o `PLAN.md`: a concorrência não se procura subindo até o banco recusar, e a validade da cache pede uma vigia de horas.
 3. **`KAN-7`** 🔶 — o caminho está de pé e o **tecto de concorrência por banco está feito** (2 vagas, `internal/infra/lotacao`). Falta o **prazo por banco**: o de 15 s está medido, mas é um só para cinco bancos que diferem 7× na cauda — e diferenciá-lo pede mais amostras (`LATENCIA_AMOSTRAS`), que custam pedidos aos bancos.
-4. **`KAN-58`** — cache em Postgres, chave = pedido exacto, pedido em claro fora do disco. ⚠️ Era a `KAN-8`, apagada na triagem.
-5. **`KAN-14`** — tecto por IP dimensionado para **N pedidos por comparação**, e `PROXIES_DE_CONFIANCA` **medido**. Passou de dívida a bloqueante.
+4. **`KAN-58`** ✅ — cache em Postgres, feita a 2026-08-07. ⚠️ **A validade fica por medir**: os 5 min são de partida, e o que os mede é uma **vigia** de horas — perguntar o mesmo ao mesmo banco de hora a hora, sendo a **primeira** mudança o que decide, não a média.
+5. **`KAN-14`** — tecto por IP dimensionado para **N pedidos por comparação**, e `PROXIES_DE_CONFIANCA` **medido**. Passou de dívida a bloqueante. **É o próximo.**
 6. **Só então** retirar o que morreu: `sondagens`, escala, encargos, grelha. ⚠️ Apagar antes deixa o repositório sem nada que responda.
 
 ## O que está por resolver
@@ -52,7 +54,7 @@ Num só dia, quatro assunções do modelo de preço caíram contra dados varrido
 - ⚠️ **A latência está medida, e a cauda é o número que conta:** 25 simulações frias a 2026-08-06 às 17h13 — Novo Banco 460 ms de mediana, Montepio 2,01 s com **máximo de 8,4 s** (4,2× a própria mediana). Noutra medição do mesmo dia o Montepio passou dos **10 s**, logo o 8,4 s é um limite inferior do pior caso.
 - **Canceladas pela reversão:** `KAN-54`, `KAN-55`, `KAN-56`, `KAN-57`, `KAN-41`, `KAN-34`, `KAN-38` — descrevem o modelo, não os bancos.
 - **`KAN-53`** (o relatório do varrimento subconta falhas) morre com o varrimento. ⚠️ A **lição** fica: uma corrida que parece boa e não é.
-- **Vivas e agora centrais:** `KAN-7`, `KAN-58` (ex-`KAN-8`), `KAN-14`. **Continua morta:** `KAN-15` (quantização) — a cache volta, ela não.
+- **Vivas e agora centrais:** `KAN-7`, `KAN-14`. **Feita:** `KAN-58` (ex-`KAN-8`). **Continua morta:** `KAN-15` (quantização) — a cache voltou, ela não, e agora está recusada em código: a chave é o pedido exacto, e há teste a dizer que um cêntimo dá outra chave.
 
 - **`KAN-19`** (Crédito Agrícola) continua a fazer sentido: é um banco a mais para perguntar.
 - ⚠️ **Bancos de browser** (`KAN-20`, `KAN-21`) ficam **mais** caros com este desenho: um browser por pedido de cliente é outra ordem de grandeza.

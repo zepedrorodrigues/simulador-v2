@@ -44,6 +44,12 @@ Um pedido, **um banco**. É o que a §1 revertida manda e o que a app passa a us
 
 ⚠️ **Quantos são «pedidos a mais» está em `VAGAS_POR_BANCO`, e são 2 por omissão.** É o que está medido sem falhas (1, 2 e 4 em paralelo contra a CGD, 2026-07-26) e escolheu-se o apertado, não o rápido.
 
+⚠️ **Nem todo o `200` custou um pedido ao banco: o `em_cache` diz qual.** A resposta pode vir da cache do §7.6 — chave = pedido exacto, validade curta (`CACHE_VALIDADE`, 5 min por omissão). Um acerto **não gasta vaga** do tecto por banco, e é essa a razão de a cache se ler antes dele.
+
+⚠️ **O `em_cache` e o `capturado_em` não se substituem, e a app precisa dos dois.** O `capturado_em` diz de **quando é o preço** — num acerto é o instante em que se falou com o banco, nunca o de agora. O `em_cache` diz se **este** pedido chegou a sair. Uma resposta fresca e um acerto de há um segundo têm `capturado_em` quase igual e `em_cache` diferente. ⚠️ E o campo **voltou** (2026-08-07): tinha saído com a inversão da §1, quando tudo vinha da série varrida e ele era sempre verdadeiro.
+
+⚠️ **Uma oferta em falha nunca fica em cache.** Um `banco_indisponivel` é sempre uma ida ao banco agora, e não a memória de um soluço de há minutos — guardá-lo transformava segundos de avaria em indisponibilidade por toda a validade, para toda a gente com o mesmo pedido.
+
 ### `POST /api/v1/comparacoes` → `200`
 
 ⚠️ **Um pedido, uma resposta** (KAN-32). Não há `202`, identificador para sondar, `GET /{id}` nem `503` de «demasiadas em curso». A resposta sai de uma consulta à grelha e de cálculo local.

@@ -711,14 +711,27 @@ components:
             OBRIGATÓRIO no tipo gerado — a app passava a afirmar que a resposta
             traz sempre este campo, que é precisamente o que o `required` diz que
             não. A regra fica na descrição, onde não mente ao gerador.
-        # ⚠️ Havia aqui um `em_cache: boolean`, e saiu com a inversão da §1. Dizia
-        # à app se a oferta veio da cache ou de uma chamada fresca ao banco — uma
-        # distinção que deixou de existir: TODAS as ofertas vêm da série varrida,
-        # e nenhuma vem de uma chamada no caminho do cliente. Um campo que é
-        # sempre `true` não informa, e um campo chamado `em_cache` quando não há
-        # cache nenhuma informa mal. O que a app precisa de saber sobre a idade
-        # do preço está no `capturado_em` abaixo, que é um instante e não um
-        # booleano.
+        # ⚠️ O `em_cache` VOLTA (2026-08-07), depois de ter saído com a inversão
+        # da §1 e pela razão que essa inversão criou: com tudo a vir da série
+        # varrida, o campo era sempre `true` e não informava. Ao vivo volta a
+        # separar duas coisas que existem outra vez — uma resposta que acabou de
+        # vir do banco, e uma que se serviu de Postgres sem lhe perguntar.
+        em_cache:
+          type: boolean
+          description: >-
+            Verdadeiro quando esta oferta se serviu da cache (§7.6) em vez de se
+            perguntar ao banco agora.
+
+            ⚠️ **Não é o mesmo que `capturado_em`, e nenhum dos dois substitui o
+            outro.** O `capturado_em` diz de QUANDO é o preço, e num acerto de
+            cache é o instante em que se falou com o banco — nunca o de agora.
+            Este diz se ESTE pedido chegou a sair para o banco. Uma oferta fresca
+            e um acerto de um segundo atrás têm `capturado_em` quase igual e
+            `em_cache` diferente.
+
+            ⚠️ Ausente vale `false`, e não leva `default:` de propósito — pela
+            mesma razão do `fiabilidade` acima: o `openapi-typescript` traduz um
+            campo com omissão para um campo OBRIGATÓRIO no tipo gerado.
         capturado_em:
           type: string
           format: date-time

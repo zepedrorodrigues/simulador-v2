@@ -30,6 +30,14 @@ type Querier interface {
 	// contagem 1. Uma janela deslizante exigiria guardar cada pedido — e isto é uma
 	// tabela de contadores, não um registo de quem nos visitou.
 	ContarPedido(ctx context.Context, arg ContarPedidoParams) (ContarPedidoRow, error)
+	// GravarRespostaEmCache guarda a resposta e estende a validade.
+	//
+	// ⚠️ `ON CONFLICT DO UPDATE` e não `DO NOTHING`: duas respostas para a mesma
+	// chave são normais — a anterior expirou, ou dois clientes chegaram juntos e
+	// ambos foram ao banco. A última resposta é a mais fresca, e é ela que fica.
+	// Com `DO NOTHING`, uma entrada a expirar nunca se renovava e a cache deixava de
+	// acertar sem nada a dizer porquê.
+	GravarRespostaEmCache(ctx context.Context, arg GravarRespostaEmCacheParams) error
 	// Queries das sondagens. Geradas pelo sqlc para internal/infra/bd/.
 	// GravarSondagem regista o que uma corrida da sonda apurou sobre um banco.
 	//
@@ -55,6 +63,19 @@ type Querier interface {
 	// corrigir a TAN para o LTV de quem pergunta, e a linha grava-se como dado bruto
 	// mas não se serve (§4, «Onde a base vive»).
 	InserirTaxa(ctx context.Context, arg InserirTaxaParams) (int64, error)
+	// Queries da cache do pedido ao vivo (ARQUITETURA.md §4, tabela
+	// `respostas_em_cache`).
+	//
+	// ⚠️ A chave que entra aqui já é um resumo: quem a deriva é o
+	// `internal/infra/cache`, e o pedido em claro não chega a esta camada.
+	// LerRespostaEmCache devolve a resposta guardada, se ainda for válida.
+	//
+	// ⚠️ **A validade filtra-se na leitura, e não só na limpeza.** A limpeza corre
+	// por manutenção e pode não ter corrido; se a validade só vivesse lá, uma
+	// entrada expirada era servida durante a janela entre expirar e ser apagada — que
+	// é precisamente o erro que a cache pode causar. O `expira_em > @agora` é o que
+	// garante que uma entrada velha não se serve, tenha a limpeza corrido ou não.
+	LerRespostaEmCache(ctx context.Context, arg LerRespostaEmCacheParams) (LerRespostaEmCacheRow, error)
 	// LimparLimitesAntigos apaga as janelas que já não contam para nada.
 	//
 	// ⚠️ Existe para a tabela não crescer com um contador por IP que nunca mais
@@ -62,6 +83,12 @@ type Querier interface {
 	// cliente punha uma escrita a mais em cada visita para poupar linhas que ninguém
 	// lê.
 	LimparLimitesAntigos(ctx context.Context, arg LimparLimitesAntigosParams) (int64, error)
+	// LimparRespostasExpiradas apaga o que já não se pode servir.
+	//
+	// ⚠️ Corre por manutenção e não no caminho de um cliente, pela mesma razão do
+	// `LimparLimitesAntigos`: apagar a cada pedido punha uma escrita a mais em cada
+	// visita para poupar linhas que a leitura já ignora.
+	LimparRespostasExpiradas(ctx context.Context, agora pgtype.Timestamptz) (int64, error)
 	// ListarPontos serve o points[] do /api/rate-catalog. Os filtros são todos
 	// opcionais (nulo = não filtra); `limite` nulo devolve tudo (LIMIT NULL no PG).
 	// Só linhas bem-sucedidas: o consumidor lê tan/spread/euribor, ausentes em falha.
