@@ -5,7 +5,7 @@
 # pode ver a funcionar: o sqlc entrou no KAN-2, os dois do contrato entram agora
 # (KAN-3), com o api/openapi.yaml.
 
-.PHONY: verificar gerado lint teste teste-rede teste-fidelidade medicao gerar dev parar limpar
+.PHONY: verificar gerado lint teste teste-rede teste-fidelidade latencia gerar dev parar limpar
 
 verificar: gerado lint teste
 
@@ -63,15 +63,17 @@ teste:
 # comando do portão não muda uma vírgula — continua a ser `go test -race ./...`
 # — e não há caminho por onde estes testes corram sem se pedirem.
 #
-# ⚠️ **São três e não um porque custam ordens de grandeza diferentes** (KAN-47).
-# Até 2026-08-02 os três corriam sob a tag `rede`, e um `make teste-rede` pedido
-# para confirmar parsers disparava o cartesiano contra a CGD. O custo em pedidos
-# a terceiros está escrito em cada alvo, e é ele que decide qual se corre:
+# ⚠️ **Separados porque custam ordens de grandeza diferentes** (KAN-47). Até
+# 2026-08-02 corriam todos sob a tag `rede`, e um `make teste-rede` pedido para
+# confirmar parsers disparava o cartesiano contra a CGD. O custo em pedidos a
+# terceiros está escrito em cada alvo, e é ele que decide qual se corre:
 #
 #   alvo              tag          pedidos a terceiros    duração
 #   teste-rede        rede         dezenas                minutos
+#   latencia          latencia     poucas dezenas         minutos
 #   teste-fidelidade  fidelidade   ~2000 (250 por banco)  até 3h
-#   medicao           medicao      >1000, só à CGD        1h+
+#
+# ⚠️ Eram quatro: o `medicao` (>1000 pedidos à CGD, 1h+) saiu com o varrimento.
 
 # Confirmar que um parser ainda corresponde ao que o banco devolve. É o alvo que
 # se corre quando se suspeita que um banco mudou por baixo de nós.
@@ -98,20 +100,14 @@ teste-rede:
 teste-fidelidade:
 	go test -race -tags fidelidade -timeout 180m ./...
 
-# As medições de desenho contra a CGD: o cartesiano (KAN-16) e o e2e da grelha
-# inteira. NÃO são confirmação de parser — são a pergunta «o desenho da grelha
-# aguenta-se?», e respondem-se uma vez, não a cada sessão.
+# ⚠️ **Havia aqui um alvo `medicao`** — o cartesiano da CGD e o e2e da grelha,
+# mais de mil pedidos ao simulador público deles ao longo de uma hora. Saiu com o
+# `aplicacao/varrimento` (Fase 6, passo 5): media se «o desenho da grelha se
+# aguenta», e não há grelha.
 #
-# ⚠️ Custo: **mais de mil pedidos ao simulador público da CGD**, ao longo de mais
-# de uma hora. É o único teste deste repositório que carrega um sistema de
-# terceiros durante mais de uma hora, e o «Reduzir a carga nos bancos ao mínimo
-# que funciona» aplica-se-lhe inteiro:
-# **corre-se em hora morta, e a hora escolhe-se antes de o disparar.**
-#
-# O tempo-limite vem do alvo e não da memória de quem o corre — era o que
-# faltava quando isto vivia na tag `rede` e morria aos 10m por omissão.
-medicao:
-	go test -race -tags medicao -timeout 90m -v ./internal/aplicacao/varrimento/
+# ⚠️ A regra que ele carregava **não sai com ele**, e vale para o que vier a
+# seguir: um alvo que carrega um sistema de terceiros durante mais de uma hora
+# corre-se em hora morta, e a hora escolhe-se antes de o disparar.
 
 # A latência por banco — o primeiro dos três números de que a Fase 6 depende.
 #

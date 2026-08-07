@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zepedrorodrigues/simulador-v2/internal/bancos"
 	"github.com/zepedrorodrigues/simulador-v2/internal/infra/web"
 )
 
@@ -145,7 +144,7 @@ func TestUmaRedeDeConfiancaMalEscritaNaoPassa(t *testing.T) {
 // o serviço inacessível — a alternativa transformava uma avaria da base numa
 // negação de serviço completa.
 func TestOContadorEmBaixoNaoFechaOServico(t *testing.T) {
-	s := servidorBase(t).ComTecto(contadorAvariado{}, web.Tecto{Pedidos: 1, Janela: time.Minute})
+	s := servidor(t).ComTecto(contadorAvariado{}, web.Tecto{Pedidos: 1, Janela: time.Minute})
 
 	for i := range 3 {
 		if estado := pedirComXFF(t, s, "", ""); estado != http.StatusOK {
@@ -190,18 +189,9 @@ func (contadorAvariado) ContarPedido(context.Context, string, time.Duration, tim
 	return 0, context.DeadlineExceeded
 }
 
-func servidorBase(t *testing.T) *web.Servidor {
-	t.Helper()
-	s, err := web.Novo(fonteEmMemoria{}, nil, bancos.Predefinido(), nil, relogio)
-	if err != nil {
-		t.Fatalf("Novo: %v", err)
-	}
-	return s
-}
-
 func servidorComTecto(t *testing.T, tecto web.Tecto) *web.Servidor {
 	t.Helper()
-	return servidorBase(t).ComTecto(&contadorEmMemoria{}, tecto)
+	return servidor(t).ComTecto(&contadorEmMemoria{}, tecto)
 }
 
 func pedirComXFF(t *testing.T, s *web.Servidor, forjado, remoto string) int {

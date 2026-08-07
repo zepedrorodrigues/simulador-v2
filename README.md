@@ -1,19 +1,30 @@
 # simulador-v2
 
-Compara ofertas de crédito à habitação dos bancos portugueses e publica a série
-temporal do preçário de mercado. Os simuladores públicos dos bancos correm-se 
-por varrimento sobre cenários fixos; uma comparação
-responde-se por consulta a essa série e **cálculo local**, sem falar com banco
-nenhum.
+Compara ofertas de crédito à habitação dos bancos portugueses. Um pedido de um
+cliente **vai ao simulador público de cada banco no momento em que é feito**, e
+o que se serve é o que o banco respondeu — não há série guardada, nem grelha,
+nem modelo de preço nosso.
 
 **Go · PostgreSQL · chi · pgx/sqlc · OpenAPI.** Serve **apenas JSON**: a
 interface é uma app React Native, em repositório à parte.
 
-> **Estado: em construção.** O lado da escrita corre de ponta a ponta em três
-> bancos — domínio, contrato dos bancos, grelha derivada dos requisitos de cada
-> um, escala de LTV medida e gravação do lote por `simulador varrer`. Falta o
-> lado da leitura: o cálculo local que responde a um cliente, e o servidor HTTP
-> que o serve (KAN-13).
+> **Estado: em construção.** O caminho do cliente está de pé — `POST
+> /api/v1/ofertas/{banco}` pergunta a um banco, com tecto de concorrência por
+> banco, prazo medido e cache em Postgres. Falta o alojamento e o parecer
+> jurídico (`KAN-24`).
+
+⚠️ **Isto foi ao contrário e voltou.** Até 2026-08-06 o desenho era o inverso:
+varrer os bancos sobre cenários fixos, guardar a série, e responder por cálculo
+local sem falar com banco nenhum. Caiu porque guardar uma cópia do modelo de
+preço de cada banco obriga a acertar em como eles preçam — e num só dia de
+confronto com dados reais falhou-se isso quatro vezes. O porquê, com os números,
+está em [`docs/DECISAO-AO-VIVO.md`](docs/DECISAO-AO-VIVO.md).
+
+⚠️ **E o varrimento já não existe** (2026-08-07): saíram com ele a
+`catalogo_taxas`, a `sondagens`, a grelha, a sonda e o `/api/rate-catalog` —
+14 mil linhas. Quem procurar a série temporal do preçário encontra-a no v1,
+[`simulador-credito-habitacao`](https://github.com/zepedrorodrigues/simulador-credito-habitacao),
+que continua a servi-la e a ser consumido pelo `viabilidade-imobiliaria`.
 
 ## Documentos
 
@@ -110,33 +121,26 @@ go test -race -tags rede ./internal/bancos/cgd/
 
 ## Fronteiras
 
-- `/api/v1/*` — a app. Versionada, evolui connosco.
-  `POST /api/v1/comparacoes` responde **síncrono**, num 200: não há trabalho em
-  segundo plano, identificador para sondar nem estado `em_curso`, e nada do
-  pedido é persistido — é por isso que não existe
-  `GET /api/v1/comparacoes/{id}`.
-- `GET /api/rate-catalog` — o `viabilidade-imobiliaria`, autenticado por
-  `X-API-Key`. ⚠️ **Congelada e compatível ao byte com o v1**: mudar o formato
-  parte o outro repositório.
+- `/api/v1/*` — a app, e **é a única**. Versionada, evolui connosco.
+  `POST /api/v1/ofertas/{banco}` pergunta a **um** banco e responde **síncrono**,
+  num 200: não há trabalho em segundo plano, identificador para sondar nem estado
+  `em_curso`, e nada do pedido é persistido. Quem compara cinco bancos faz cinco
+  pedidos — o fan-out vive na app.
+- ⚠️ **`POST /api/v1/comparacoes` e `GET /api/rate-catalog` saíram** (2026-08-07),
+  com o varrimento que os alimentava. O primeiro comparava a partir da série; o
+  segundo servia-a ao `viabilidade-imobiliaria` — que **nunca chegou a consumir
+  esta** (lê a do v1) e não é afectado.
 
 ## Pôr de pé
 
-A imagem é uma só, e serve os cinco subcomandos — `servir`, `varrer`, `sondar`,
-`migrar`, `reverter`. Sem Chromium: **24,3 MB**, a correr como `nonroot`, sobre
+A imagem é uma só, e serve os três subcomandos — `servir`, `migrar`,
+`reverter`. Sem Chromium: **24,3 MB**, a correr como `nonroot`, sobre
 `distroless/static` (sem shell, sem gestor de pacotes).
 
 ```bash
 docker build -t simulador-v2 .
 docker run --rm -e DATABASE_URL=… simulador-v2 migrar
 docker run --rm -p 8080:8080 -e DATABASE_URL=… simulador-v2 servir
-```
-
-⚠️ **O `sondar` é o barato e o `varrer` é o caro** — ~4 pedidos por banco contra
-~96 (ver a tabela no `CLAUDE.md`). Confirma a grelha sem a reconstruir, e na
-divergência revarre **aquele** banco; para ver sem mexer, `--sem-revarrer`:
-
-```bash
-docker run --rm -e DATABASE_URL=… simulador-v2 sondar --sem-revarrer
 ```
 
 ⚠️ **O `migrar` não é opcional, e o binário obriga.** `servir` contra uma base
@@ -153,9 +157,11 @@ produção: o `migrar` é passo próprio do deploy, seja qual for a plataforma.
    de mais deixa quem estiver nela escolher o seu IP num cabeçalho e contornar o
    tecto. Mede-se a rede exacta e escreve-se; até lá fica vazio, porque um tecto
    apertado de mais é visível e um tecto contornável não é.
-2. **O primeiro varrimento.** Uma base acabada de migrar não tem série nenhuma, e
-   `POST /api/v1/comparacoes` devolve **503** — que é o comportamento certo, e
-   não uma avaria. Só depois do primeiro `varrer` é que há o que comparar.
+2. **A validade da cache.** Os 5 minutos do `CACHE_VALIDADE` são um valor de
+   partida e **não uma medição** — mede-se com uma vigia de horas, a perguntar o
+   mesmo ao mesmo banco e a ver quando muda, e o que decide é a **primeira**
+   mudança e não a média. ⚠️ Uma base acabada de migrar responde bem desde o
+   primeiro pedido: não há série para encher, vai-se ao banco.
 
 ## Uso responsável
 

@@ -33,7 +33,7 @@ func verDefesa(t *testing.T, r *httptest.ResponseRecorder, onde string) {
 }
 
 func TestOsCabecalhosDeDefesaVaoNasRespostasBoas(t *testing.T) {
-	s := servidor(t, observacoesDeQuatroBancos(t))
+	s := servidor(t)
 
 	pedido := httptest.NewRequest(http.MethodGet, "/api/v1/bancos", nil)
 	resposta := httptest.NewRecorder()
@@ -51,9 +51,15 @@ func TestOsCabecalhosDeDefesaVaoNasRespostasBoas(t *testing.T) {
 // de qualquer handler nosso correr.
 func TestOsCabecalhosDeDefesaVaoTambemNasRespostasDeErro(t *testing.T) {
 	t.Run("400 de um handler", func(t *testing.T) {
-		s := servidor(t, observacoesDeQuatroBancos(t))
-		resposta := pedirComparacao(t, s, corpoDePedido([]string{"banco-que-nao-existe"}))
+		// ⚠️ Vinha do `/comparacoes` com um banco que não existe, e essa rota saiu
+		// com o varrimento. Passa a vir do `/ofertas/{banco}` com um pedido que não
+		// passa a validação: o que importa aqui é o 400 nascer **num handler**, e
+		// não qual deles.
+		s := servidorAoVivo(t, &bancoFalso{id: "cgd", nome: "CGD"})
+		corpo := corpoDeOferta(nil)
+		corpo.Pedido.Montante = 900_000 // acima do valor do imóvel
 
+		resposta := pedirOferta(t, s, "cgd", corpo)
 		if resposta.Code != http.StatusBadRequest {
 			t.Fatalf("estado %d, esperava 400", resposta.Code)
 		}
@@ -75,7 +81,7 @@ func TestOsCabecalhosDeDefesaVaoTambemNasRespostasDeErro(t *testing.T) {
 	})
 
 	t.Run("404 do router, antes de qualquer handler nosso", func(t *testing.T) {
-		s := servidor(t, observacoesDeQuatroBancos(t))
+		s := servidor(t)
 
 		pedido := httptest.NewRequest(http.MethodGet, "/rota-que-nao-existe", nil)
 		resposta := httptest.NewRecorder()
@@ -88,32 +94,15 @@ func TestOsCabecalhosDeDefesaVaoTambemNasRespostasDeErro(t *testing.T) {
 	})
 }
 
-// TestOCatalogoCongeladoTambemLevaOsCabecalhos: a fronteira do
-// `viabilidade-imobiliaria` é congelada **no corpo**, e um cabeçalho de resposta
-// não é corpo. Fica afirmado em vez de assumido — era uma das perguntas em
-// aberto da KAN-46.
-func TestOCatalogoCongeladoTambemLevaOsCabecalhos(t *testing.T) {
-	s := servidorComCatalogo(t, nil, chaveDeProva)
-
-	for _, c := range []struct {
-		nome  string
-		chave string
-	}{
-		{"com a chave certa", chaveDeProva},
-		{"sem chave — o 401", ""},
-	} {
-		t.Run(c.nome, func(t *testing.T) {
-			pedido := httptest.NewRequest(http.MethodGet, "/api/rate-catalog", nil)
-			if c.chave != "" {
-				pedido.Header.Set("X-API-Key", c.chave)
-			}
-			resposta := httptest.NewRecorder()
-			s.Rotas().ServeHTTP(resposta, pedido)
-
-			verDefesa(t, resposta, "/api/rate-catalog "+c.nome)
-		})
-	}
-}
+// ⚠️ **Havia aqui um `TestOCatalogoCongeladoTambemLevaOsCabecalhos`**, que
+// afirmava que a fronteira congelada levava os cabeçalhos tanto no 200 como no
+// 401 da chave. Saiu com a rota (Fase 6, passo 5), e com ela saiu o **único
+// caso de 401** que este ficheiro cobria — não há hoje superfície autenticada
+// nenhuma.
+//
+// O que ele respondia continua respondido pelos casos acima: os cabeçalhos
+// montam-se no topo da cadeia e aparecem em respostas que nascem em três sítios
+// diferentes — um handler, o `limitar` e o próprio chi.
 
 // TestNaoSeEmiteHSTS fixa a decisão, e não é zelo: o serviço fala HTTP em claro
 // atrás do proxy e **não tem como saber** se o que está à frente serve TLS.
@@ -124,7 +113,7 @@ func TestOCatalogoCongeladoTambemLevaOsCabecalhos(t *testing.T) {
 // medido — e então passam a ser duas coisas que falham juntas. Este teste é o
 // sítio onde essa mudança tem de ser deliberada.
 func TestNaoSeEmiteHSTS(t *testing.T) {
-	s := servidor(t, observacoesDeQuatroBancos(t))
+	s := servidor(t)
 
 	pedido := httptest.NewRequest(http.MethodGet, "/api/v1/bancos", nil)
 	resposta := httptest.NewRecorder()

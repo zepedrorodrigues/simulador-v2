@@ -8,37 +8,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-type CatalogoTaxa struct {
-	ID               int64
-	VarrimentoID     pgtype.UUID
-	CapturadoEm      pgtype.Timestamptz
-	Cenario          string
-	BancoID          string
-	BancoNome        string
-	RateType         string
-	ValorImovel      pgtype.Numeric
-	Montante         pgtype.Numeric
-	PrazoAnos        int32
-	FixedPeriodYears pgtype.Int4
-	EuriborIndexante pgtype.Text
-	Tan              pgtype.Numeric
-	Taeg             pgtype.Numeric
-	Spread           pgtype.Numeric
-	EuriborValor     pgtype.Numeric
-	PrestacaoMensal  pgtype.Numeric
-	Mtic             pgtype.Numeric
-	Produtos         []byte
-	Aplicado         []byte
-	Notas            []byte
-	Sucesso          bool
-	Erro             pgtype.Text
-	LtvMin           pgtype.Numeric
-	LtvMax           pgtype.Numeric
-	SpreadMinimo     pgtype.Numeric
-	ResiduoPrestacao pgtype.Numeric
-	BaseFixa         pgtype.Numeric
-}
-
 type Limite struct {
 	Chave        string
 	JanelaInicio pgtype.Timestamptz
@@ -52,13 +21,4 @@ type RespostasEmCache struct {
 	Resposta    []byte
 	CapturadoEm pgtype.Timestamptz
 	ExpiraEm    pgtype.Timestamptz
-}
-
-type Sondagen struct {
-	ID          int64
-	BancoID     string
-	SondadoEm   pgtype.Timestamptz
-	Degraus     int32
-	Divergentes int32
-	Cegos       int32
 }

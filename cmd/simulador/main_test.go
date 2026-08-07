@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"context"
-	"slices"
 	"strings"
 	"testing"
 )
@@ -15,11 +14,11 @@ func TestComandoDesconhecidoNomeiaOsQueExistem(t *testing.T) {
 	// código descobrir quais são. ⚠️ E tem de reprovar ANTES de tentar ligar-se
 	// à base: um erro de ligação a esconder um erro de digitação faz perder
 	// tempo a olhar para o Postgres.
-	err := executar(context.Background(), []string{"varre"}, &bytes.Buffer{})
+	err := executar(context.Background(), []string{"servi"}, &bytes.Buffer{})
 	if err == nil {
 		t.Fatal("um comando desconhecido passou")
 	}
-	for _, c := range []string{"servir", "varrer", "migrar", "reverter"} {
+	for _, c := range []string{"servir", "migrar", "reverter"} {
 		if !strings.Contains(err.Error(), c) {
 			t.Errorf("a mensagem não nomeia o subcomando %q: %v", c, err)
 		}
@@ -29,30 +28,12 @@ func TestComandoDesconhecidoNomeiaOsQueExistem(t *testing.T) {
 func TestSemDATABASE_URLRecusaAntesDeSejaOQueFor(t *testing.T) {
 	t.Setenv("DATABASE_URL", "")
 
-	err := executar(context.Background(), []string{"varrer"}, &bytes.Buffer{})
+	err := executar(context.Background(), []string{"migrar"}, &bytes.Buffer{})
 	if err == nil || !strings.Contains(err.Error(), "DATABASE_URL") {
 		t.Fatalf("erro = %v, esperava que nomeasse a variável em falta", err)
 	}
 }
 
-func TestAListaDeBancosIgnoraEspacosEVazios(t *testing.T) {
-	// O `--bancos` escreve-se à mão numa linha de comandos, e uma vírgula a
-	// mais ou um espaço depois dela não podem virar um id vazio — que o registo
-	// recusaria com um erro sobre "banco desconhecido \"\"", a apontar para o
-	// sítio errado.
-	for _, caso := range []struct {
-		entrada string
-		quer    []string
-	}{
-		{"", nil},
-		{"cgd", []string{"cgd"}},
-		{"cgd,novobanco", []string{"cgd", "novobanco"}},
-		{" cgd , novobanco ", []string{"cgd", "novobanco"}},
-		{"cgd,,novobanco,", []string{"cgd", "novobanco"}},
-		{",", nil},
-	} {
-		if got := lista(caso.entrada); !slices.Equal(got, caso.quer) {
-			t.Errorf("lista(%q) = %v, esperava %v", caso.entrada, got, caso.quer)
-		}
-	}
-}
+// ⚠️ **Havia aqui um `TestAListaDeBancosIgnoraEspacosEVazios`**, que guardava o
+// `--bancos` do `varrer` contra vírgulas a mais. Saiu com o subcomando (Fase 6,
+// passo 5): não há mais nenhuma flag que receba uma lista escrita à mão.

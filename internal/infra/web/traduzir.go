@@ -156,30 +156,34 @@ func inputsCanonicos() []api.InputCanonico {
 // ⚠️ Os montantes chegam como `float64` — é o que o JSON transporta — e passam a
 // decimal pelo TEXTO e não pelo valor: `decimal.NewFromFloat` de 250000.1 daria
 // os dígitos que o float tem, e não os que o cliente escreveu.
-func pedidoDe(c api.ComparacaoPedido) (dominio.Pedido, error) {
+// ⚠️ **Recebia um `api.ComparacaoPedido`** — o corpo do `/comparacoes`, que
+// levava o pedido e os produtos agrupados por banco. Essa rota saiu com o
+// varrimento (Fase 6, passo 5), e o último chamador construía o wrapper só para
+// o desmontar aqui. Passa a receber as duas coisas que usa.
+func pedidoDe(bruto api.Pedido, produtos map[string][]string) (dominio.Pedido, error) {
 	p := dominio.Pedido{
-		ValorImovel: dinheiroDeFloat(c.Pedido.ValorImovel),
-		Montante:    dinheiroDeFloat(c.Pedido.Montante),
-		PrazoAnos:   c.Pedido.PrazoAnos,
-		TipoTaxa:    dominio.TipoTaxa(c.Pedido.RateType),
-		Finalidade:  dominio.Finalidade(c.Pedido.Finalidade),
-		Localizacao: dominio.Localizacao(c.Pedido.Localizacao),
+		ValorImovel: dinheiroDeFloat(bruto.ValorImovel),
+		Montante:    dinheiroDeFloat(bruto.Montante),
+		PrazoAnos:   bruto.PrazoAnos,
+		TipoTaxa:    dominio.TipoTaxa(bruto.RateType),
+		Finalidade:  dominio.Finalidade(bruto.Finalidade),
+		Localizacao: dominio.Localizacao(bruto.Localizacao),
 	}
-	if c.Pedido.FixedPeriodYears != nil {
-		anos := *c.Pedido.FixedPeriodYears
+	if bruto.FixedPeriodYears != nil {
+		anos := *bruto.FixedPeriodYears
 		p.PeriodoFixoAnos = &anos
 	}
-	if c.Pedido.EuriborIndexante != nil {
-		p.Indexante = dominio.Indexante(*c.Pedido.EuriborIndexante)
+	if bruto.EuriborIndexante != nil {
+		p.Indexante = dominio.Indexante(*bruto.EuriborIndexante)
 	}
-	if c.Pedido.GarantiaPublica != nil {
-		p.GarantiaPublica = *c.Pedido.GarantiaPublica
+	if bruto.GarantiaPublica != nil {
+		p.GarantiaPublica = *bruto.GarantiaPublica
 	}
-	if c.Pedido.JaCliente != nil {
-		p.JaCliente = *c.Pedido.JaCliente
+	if bruto.JaCliente != nil {
+		p.JaCliente = *bruto.JaCliente
 	}
 
-	for i, t := range c.Pedido.Titulares {
+	for i, t := range bruto.Titulares {
 		nascimento, err := dominio.DataDeTexto(t.DataNascimento.String())
 		if err != nil {
 			return dominio.Pedido{}, fmt.Errorf("titular %d: data de nascimento inválida: %w", i+1, err)
@@ -194,15 +198,13 @@ func pedidoDe(c api.ComparacaoPedido) (dominio.Pedido, error) {
 	// só, prefixada. É o `ProdutosDoBanco` que os reparte de volta, e a chave do
 	// mapa tem de bater com o prefixo — senão o produto pertence a um banco que
 	// não o reclama e não é aplicado por ninguém.
-	if c.Produtos != nil {
-		for bancoID, ids := range *c.Produtos {
-			for _, id := range ids {
-				if !dominio.ProdutoDoBanco(id, bancoID) {
-					return dominio.Pedido{}, fmt.Errorf(
-						"o produto %q foi pedido para o banco %q e não lhe pertence", id, bancoID)
-				}
-				p.Produtos = append(p.Produtos, id)
+	for bancoID, ids := range produtos {
+		for _, id := range ids {
+			if !dominio.ProdutoDoBanco(id, bancoID) {
+				return dominio.Pedido{}, fmt.Errorf(
+					"o produto %q foi pedido para o banco %q e não lhe pertence", id, bancoID)
 			}
+			p.Produtos = append(p.Produtos, id)
 		}
 	}
 	return p, nil

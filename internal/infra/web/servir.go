@@ -15,7 +15,6 @@ import (
 
 	"github.com/zepedrorodrigues/simulador-v2/internal/bancos"
 	"github.com/zepedrorodrigues/simulador-v2/internal/infra/cache"
-	"github.com/zepedrorodrigues/simulador-v2/internal/infra/catalogo"
 	"github.com/zepedrorodrigues/simulador-v2/internal/infra/limites"
 	"github.com/zepedrorodrigues/simulador-v2/internal/infra/lotacao"
 )
@@ -147,14 +146,6 @@ func Servir(ctx context.Context, url, endereco string, saida io.Writer) error {
 	}
 	defer pool.Close()
 
-	chaves, err := ChavesDe(os.Getenv("API_KEYS"))
-	if err != nil {
-		return fmt.Errorf("ler as chaves de API: %w", err)
-	}
-	if len(chaves) == 0 {
-		avisoDeChaveAberta(saida)
-	}
-
 	proxies, err := RedesDe(os.Getenv("PROXIES_DE_CONFIANCA"))
 	if err != nil {
 		return fmt.Errorf("ler os proxies de confiança: %w", err)
@@ -170,8 +161,7 @@ func Servir(ctx context.Context, url, endereco string, saida io.Writer) error {
 		return fmt.Errorf("ler as origens permitidas: %w", err)
 	}
 
-	cat := catalogo.NovoPostgres(pool)
-	servidor, err := Novo(cat, cat, registo, chaves, time.Now)
+	servidor, err := Novo(registo, time.Now)
 	if err != nil {
 		return fmt.Errorf("montar o servidor: %w", err)
 	}

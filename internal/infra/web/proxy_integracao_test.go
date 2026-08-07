@@ -146,7 +146,7 @@ func subirProxy(t *testing.T, tecto web.Tecto) string {
 
 func servidorComTectoDado(t *testing.T, tecto web.Tecto) *web.Servidor {
 	t.Helper()
-	return servidorBase(t).ComTecto(&contadorEmMemoria{}, tecto)
+	return servidor(t).ComTecto(&contadorEmMemoria{}, tecto)
 }
 
 // subirProxyPara põe um Caddy a sério à frente do handler dado.

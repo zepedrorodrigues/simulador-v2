@@ -4,7 +4,6 @@
 package api
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -163,26 +162,6 @@ type BancosResposta struct {
 	InputsCanonicos []InputCanonico `json:"inputs_canonicos"`
 }
 
-// Comparacao O resultado completo, de uma vez.
-// ⚠️ Não tem `id`, `estado` nem `progresso`, e nenhum dos três falta por esquecimento — a resposta É o cálculo inteiro, e não o primeiro estado de um trabalho que continua. Estavam aqui um `SimulacaoCriada` (`{id, estado, bancos, duracao_estimada_s}`) e um `Simulacao` com `estado: em_curso | terminado` e `progresso: {prontos, total}`: existiam para a app desenhar uma barra enquanto se falava com os bancos. Já não se fala com os bancos no caminho do cliente, e uma barra de progresso sobre uma consulta a Postgres seria teatro.
-// ⚠️ Também não tem `pedido_efectivo`. Aquele campo trazia `{montante, valor_imovel, quantizado}` porque a cache quantizava o montante para partilhar entradas entre pedidos parecidos, e a app tinha de mostrar o valor efectivamente simulado em vez do pedido. Sem cache não há quantização: o cálculo usa o montante que foi pedido, ao cêntimo. O que um banco ajusta (prazo, período fixo, indexante) continua a viajar em `Oferta.aplicado`, com a nota obrigatória agarrada — por banco, que é onde o ajuste acontece, e não num campo global que fingia valer para todos.
-type Comparacao struct {
-	// CalculadoEm Quando ESTA resposta foi calculada.
-	// ⚠️ Não é o `capturado_em` de cada oferta, que é quando o preço foi medido no banco. Os dois são diferentes por construção, e é precisamente essa diferença que diz à pessoa a idade do preço que está a ver — por isso viajam os dois, e por isso nenhum deles é opcional numa oferta com sucesso.
-	CalculadoEm time.Time `json:"calculado_em"`
-	Ofertas     []Oferta  `json:"ofertas"`
-}
-
-// ComparacaoPedido defines model for ComparacaoPedido.
-type ComparacaoPedido struct {
-	// Bancos Example: ["cgd","novobanco","montepio","bancoctt"]
-	Bancos []string `json:"bancos"`
-	Pedido Pedido   `json:"pedido"`
-
-	// Produtos Produtos escolhidos por banco. Chave = id do banco.
-	Produtos *map[string][]string `json:"produtos,omitempty"`
-}
-
 // DetalheErro defines model for DetalheErro.
 type DetalheErro struct {
 	// Campo O campo que falhou, quando aplicável.
@@ -317,34 +296,6 @@ type PedidoFinalidade string
 // PedidoRateType defines model for Pedido.RateType.
 type PedidoRateType string
 
-// Point ⚠️ `captured_at` é `string` (sem fuso, formato v1) de propósito. `products` é sempre lista, nunca null. Os números são `number`, não string.
-type Point struct {
-	BankId   string `json:"bank_id"`
-	BankName string `json:"bank_name"`
-
-	// CapturedAt ⚠️ Sem fuso, formato v1 (ex.: 2026-07-22T05:00:11). NÃO é date-time.
-	//
-	// Example: 2026-07-22T05:00:11
-	CapturedAt       string  `json:"captured_at"`
-	EuriborIndexante string  `json:"euribor_indexante"`
-	EuriborValor     float64 `json:"euribor_valor"`
-
-	// FixedPeriodYears ⚠️ Nulo na taxa variável, como o v1 o envia. Ver o Scenario.
-	FixedPeriodYears *int     `json:"fixed_period_years"`
-	Montante         float64  `json:"montante"`
-	Mtic             float64  `json:"mtic"`
-	PrazoAnos        int      `json:"prazo_anos"`
-	PrestacaoMensal  float64  `json:"prestacao_mensal"`
-	Products         []string `json:"products"`
-	RateType         string   `json:"rate_type"`
-	ScenarioKey      string   `json:"scenario_key"`
-	SnapshotId       string   `json:"snapshot_id"`
-	Spread           float64  `json:"spread"`
-	Taeg             float64  `json:"taeg"`
-	Tan              float64  `json:"tan"`
-	ValorImovel      float64  `json:"valor_imovel"`
-}
-
 // Produto defines model for Produto.
 type Produto struct {
 	Descricao string `json:"descricao"`
@@ -353,13 +304,6 @@ type Produto struct {
 	Id         string `json:"id"`
 	PorOmissao bool   `json:"por_omissao"`
 	Rotulo     string `json:"rotulo"`
-}
-
-// RateCatalog defines model for RateCatalog.
-type RateCatalog struct {
-	Count     int        `json:"count"`
-	Points    []Point    `json:"points"`
-	Scenarios []Scenario `json:"scenarios"`
 }
 
 // RespostaErro defines model for RespostaErro.
@@ -372,36 +316,6 @@ type RespostaErro struct {
 type Saude struct {
 	// Estado Example: ok
 	Estado string `json:"estado"`
-}
-
-// Scenario defines model for Scenario.
-type Scenario struct {
-	// FixedPeriodYears ⚠️ **Nulo na taxa variável**, e é assim que o v1 o envia — medido a 2026-07-28 contra o v1 a correr. Um inteiro não-nulo em Go serializa `0`, e o `viabilidade-imobiliaria` receberia zero anos de período fixo onde espera «não se aplica».
-	FixedPeriodYears *int `json:"fixed_period_years"`
-
-	// Key Example: ltv80_mista_30a
-	Key string `json:"key"`
-
-	// Label Example: LTV 80% · mista · 30 anos
-	Label       string  `json:"label"`
-	Ltv         float64 `json:"ltv"`
-	Montante    float64 `json:"montante"`
-	PrazoAnos   int     `json:"prazo_anos"`
-	RateType    string  `json:"rate_type"`
-	ValorImovel float64 `json:"valor_imovel"`
-}
-
-// Snapshot defines model for Snapshot.
-type Snapshot struct {
-	// CapturedAt ⚠️ Sem fuso, formato v1.
-	CapturedAt string `json:"captured_at"`
-	Rows       int    `json:"rows"`
-	SnapshotId string `json:"snapshot_id"`
-}
-
-// SnapshotsResposta defines model for SnapshotsResposta.
-type SnapshotsResposta struct {
-	Snapshots []Snapshot `json:"snapshots"`
 }
 
 // Titular defines model for Titular.
@@ -417,43 +331,17 @@ type BancoOcupado = RespostaErro
 // PedidoInvalido defines model for PedidoInvalido.
 type PedidoInvalido = RespostaErro
 
-// SerieIndisponivel defines model for SerieIndisponivel.
-type SerieIndisponivel = RespostaErro
-
 // TectoExcedido defines model for TectoExcedido.
 type TectoExcedido = RespostaErro
-
-// ObterRateCatalogParams defines parameters for ObterRateCatalog.
-type ObterRateCatalogParams struct {
-	Scenario *string `form:"scenario,omitempty" json:"scenario,omitempty"`
-	Bank     *string `form:"bank,omitempty" json:"bank,omitempty"`
-	RateType *string `form:"rate_type,omitempty" json:"rate_type,omitempty"`
-
-	// Since Instante ISO 8601; devolve pontos capturados a partir daqui.
-	Since *string `form:"since,omitempty" json:"since,omitempty"`
-	Limit *int    `form:"limit,omitempty" json:"limit,omitempty"`
-}
-
-// CompararOfertasJSONRequestBody defines body for CompararOfertas for application/json ContentType.
-type CompararOfertasJSONRequestBody = ComparacaoPedido
 
 // OfertaDeUmBancoJSONRequestBody defines body for OfertaDeUmBanco for application/json ContentType.
 type OfertaDeUmBancoJSONRequestBody = OfertaPedido
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
-	// ObterRateCatalog ⚠️ CONGELADA — a série de mercado, compatível ao byte com o v1.
-	// (GET /api/rate-catalog)
-	ObterRateCatalog(w http.ResponseWriter, r *http.Request, params ObterRateCatalogParams)
-	// ListarSnapshots ⚠️ CONGELADA — os varrimentos disponíveis, com contagem de linhas.
-	// (GET /api/rate-catalog/snapshots)
-	ListarSnapshots(w http.ResponseWriter, r *http.Request)
 	// ListarBancos Tudo o que a app precisa para montar o formulário adaptativo.
 	// (GET /api/v1/bancos)
 	ListarBancos(w http.ResponseWriter, r *http.Request)
-	// CompararOfertas Compara as ofertas dos bancos escolhidos. Síncrono.
-	// (POST /api/v1/comparacoes)
-	CompararOfertas(w http.ResponseWriter, r *http.Request)
 	// OfertaDeUmBanco Pergunta a UM banco o preço do crédito descrito. Ao vivo.
 	// (POST /api/v1/ofertas/{banco})
 	OfertaDeUmBanco(w http.ResponseWriter, r *http.Request, banco string)
@@ -466,27 +354,9 @@ type ServerInterface interface {
 
 type Unimplemented struct{}
 
-// ObterRateCatalog ⚠️ CONGELADA — a série de mercado, compatível ao byte com o v1.
-// (GET /api/rate-catalog)
-func (_ Unimplemented) ObterRateCatalog(w http.ResponseWriter, r *http.Request, params ObterRateCatalogParams) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// ListarSnapshots ⚠️ CONGELADA — os varrimentos disponíveis, com contagem de linhas.
-// (GET /api/rate-catalog/snapshots)
-func (_ Unimplemented) ListarSnapshots(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
 // ListarBancos Tudo o que a app precisa para montar o formulário adaptativo.
 // (GET /api/v1/bancos)
 func (_ Unimplemented) ListarBancos(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// CompararOfertas Compara as ofertas dos bancos escolhidos. Síncrono.
-// (POST /api/v1/comparacoes)
-func (_ Unimplemented) CompararOfertas(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -511,124 +381,11 @@ type ServerInterfaceWrapper struct {
 
 type MiddlewareFunc func(http.Handler) http.Handler
 
-// ObterRateCatalog operation middleware
-func (siw *ServerInterfaceWrapper) ObterRateCatalog(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-	_ = err
-
-	// Parameter object where we will unmarshal all parameters from the context
-	var params ObterRateCatalogParams
-
-	// ------------- Optional query parameter "scenario" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "scenario", r.URL.Query(), &params.Scenario, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
-	if err != nil {
-		var requiredError *runtime.RequiredParameterError
-		if errors.As(err, &requiredError) {
-			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "scenario"})
-		} else {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "scenario", Err: err})
-		}
-		return
-	}
-
-	// ------------- Optional query parameter "bank" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "bank", r.URL.Query(), &params.Bank, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
-	if err != nil {
-		var requiredError *runtime.RequiredParameterError
-		if errors.As(err, &requiredError) {
-			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "bank"})
-		} else {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "bank", Err: err})
-		}
-		return
-	}
-
-	// ------------- Optional query parameter "rate_type" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "rate_type", r.URL.Query(), &params.RateType, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
-	if err != nil {
-		var requiredError *runtime.RequiredParameterError
-		if errors.As(err, &requiredError) {
-			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "rate_type"})
-		} else {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "rate_type", Err: err})
-		}
-		return
-	}
-
-	// ------------- Optional query parameter "since" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "since", r.URL.Query(), &params.Since, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
-	if err != nil {
-		var requiredError *runtime.RequiredParameterError
-		if errors.As(err, &requiredError) {
-			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "since"})
-		} else {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "since", Err: err})
-		}
-		return
-	}
-
-	// ------------- Optional query parameter "limit" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
-	if err != nil {
-		var requiredError *runtime.RequiredParameterError
-		if errors.As(err, &requiredError) {
-			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
-		} else {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
-		}
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ObterRateCatalog(w, r, params)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// ListarSnapshots operation middleware
-func (siw *ServerInterfaceWrapper) ListarSnapshots(w http.ResponseWriter, r *http.Request) {
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ListarSnapshots(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
 // ListarBancos operation middleware
 func (siw *ServerInterfaceWrapper) ListarBancos(w http.ResponseWriter, r *http.Request) {
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListarBancos(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// CompararOfertas operation middleware
-func (siw *ServerInterfaceWrapper) CompararOfertas(w http.ResponseWriter, r *http.Request) {
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.CompararOfertas(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -796,15 +553,6 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/ofertas/{banco}", wrapper.OfertaDeUmBanco)
-	})
-	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/api/v1/comparacoes", wrapper.CompararOfertas)
-	})
-	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/api/rate-catalog", wrapper.ObterRateCatalog)
-	})
-	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/api/rate-catalog/snapshots", wrapper.ListarSnapshots)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/healthz", wrapper.Saude)
