@@ -19,10 +19,13 @@ import (
 
 // ofertaDe traduz uma oferta do domínio.
 //
-// ⚠️ **Uma oferta sem instante de varrimento não é servida como sucesso.** O
-// número existe, mas apresentá-lo sem dizer quando foi medido é apresentá-lo
-// como cotado agora — e a §4 é explícita: «não se serve um número calculado como
-// se fosse cotado pelo banco». Desce a falha, com o código a dizer porquê.
+// ⚠️ **Uma oferta sem instante de captura não é servida como sucesso.** O número
+// existe, mas apresentá-lo sem dizer quando foi cotado é apresentá-lo como sendo
+// de agora — e num acerto de cache pode ser de há cinco minutos. Desce a falha,
+// com o código a dizer porquê.
+//
+// ⚠️ Foi a guarda que apanhou o `aovivo` a nascer sem o carimbo do `CapturadoEm`:
+// os testes do caso de uso passavam todos, porque nenhum ia à fronteira.
 func ofertaDe(o dominio.Oferta) api.Oferta {
 	saida := api.Oferta{
 		BancoId:   o.BancoID,
@@ -56,13 +59,6 @@ func ofertaDe(o dominio.Oferta) api.Oferta {
 	capturado := o.CapturadoEm.UTC()
 	saida.CapturadoEm = &capturado
 
-	// ⚠️ Vai SEMPRE, mesmo a valer `por_confirmar`, e não só quando há dúvida.
-	// Um campo que só aparece quando as notícias são más ensina a app a tratar a
-	// ausência como boa notícia — e hoje a ausência quer dizer «ninguém olhou»,
-	// que é o estado de quase tudo. O silêncio faz-se no ecrã (§1 do API.md),
-	// não no contrato.
-	fiabilidade := api.OfertaFiabilidade(o.Fiabilidade.Ou())
-	saida.Fiabilidade = &fiabilidade
 	saida.Tan = taxaDe(o.TAN)
 	saida.Taeg = taxaDe(o.TAEG)
 	saida.Spread = taxaDe(o.Spread)
@@ -70,7 +66,6 @@ func ofertaDe(o dominio.Oferta) api.Oferta {
 	saida.PrestacaoMensal = dinheiroDe(o.Prestacao)
 	saida.Mtic = dinheiroDe(o.MTIC)
 	saida.Notas = listaOuNil(o.Notas())
-	saida.Pressupostos = listaOuNil(o.Pressupostos())
 	saida.ProdutosAplicados = listaOuNil(o.ProdutosAplicados)
 
 	if o.Indexante != "" {

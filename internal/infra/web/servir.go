@@ -35,9 +35,14 @@ const EnderecoOmissao = "127.0.0.1:8080"
 //
 // ⚠️ Existem, e não são os do `net/http` por omissão — que são **nenhuns**. Um
 // servidor sem prazo de leitura mantém aberta uma ligação que nunca acaba de
-// enviar o corpo, e bastam algumas para esgotar o que ele aguenta. O prazo de
-// escrita é folgado face ao que uma resposta custa: ela sai de uma consulta e de
-// aritmética local, não de uma chamada a um banco.
+// enviar o corpo, e bastam algumas para esgotar o que ele aguenta.
+//
+// ⚠️ **O prazo de escrita tem de exceder o `PrazoDoBancoOmissao`**, e é a única
+// relação entre estes números que não é arbitrária: uma resposta sai de uma ida
+// ao banco, que espera até 15 s. Escrita a 30 s dá o dobro disso. Dizia aqui que
+// uma resposta «sai de uma consulta e de aritmética local, não de uma chamada a
+// um banco» — verdade entre 2026-07-25 e 2026-08-06, e falsa desde a reversão da
+// §1. Quem baixar um destes olha para o outro.
 const (
 	prazoDeLeitura   = 10 * time.Second
 	prazoDeEscrita   = 30 * time.Second

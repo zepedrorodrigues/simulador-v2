@@ -124,25 +124,19 @@ const (
 	ErroBancoIndisponivel CodigoErro = "banco_indisponivel"
 	// ErroRespostaIlegivel: respondeu, e o que veio não se consegue ler.
 	ErroRespostaIlegivel CodigoErro = "resposta_ilegivel"
-	// ErroSemSerie: não há preços varridos deste banco. Ninguém lhe perguntou.
+
+	// ⚠️ **Havia aqui um `sem_serie` e um `serie_desactualizada`**, e saem com o
+	// varrimento (2026-08-07). O primeiro dizia «não se foi lá: não há preços
+	// varridos deste banco» e o segundo «há, e são do outro lado da viragem do
+	// dia». Ao vivo vai-se sempre lá — o que resta quando não se consegue
+	// responder é o banco não ter respondido, e isso é o `banco_indisponivel`.
 	//
-	// ⚠️ **Não é o** ErroBancoIndisponivel, **e a distinção é o ponto** (KAN-45):
-	// esse quer dizer que se foi lá e o banco não respondeu; este quer dizer que
-	// não se foi lá. O banco não teve culpa nenhuma, e culpá-lo mandava a pessoa
-	// tirar sobre ele uma conclusão que os dados não sustentam. É a mesma
-	// distinção que a KAN-30 faz para os pânicos nossos.
-	//
-	// ⚠️ E também não é o ErroProdutoIndisponivel: esse é «foi varrido e não
-	// mediu ESTE cenário», que é sobre o pedido; este é sobre o banco inteiro.
-	ErroSemSerie CodigoErro = "sem_serie"
-	// ErroSerieDesactualizada: há preços deste banco, e são do outro lado da
-	// viragem do dia — a Euribor fixou entretanto (ARQUITETURA.md §4, «Que
-	// observações compõem a série servida»; §7.3).
-	//
-	// ⚠️ Não é o ErroSemSerie: ali não há preço nenhum, aqui há e não se serve.
-	// Dá-lo como «não se foi lá» era falso, e servi-lo à mesma era comparar
-	// preços de fixings diferentes.
-	ErroSerieDesactualizada CodigoErro = "serie_desactualizada"
+	// ⚠️ **A distinção que o `sem_serie` existia para fazer não morre com ele**
+	// (KAN-45): uma falta NOSSA não se serve como falha do banco, porque isso
+	// manda a pessoa tirar sobre ele uma conclusão que os dados não sustentam. É
+	// a mesma razão por que o `503 banco_ocupado` não é uma oferta em falha, e a
+	// mesma que a KAN-30 tem em aberto para os pânicos nossos — esses ainda saem
+	// como `banco_indisponivel`, e é conhecido.
 )
 
 // ErroOferta é a falha de um banco, estruturada.
@@ -245,75 +239,27 @@ type Oferta struct {
 	EmCache     bool
 	CapturadoEm time.Time
 
-	// Fiabilidade é o que se sabe sobre a grelha de onde este preço saiu — se
-	// alguma sonda a confirmou desde o varrimento, e se discordou dela. O valor
-	// zero é FiabilidadePorConfirmar, e é de propósito: um banco sobre que
-	// ninguém disse nada não é um banco confirmado (ARQUITETURA.md §4).
-	Fiabilidade Fiabilidade
-
 	// Erro não-nulo é uma oferta de falha. Sucesso deriva daqui, para não
 	// existir o estado impossível "sucesso com erro".
 	Erro *ErroOferta
 
-	// Não exportados de propósito: só entram por Acrescentar, Anotar e
-	// Pressupor, e é assim que um ajuste sem nota deixa de ser construível a
-	// partir de fora deste pacote.
-	ajustes      []Ajuste
-	notas        []string
-	pressupostos []string
+	// Não exportados de propósito: só entram por Acrescentar e Anotar, e é assim
+	// que um ajuste sem nota deixa de ser construível a partir de fora deste
+	// pacote.
+	ajustes []Ajuste
+	notas   []string
 }
 
-// Fiabilidade é o que se sabe sobre a grelha de que um preço saiu (KAN-49).
+// ⚠️ **Havia aqui um tipo `Fiabilidade`** — `por_confirmar | confirmada |
+// em_duvida` (KAN-49) — e a `NotaDaDuvida` que acompanhava o terceiro. Diziam o
+// que a sonda tinha apurado sobre a GRELHA de onde um preço saía, e saem com as
+// duas: ao vivo não há grelha entre a resposta do banco e o que se serve, logo
+// não há terceira coisa sobre que ter uma opinião.
 //
-// ⚠️ Três estados e não um booleano, e a razão é o histórico: hoje quase tudo é
-// FiabilidadePorConfirmar — a sonda existe há dias e não corre agendada. Um
-// booleano `confirmada` nascia a mentir sobre a série inteira, num sentido ou no
-// outro. «Não sabemos» é um estado, e é aquele em que quase tudo está.
-type Fiabilidade string
-
-const (
-	// FiabilidadePorConfirmar: ninguém sondou este banco desde que foi varrido.
-	// ⚠️ É para aqui que o valor zero do tipo cai — ver `Ou()`. A string vazia
-	// não é um quarto estado: é «ninguém pensou nisto», e a resposta certa a isso
-	// é esta e não «confirmada».
-	FiabilidadePorConfirmar Fiabilidade = "por_confirmar"
-
-	// FiabilidadeConfirmada: a última sonda deu a grelha por boa. Não leva nota
-	// — ruído em toda a gente é o mesmo que silêncio.
-	FiabilidadeConfirmada Fiabilidade = "confirmada"
-
-	// FiabilidadeEmDuvida: a última sonda discordou da grelha e ainda não houve
-	// varrimento que resolvesse a discordância. É o único dos três que a app é
-	// obrigada a mostrar.
-	FiabilidadeEmDuvida Fiabilidade = "em_duvida"
-)
-
-// Ou resolve o valor zero para «por confirmar».
-//
-// ⚠️ Existe porque o zero de uma string é `""` e não a constante — e um mapa de
-// fiabilidades sem entrada para um banco devolve exactamente isso. Sem esta
-// normalização, a série de hoje (nenhuma sondagem gravada) saía com o campo
-// vazio: um valor que o enum do contrato não conhece, e que a app leria como
-// «não sei o que isto é» em vez de «ninguém confirmou».
-func (f Fiabilidade) Ou() Fiabilidade {
-	if f == "" {
-		return FiabilidadePorConfirmar
-	}
-	return f
-}
-
-// NotaDaDuvida é a frase que acompanha um preço que a sonda contradisse.
-//
-// ⚠️ Vive aqui e não no `comparar` pela mesma razão que a nota do Ajuste vive
-// colada ao ajuste: quem põe o estado escreve a frase, e não há caminho por onde
-// um `em_duvida` saia mudo. E não é «este preço está errado» — não se sabe isso.
-// É «uma verificação barata discordou dele», que é o que se mediu.
-func NotaDaDuvida(bancoNome string) string {
-	return fmt.Sprintf(
-		"Uma verificação recente ao %s devolveu um preço diferente do que temos guardado, e ainda "+
-			"não foi possível confirmá-lo. Este valor pode estar desactualizado — confirme-o com o "+
-			"banco antes de decidir.", bancoNome)
-}
+// ⚠️ **A regra que o tipo carregava fica**, e vale para o que vier a seguir: um
+// estado que só se publica quando as notícias são más ensina quem o lê a tratar
+// a ausência como boa notícia. Se voltar a haver uma verificação de preço, volta
+// com três estados e não com um booleano.
 
 // Falhar constrói uma oferta de falha.
 func Falhar(bancoID, bancoNome string, e *ErroOferta) Oferta {
@@ -338,42 +284,20 @@ func (o *Oferta) Acrescentar(a *Ajuste) {
 }
 
 // Anotar acrescenta uma nota que não corresponde a nenhum ajuste — o MTIC
-// omitido, um pressuposto que o banco impôs e que não muda um campo do pedido.
+// omitido, uma hipótese que o BANCO declarou e que não muda um campo do pedido.
+//
+// ⚠️ **É por aqui que passam agora as hipóteses de cálculo**, e não por uma lista
+// à parte. Havia um `Pressupor`/`Pressupostos()`, publicado à parte no contrato,
+// para as assunções sob as quais NÓS derivávamos a TAEG e o MTIC — o Anexo I,
+// Parte II e o Anexo II da MCD mandam declarar as hipóteses junto do número que
+// delas depende. Ao vivo não derivamos nada: a TAEG é a que o simulador do banco
+// devolveu, e as hipóteses que a suportam são dele e chegam nas notas dele (o
+// Montepio diz lá que projecta a taxa do período fixo para o resto do prazo).
 func (o *Oferta) Anotar(nota string) {
 	if nota == "" {
 		return
 	}
 	o.notas = append(o.notas, nota)
-}
-
-// Pressupor regista uma hipótese sob a qual um número desta oferta foi
-// DERIVADO — a TAEG e o MTIC de uma resposta local, hoje.
-//
-// ⚠️ Vive à parte das notas, e o contrato publica-o à parte, porque é outra
-// coisa: uma nota explica o que o banco fez ao pedido, um pressuposto declara em
-// que assunções NOSSAS o número assenta. Misturá-los deixava a pessoa sem saber
-// qual dos números vem do banco e qual sai de um modelo — que é a distinção de
-// que a §4 faz depender toda a honestidade desta resposta.
-//
-// É o Anexo I, Parte II e o Anexo II da MCD: quem serve um valor dependente de
-// hipóteses declara-as junto dele.
-func (o *Oferta) Pressupor(hipoteses ...string) {
-	for _, h := range hipoteses {
-		if h != "" {
-			o.pressupostos = append(o.pressupostos, h)
-		}
-	}
-}
-
-// Pressupostos devolve as hipóteses declaradas.
-//
-// ⚠️ Vazio com a TAEG ou o MTIC preenchidos por derivação é defeito nosso, e
-// quem serializa recusa-o. Vazio com eles medidos pelo banco é o estado normal:
-// aí não há hipótese nenhuma a declarar.
-func (o Oferta) Pressupostos() []string {
-	saida := make([]string, len(o.pressupostos))
-	copy(saida, o.pressupostos)
-	return saida
 }
 
 // Ajustes devolve o que o banco mudou face ao pedido.

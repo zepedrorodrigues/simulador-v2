@@ -1,12 +1,13 @@
 # API
 
-Duas fronteiras com estatutos diferentes. O esquema executável é **`api/openapi.yaml`** — é a fonte da verdade, e é dele que se geram os tipos Go e os TypeScript da app. **Este documento guarda as decisões; o esquema manda nos detalhes, e quando os dois discordarem é este que está errado.**
+Uma fronteira, e uma sondagem de saúde. O esquema executável é **`api/openapi.yaml`** — é a fonte da verdade, e é dele que se geram os tipos Go e os TypeScript da app. **Este documento guarda as decisões; o esquema manda nos detalhes, e quando os dois discordarem é este que está errado.**
 
 | fronteira | quem consome | estatuto |
 |---|---|---|
 | `/api/v1/*` | a app React Native | nossa, versionada, evolui connosco |
-| `/api/rate-catalog` | `viabilidade-imobiliaria` | ⚠️ **congelada** — compatível com o v1 ao byte |
 | `/healthz` | a plataforma | trivial |
+
+⚠️ **Eram duas até 2026-08-07.** A `/api/rate-catalog` saiu com o varrimento — §2 —, e com ela a única superfície autenticada deste serviço. **Não há hoje credencial nenhuma**, e é decisão: o `/api/v1` é público porque é uma app sem contas a falar com ele, e quem o protege é o tecto por IP.
 
 ## 1. `/api/v1` — a app
 
@@ -62,23 +63,25 @@ Comparava todos os bancos numa resposta, a partir da série varrida e de cálcul
 
 ⚠️ **`aplicado` e `notas` não são decoração.** Sempre que `aplicado` não está vazio, os números **não** correspondem ao que foi pedido, e a app é obrigada a mostrar a nota junto do valor — não numa gaveta. Numa comparação de crédito, devolver números diferentes sem o dizer é enganador.
 
-⚠️ **Dois instantes, e são coisas diferentes.** O `calculado_em` do topo é quando esta resposta se calculou; o `capturado_em` de cada oferta é quando aquele preço foi **medido no banco**. A distância entre os dois é a idade do preço que a pessoa está a ver — por isso viajam ambos e nenhum é opcional numa oferta com sucesso.
+⚠️ **Um instante, e é obrigatório.** O `capturado_em` de cada oferta é quando se falou com o banco. Havia dois — o `calculado_em` do topo dizia quando a resposta se tinha calculado, e a distância entre os dois era a idade do preço —, e o de cima saiu com a `Comparacao`. **A idade não se perdeu:** com cada oferta a vir do banco no momento, o `capturado_em` já é a idade, e num acerto de cache é o instante da ida que a produziu — nunca o de agora. O servidor **recusa servir** uma oferta com preço e sem ele.
 
-⚠️ **`pressupostos` é obrigatório sempre que `taeg` ou `mtic` vêm preenchidos**, e é lista à parte de `notas` de propósito. Uma `nota` é um aviso sobre o que aconteceu a **este** pedido; um pressuposto é uma **hipótese de cálculo** que a MCD obriga a declarar junto do número que dela depende (Anexo I, Parte II; Anexo II). Empacotadas juntas, a app fica sem forma de as apresentar como o que são. Uma TAEG com `pressupostos` vazio é defeito nosso, não um caso legítimo.
+### ⚠️ A TAEG e o MTIC são os do banco, e deixaram de ser nossos (2026-08-07)
 
-⚠️ **`fiabilidade` diz o que se sabe sobre o preço, e é por OFERTA** (KAN-49). Três valores, e só um deles se mostra:
+Dizia-se aqui que a `taeg` e o `mtic` eram **derivados**, que dependiam de um modelo de encargos nosso, e que `pressupostos` era **obrigatório** sempre que um deles vinha preenchido — o Anexo I, Parte II e o Anexo II da MCD mandam declarar as hipóteses junto do número que delas depende.
 
-| valor | quer dizer | a app mostra |
-| --- | --- | --- |
-| `por_confirmar` | ninguém sondou este banco desde que ele foi varrido | nada |
-| `confirmada` | a última sonda confirmou a grelha deste banco | nada |
-| `em_duvida` | a última sonda **discordou** da grelha, e ainda não se revarreu | ⚠️ a nota, junto do número |
+Era verdade enquanto os preços vinham da série varrida: ela era feita com um titular **neutro** sobre um cenário de referência fixo, logo não existia TAEG medida para a pessoa que perguntava, e o que se fazia era atribuir a encargos a diferença entre a TAEG e a TAN observadas e reamortizar sobre os fluxos deste pedido.
 
-⚠️ **O `em_duvida` obriga a mostrar, os outros dois obrigam a calar.** Uma marca de «confirmada» em toda a gente é ruído com aspecto de informação, e treina quem lê a saltá-la — exactamente o que faria falta no dia em que aparecesse a que importa. A nota vem em `notas`, agarrada ao número, e não numa gaveta.
+**Ao vivo pergunta-se com os valores desta pessoa, e o simulador do banco devolve a TAEG e o MTIC dele.** Não há o que derivar, não há hipóteses nossas a declarar, e o `pressupostos` **saiu do contrato**.
 
-⚠️ **O estado por omissão é `por_confirmar` e não `confirmada`**, e hoje é o estado de quase tudo: a sonda existe há dias e ainda não corre agendada. Uma omissão que valesse «confirmada» afirmaria sobre toda a série uma coisa que ninguém mediu.
+⚠️ **O que NÃO mudou:** a TAEG de um simulador continua a não ser a que vincula alguém — essa vem na ficha de informação normalizada, depois de o banco avaliar quem pede. É a distinção que a app é obrigada a mostrar, e continua obrigada. O que mudou é que passou a ser uma distinção entre **simulação e proposta**, e não entre **estimado e cotado**.
 
-⚠️ **Não há `pedido_efectivo`.** Existia para mostrar o valor realmente simulado quando a quantização alterava o montante para aproveitar a cache. A quantização morreu com a cache: um pedido é avaliado no seu valor exacto, porque o LTV é dimensão da grelha e o pedido cai no seu intervalo por construção. O `aplicado` continua a declarar os ajustes do **banco** — período fixo fora da lista, prazo encolhido pela idade —, que são outra coisa.
+⚠️ **E as hipóteses do BANCO continuam a chegar**, onde sempre chegaram: em `notas`, palavra por palavra. O Montepio diz lá que projecta a taxa do período fixo para o resto do prazo, e é dele que a frase é.
+
+⚠️ **Foi este modelo que a reversão da §1 matou, e não os parsers.** Quatro assunções dele caíram contra dados varridos num só dia — `KAN-54` a `KAN-57`, os números estão no `DECISAO-AO-VIVO.md` §2. Nenhuma foi apanhada por um teste.
+
+⚠️ **`fiabilidade` saiu** (2026-08-07). Dizia o que a sonda tinha apurado sobre a **grelha** de onde o preço saía (KAN-49), com três valores dos quais só o `em_duvida` se mostrava. Sai com a sonda e com a grelha: ao vivo não há nada entre a resposta do banco e o que se serve. ⚠️ **A regra que ele carregava fica** e vale para o que vier: um estado que só se publica quando as notícias são más ensina quem o lê a tratar a ausência como boa notícia.
+
+⚠️ **Não há `pedido_efectivo`.** Existia para mostrar o valor realmente simulado quando a quantização alterava o montante para aproveitar a cache. A cache voltou (§7.6) e a quantização **não** — a chave é o pedido exacto, e há teste a dizer que um cêntimo dá outra chave. O `aplicado` continua a declarar os ajustes do **banco** — período fixo fora da lista, prazo encolhido pela idade —, que são outra coisa.
 
 ### Os códigos de erro, e a distinção que cada um serve
 
@@ -87,15 +90,13 @@ Comparava todos os bancos numa resposta, a partir da série varrida e de cálcul
 | `codigo` | quer dizer | resolve-se |
 |---|---|---|
 | `prazo_impossivel` | nem o prazo mínimo do banco cabe na idade | mudando o pedido |
-| `produto_indisponivel` | varreu-se, e o banco não mede **este** cenário | mudando o pedido, ou não se resolve |
+| `produto_indisponivel` | o banco não faz isto de todo — modalidade, período, LTV fora da banda | mudando o pedido, ou não se resolve |
 | `banco_indisponivel` | foi-se lá e não respondeu, expirou, deu 5xx | esperando |
 | `resposta_ilegivel` | respondeu, e não se consegue ler | do nosso lado |
-| `sem_serie` | **não se foi lá**: não há preços varridos deste banco | correndo o varrimento |
-| `serie_desactualizada` | há preços deste banco, e são do outro lado da viragem do dia | correndo o varrimento |
 
-⚠️ O `sem_serie` não é o `banco_indisponivel` — esse culpa o banco, e aqui a falta é nossa. E não é o `produto_indisponivel` — esse é sobre o **pedido**, este é sobre o **banco inteiro**. Empacotá-los mandava a pessoa esperar por uma coisa que não vai acontecer sozinha, ou mudar um pedido que estava bem.
+⚠️ **Eram seis, e saíram dois** (2026-08-07). O `sem_serie` («não se foi lá: não há preços varridos deste banco», KAN-45) e o `serie_desactualizada` («há, e são do outro lado da viragem do dia», KAN-50) morrem com o varrimento: ao vivo vai-se sempre lá, e o que resta quando não se consegue responder é o banco não ter respondido.
 
-⚠️ **E o `serie_desactualizada` não é o `sem_serie`, apesar de os dois se resolverem varrendo** (`KAN-50`). A diferença é o que se sabe: no `sem_serie` não há preço nenhum deste banco; no `serie_desactualizada` **há**, e não se serve porque a Euribor mudou de dia entretanto e compará-lo com os outros seria comparar preços de fixings diferentes. Servi-lo à mesma era o defeito que a §7.3 do `ARQUITETURA.md` proíbe; dá-lo como `sem_serie` era dizer que não se foi lá, quando se foi.
+⚠️ **A distinção que o `sem_serie` existia para fazer NÃO morre com ele:** uma falta **nossa** não se serve como falha do banco, porque isso manda a pessoa tirar sobre ele uma conclusão que os dados não sustentam. É a mesma razão por que o `503 banco_ocupado` é um estatuto e não uma oferta em falha — e a mesma que a `KAN-30` tem em aberto para os pânicos nossos, que ainda saem como `banco_indisponivel` e não deviam.
 
 ## 2. ⛔ `/api/rate-catalog` — **retirada a 2026-08-07**
 
@@ -127,15 +128,13 @@ Logo a retirada **não partiu consumidor nenhum**, e o v1 continua a servir o qu
 
 ⚠️ **O HSTS não sai daqui, e é decisão.** O serviço fala HTTP em claro atrás do proxy e não tem como saber se o que está à frente serve TLS — a condição «apenas quando já se serve HTTPS» não é observável de dentro. Inferi-la do `X-Forwarded-Proto` obrigaria ao `PROXIES_DE_CONFIANCA`, que está por medir, e passariam a ser duas coisas a falhar juntas. **Emite-o quem termina o TLS.** Há um teste que falha se o serviço começar a emiti-lo.
 
-⚠️ **Aplicam-se também ao `/api/rate-catalog`**, apesar de congelado: a congelação é do **corpo**, e um cabeçalho de resposta não é corpo. O teste de contrato confirma-o — não se assumiu.
-
 ⚠️ **E vão nas respostas de erro**, não só no caminho feliz. O middleware é o **primeiro** da cadeia, antes do `Recoverer` e do `limitar`, porque um 429 ou um 500 mal interpretados fazem mais estrago do que um 200. Montado abaixo deles, os 200 levavam os cabeçalhos e os 429 não — e a suite passava na mesma. Está afirmado por reversão.
 
 ⚠️ **Este documento prometeu estes cabeçalhos durante meses sem ninguém os emitir.** Medido a 2026-08-01, no ensaio de produção: nenhum saía, e o `grep` sobre todo o `.go` não devolvia uma linha. A falta era silenciosa por natureza — não parte pedidos, não aparece em logs, não muda números.
 
 ⚠️ **CORS** (KAN-22): lista explícita em `ORIGENS_PERMITIDAS`, **default vazio**, e vazio quer dizer «só a mesma origem» e não «toda a gente». `*` é **recusado ao arranque**, e uma origem mal escrita — com barra final ou caminho — também: nunca casaria com o `Origin` que o browser envia, e falharia em silêncio.
 
-⚠️ **O CORS cobre `/api/v1/*` e o `/healthz`, e NÃO o `/api/rate-catalog`.** Aquele autentica-se por `X-API-Key`, e uma chave dentro de um bundle de browser é uma chave pública. São duas superfícies com públicos diferentes — uma app sem credenciais, uma máquina com chave — e não partilham política de acesso.
+⚠️ **O CORS cobre `/api/v1/*` e o `/healthz`, e hoje isso é tudo o que há.** Cobria-os por oposição ao `/api/rate-catalog`, que ficava **de fora**: aquele autenticava-se por `X-API-Key`, e uma chave dentro de um bundle de browser é uma chave pública. A rota saiu, e o grupo de rotas que a separava **fica no `Rotas()`** — é ele que mantém a política aplicada por decisão e não por omissão, e é onde entra a próxima superfície que não seja para browsers.
 
 ⚠️ **E os preflights não contam para o tecto por IP.** Um browser manda um `OPTIONS` antes de cada `POST` — o `Content-Type: application/json` obriga-o — e a contá-los cada comparação da app custava **dois** enquanto a mesma por `curl` custava **um**: o tecto passava a medir o cliente em vez do uso. Só conta como preflight o `OPTIONS` que traga `Access-Control-Request-Method`, senão bastava escolher o método para escapar ao tecto.
 
@@ -143,6 +142,8 @@ Logo a retirada **não partiu consumidor nenhum**, e o v1 continua a servir o qu
 
 `/api/v1` muda **por acrescento**: campos novos são opcionais e a app antiga continua a funcionar. Remover ou mudar o tipo de um campo obriga a `/api/v2` em paralelo até a app estar actualizada nas lojas — ⚠️ com uma app móvel publicada **não se pode assumir que o cliente actualiza**.
 
-⚠️ **Um `codigo` de erro novo não é mudança de versão**, e é por desenho: o campo é `type: string` sem enum, e a app mostra a `mensagem` em vez de ramificar no código. Foi o que permitiu ao `sem_serie` nascer sem quebrar nada a jusante.
+⚠️ **Um `codigo` de erro novo não é mudança de versão**, e é por desenho: o campo é `type: string` sem enum, e a app mostra a `mensagem` em vez de ramificar no código. Foi o que permitiu ao `sem_serie` nascer — e depois morrer — sem quebrar nada a jusante.
 
-`/api/rate-catalog` não é versionada porque não muda — **por agora**. ⚠️ **A congelação é interina:** quando o `viabilidade-imobiliaria` levar o mesmo tratamento que este repositório levou, o contrato redesenha-se **em conjunto** — nomes em português, e a decomposição spread/Euribor (guardar o spread, que se move devagar, e recalcular a parte que depende da Euribor, que fixa todos os dias). Até lá o formato antigo é lei: o consumidor está em produção e não pede licença para ser partido. Quando chegar a altura, é um endpoint novo a nascer ao lado do antigo.
+⚠️ **A 2026-08-07 esta regra foi quebrada de propósito, uma vez.** Saíram o `POST /api/v1/comparacoes`, a `Comparacao`, o `pressupostos` e o `fiabilidade` — remoções, não acrescentos. A regra não caiu; caiu a premissa em que ela assenta: **não há app publicada**. A A8 está bloqueada pela `KAN-24`, e esta era a única janela em que partir o `/api/v1` custava zero. **Ela fecha no dia em que houver uma versão no terreno**, e a partir daí uma remoção obriga a `/api/v2` em paralelo.
+
+⚠️ **O que falta para essa janela poder fechar em segurança:** o caminho de «esta versão é demasiado antiga». Custa pouco agora e é impossível de acrescentar quando faz falta — que é quando já há versões antigas lá fora. **Por fazer.**
