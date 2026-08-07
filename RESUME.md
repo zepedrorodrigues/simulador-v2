@@ -14,7 +14,7 @@ Estado actual e próximos passos. ⚠️ **Sem changelog** — o relato de sess�
 
 **A forma de produção está escrita e corrida em local** (`compose.producao.yml`, `Caddyfile`, `docs/DEPLOY.md`): VPS com IPv4 dedicado, Caddy à frente, Postgres na mesma máquina e sem portas publicadas. ⚠️ **Nada está exposto, e é decisão** — a `KAN-24` bloqueia publicar, e subir a máquina não é publicar o serviço.
 
-**O que falta:** escolher o **domínio** e provisionar a máquina; o **parecer jurídico** (`KAN-24`); e em código o **prazo por banco**, que espera mais amostras de latência.
+**O que falta:** a **`KAN-59`** — escolher o domínio, provisionar a máquina e correr o `docs/DEPLOY.md` pela primeira vez; o **parecer jurídico** (`KAN-24`); e em código o **prazo por banco**, que espera mais amostras de latência.
 
 ## Onde estamos
 

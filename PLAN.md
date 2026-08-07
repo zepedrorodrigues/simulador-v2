@@ -58,9 +58,13 @@ Feito: `Dockerfile` não-root sem Chromium, logs com `X-Request-ID` (`KAN-43`), 
 
 ⚠️ O `fly.toml` fica como alternativa e continua a **não descrever nada executado** — e três dos seus comentários morreram com o varrimento, incluindo o que dizia que um pedido «custa milissegundos». Com `auto_stop_machines`, o cold start somava-se aos 8,4 s da cauda do Montepio.
 
-✅ **O `PROXIES_DE_CONFIANCA` deixou de ser uma medição** (2026-08-07). ⚠️ Fica vazio até estar medido, e a razão é assimétrica: larga de mais deixa contornar o tecto de vez; vazia, o tecto do site inteiro passa a ser o de um utilizador — o bug de produção do v1. **Um tecto apertado de mais é visível; um contornável não é.**
+✅ **O `PROXIES_DE_CONFIANCA` deixou de ser uma medição** (2026-08-07). O comportamento está medido contra um proxy a sério (Caddy em contentor, no portão), e o **valor passou a ser conhecido de antemão**: o `compose.producao.yml` dá ao Caddy um endereço **fixo** e o omissão é esse.
 
-O comportamento está medido contra um proxy a sério (Caddy em contentor, no portão), e o **valor passou a ser conhecido de antemão**: o `compose.producao.yml` dá ao Caddy um endereço **fixo** e o omissão é esse. ⚠️ **Não se mediu porque medir não servia** — o diário não regista o endereço do cliente, e os endereços do Docker mudam quando um contentor é recriado, portanto um valor medido apodrecia em silêncio e do lado mau.
+⚠️ **Não se mediu porque medir não servia** — o diário não regista o endereço do cliente, e os endereços do Docker mudam quando um contentor é recriado; um valor medido apodrecia em silêncio e **do lado mau**, com o tecto a contar toda a gente como um só.
+
+⚠️ **Dizia-se aqui, na mesma frase, que o valor «fica vazio até estar medido».** Ficou a contradizer o que está acima quando a medição deixou de existir, e sai. A assimetria que a justificava **mantém-se e vale para quem lhe mexer**: larga de mais deixa contornar o tecto de vez; vazia, o tecto do site inteiro passa a ser o de um utilizador. Um tecto apertado de mais é visível; um contornável não é.
+
+⏳ **`KAN-59`** — falta a máquina a sério: escolher o domínio, provisionar o VPS e correr o `docs/DEPLOY.md` pela primeira vez. ⚠️ **Subir a máquina não é publicar o serviço** — a `KAN-24` bloqueia isso, e a ordem é de pé, medido e fechado antes de divulgado.
 
 ## Fase 5 — Ecrã de mercado ⛔ *cancelada a 2026-08-06*
 
