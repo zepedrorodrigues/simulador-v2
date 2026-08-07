@@ -12,7 +12,9 @@ Estado actual e próximos passos. ⚠️ **Sem changelog** — o relato de sess�
 
 **E a cache está no `development`**: `internal/infra/cache`, tabela `respostas_em_cache`, chave = `SHA-256` de (versão, banco, pedido), validade de **5 min**. Guarda o **servido** e não o objecto de domínio; lê-se **antes** do tecto, para um acerto não gastar vaga; uma falha nunca se guarda.
 
-**O que falta para produção não é código:** o **alojamento** (adiado desde 2026-08-01, e é ele que desbloqueia o valor do `PROXIES_DE_CONFIANCA`) e o **parecer jurídico** (`KAN-24`). ⏳ Fica em código o **prazo por banco**, que espera mais amostras de latência.
+**A forma de produção está escrita e corrida em local** (`compose.producao.yml`, `Caddyfile`, `docs/DEPLOY.md`): VPS com IPv4 dedicado, Caddy à frente, Postgres na mesma máquina e sem portas publicadas. ⚠️ **Nada está exposto, e é decisão** — a `KAN-24` bloqueia publicar, e subir a máquina não é publicar o serviço.
+
+**O que falta:** escolher o **domínio** e provisionar a máquina; o **parecer jurídico** (`KAN-24`); e em código o **prazo por banco**, que espera mais amostras de latência.
 
 ## Onde estamos
 
@@ -43,7 +45,7 @@ Num só dia, quatro assunções do modelo de preço caíram contra dados varrido
 2. **Os três números da Fase 6:** a latência por banco está **medida** (`make latencia`, 2026-08-06 às 17h13 — tabela no `DOSSIE-BANCOS.md`). Os outros dois não se medem com uma corrida — ver o `PLAN.md`: a concorrência não se procura subindo até o banco recusar, e a validade da cache pede uma vigia de horas.
 3. **`KAN-7`** 🔶 — o caminho está de pé e o **tecto de concorrência por banco está feito** (2 vagas, `internal/infra/lotacao`). Falta o **prazo por banco**: o de 15 s está medido, mas é um só para cinco bancos que diferem 7× na cauda — e diferenciá-lo pede mais amostras (`LATENCIA_AMOSTRAS`), que custam pedidos aos bancos.
 4. **`KAN-58`** ✅ — cache em Postgres, feita a 2026-08-07. ⚠️ **A validade fica por medir**: os 5 min são de partida, e o que os mede é uma **vigia** de horas — perguntar o mesmo ao mesmo banco de hora a hora, sendo a **primeira** mudança o que decide, não a média.
-5. **`KAN-14`** 🔶 — o dimensionamento está **contado** e o tecto fica nos **60/min** (uma comparação são 5 pedidos, logo 12 comparações/min e 12× de folga). Os dois critérios correm contra um **proxy a sério** (Caddy em contentor). ⏳ **Falta o valor do `PROXIES_DE_CONFIANCA`**, bloqueado pelo alojamento adiado — mede-se contra o proxy que estiver à frente, e não há nenhum escolhido.
+5. **`KAN-14`** ✅ — o tecto fica nos **60/min** (uma comparação são 5 pedidos, logo 12 comparações/min e 12× de folga), os dois critérios correm contra um **proxy a sério**, e o `PROXIES_DE_CONFIANCA` **deixou de ser uma medição**: o Caddy tem endereço fixo no `compose.producao.yml` e o valor é conhecido de antemão. ⚠️ Medir não servia — o diário não regista o endereço do cliente, e os endereços do Docker mudam a cada recriação.
 6. ✅ **Retirado o que morreu** (2026-08-07): 14 438 linhas — `varrimento`, `grelha`, `sonda`, `varrer`, `sondar`, `catalogo`, `travao`, as tabelas `catalogo_taxas` e `sondagens`, o `/api/rate-catalog` e o `POST /api/v1/comparacoes`. ⚠️ **A D1 caiu por verificação:** o `viabilidade-imobiliaria` lê o `/api/rate-catalog` do **v1**, não o nosso, e **não há produção** em lado nenhum — cinco documentos afirmavam o contrário.
 
 ## O que está por resolver

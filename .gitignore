@@ -6,6 +6,14 @@
 
 # Ambiente
 .env
+# ⚠️ **O `.env` sozinho NÃO chegava.** Um padrão sem `*` casa com o nome exacto,
+# e o `.env.producao` — que leva a password da base — passava a estar
+# versionável. Apanhado a 2026-08-07, ao escrever a forma de produção, antes de
+# existir ficheiro nenhum com esse nome. O `.env.producao.example`, esse, é
+# versionado de propósito: não leva segredo, leva as perguntas.
+.env.*
+!.env.example
+!.env.producao.example
 *.local.yaml
 
 # Ferramentas

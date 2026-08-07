@@ -1,0 +1,136 @@
+# A forma de produção: Caddy → simulador → Postgres, numa só máquina.
+#
+# ⚠️ **É um ficheiro à parte do `docker-compose.yml` de propósito.** Aquele sobe
+# só o Postgres, para desenvolver contra ele com o binário a correr na máquina;
+# este sobe as três peças como elas vivem em produção. Um ficheiro só, com
+# perfis, fazia o `make dev` de todos os dias carregar decisões de produção — e
+# um engano num perfil publicava a base de dados.
+#
+# Corre-se:
+#   docker compose -f compose.producao.yml --env-file .env.producao up -d
+#
+# ⚠️ **O `migrar` é um passo próprio e corre ANTES do `servir`** (§4: não há
+# auto-migração). Está aqui como um serviço que corre uma vez e sai, e o
+# `simulador` só arranca depois de ele sair bem.
+
+name: simulador-v2-producao
+
+services:
+  # ⚠️ **A base NÃO publica portas.** Sem `ports:`, o Postgres só existe na rede
+  # interna do compose — o servidor alcança-o pelo nome, e a internet não lhe
+  # chega. Publicar 5432 num VPS é pôr a base no mapa de quem varre portas, e é
+  # o género de engano que só se descobre depois.
+  postgres:
+    image: postgres:18.4-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${PG_UTILIZADOR:?define PG_UTILIZADOR no .env.producao}
+      POSTGRES_PASSWORD: ${PG_PASSWORD:?define PG_PASSWORD no .env.producao}
+      POSTGRES_DB: ${PG_BASE:?define PG_BASE no .env.producao}
+    volumes:
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      # ⚠️ O `-h 127.0.0.1` não é decoração: sem ele responde o servidor
+      # temporário do `initdb`, que só escuta no socket unix e é desligado a
+      # seguir — e o compose dava a base por pronta cedo demais.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U ${PG_UTILIZADOR} -d ${PG_BASE}"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    networks: [interna]
+
+  # As migrações, como passo próprio. Corre, aplica e sai.
+  #
+  # ⚠️ **É isto que faz o `servir` poder recusar-se a arrancar contra uma base
+  # por migrar** em vez de migrar sozinho. Um serviço que migra ao arranque, com
+  # duas réplicas, corre duas migrações ao mesmo tempo.
+  migrar:
+    image: ${IMAGEM:-simulador-v2:local}
+    command: ["migrar"]
+    restart: "no"
+    environment:
+      DATABASE_URL: postgres://${PG_UTILIZADOR}:${PG_PASSWORD}@postgres:5432/${PG_BASE}?sslmode=disable
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [interna]
+
+  simulador:
+    image: ${IMAGEM:-simulador-v2:local}
+    command: ["servir"]
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://${PG_UTILIZADOR}:${PG_PASSWORD}@postgres:5432/${PG_BASE}?sslmode=disable
+      # Dentro do contentor, o loopback não recebe nada de fora dele.
+      ENDERECO_HTTP: "0.0.0.0:8080"
+      ORIGENS_PERMITIDAS: ${ORIGENS_PERMITIDAS:-}
+      # ⚠️ **O endereço do Caddy é FIXADO abaixo, e por isso isto é uma constante
+      # e não uma medição.** Ver a nota na rede `interna`, no fim do ficheiro.
+      PROXIES_DE_CONFIANCA: ${PROXIES_DE_CONFIANCA:-172.30.0.2/32}
+      VAGAS_POR_BANCO: ${VAGAS_POR_BANCO:-}
+      CACHE_VALIDADE: ${CACHE_VALIDADE:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrar:
+        condition: service_completed_successfully
+    networks: [interna]
+
+  # ⚠️ **O único serviço com portas publicadas.** Termina o TLS, e é ele que
+  # emite o HSTS — o serviço não o emite de propósito, porque fala HTTP em claro
+  # e não tem como saber o que está à frente (`docs/API.md` §3).
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMINIO: ${DOMINIO:?define DOMINIO no .env.producao}
+      EMAIL_ACME: ${EMAIL_ACME:?define EMAIL_ACME no .env.producao}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_dados:/data
+      - caddy_config:/config
+    depends_on:
+      - simulador
+    networks:
+      interna:
+        # ⚠️ **Fixo, e é o que torna o `PROXIES_DE_CONFIANCA` uma constante.**
+        ipv4_address: 172.30.0.2
+
+networks:
+  # ⚠️ **Rede com sub-rede declarada, e o Caddy com endereço fixo — de propósito.**
+  #
+  # Por omissão o Docker atribui os endereços por ordem de arranque, e eles
+  # **mudam quando um contentor é recriado**. Medido a 2026-08-07 ao correr esta
+  # forma: o serviço apanhou `172.19.0.3`, e a rede nem sequer era a mesma de
+  # outra máquina. Um `PROXIES_DE_CONFIANCA` medido uma vez apodrecia no primeiro
+  # `up` que recriasse o Caddy — e apodrecia **em silêncio**, do lado mau: o
+  # tecto voltava a contar toda a gente como um só, que é o bug de produção do v1.
+  #
+  # Com o endereço fixado, o valor é conhecido **antes** do primeiro deploy, é o
+  # mesmo em todas as máquinas, e sobrevive a recriações. Deixa de haver medição
+  # a fazer — que era o que bloqueava a `KAN-14`.
+  #
+  # ⚠️ **O `ip_range` não é decoração — sem ele isto NÃO arranca.** Medido a
+  # 2026-08-07: com só a sub-rede declarada, o Docker distribui os endereços por
+  # ordem de arranque a partir do fundo, o **Postgres apanhou o `172.30.0.2`** e
+  # o Caddy morreu com «Address already in use». O `ip_range` separa as duas
+  # coisas: os dinâmicos saem da metade de cima, e a metade de baixo fica livre
+  # para os fixos.
+  #
+  # ⚠️ A sub-rede é privada a este compose. Se colidir com outra rede da máquina,
+  # muda-se aqui **e** no `PROXIES_DE_CONFIANCA` — os dois juntos, sempre.
+  interna:
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24
+          ip_range: 172.30.0.128/25
+
+volumes:
+  pgdata:
+  # ⚠️ O `caddy_dados` guarda os certificados. Perdê-lo faz o Caddy pedir tudo
+  # de novo à Let's Encrypt, e há limites de emissão por domínio por semana.
+  caddy_dados:
+  caddy_config:

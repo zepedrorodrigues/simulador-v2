@@ -181,9 +181,22 @@ func Servir(ctx context.Context, url, endereco string, saida io.Writer) error {
 		Janela:             JanelaOmissao,
 		ProxiesDeConfianca: proxies,
 	})
+	// ⚠️ **Diz-se sempre em quem se confia, e não só quando não se confia em
+	// ninguém.** O silêncio no caso bom era uma lacuna a sério: o modo errado
+	// desta definição — confiar na rede errada, ou deixar de a confiar por o
+	// endereço do proxy ter mudado — **não dá erro nenhum**, dá o tecto do site
+	// inteiro a valer por um utilizador, que é o bug de produção do v1. Quem
+	// arranca tem de poder ler o que ficou a valer, sem ir à configuração.
 	if len(proxies) == 0 {
 		_, _ = fmt.Fprintln(saida,
 			"tecto por IP ligado pelo endereço da ligação (nenhum PROXIES_DE_CONFIANCA declarado)")
+	} else {
+		redes := make([]string, 0, len(proxies))
+		for _, r := range proxies {
+			redes = append(redes, r.String())
+		}
+		_, _ = fmt.Fprintf(saida,
+			"tecto por IP a confiar no X-Forwarded-For de: %s\n", strings.Join(redes, ", "))
 	}
 
 	// ⚠️ A lotação liga-se sempre, e não há definição que a desligue. É ela que
