@@ -54,11 +54,13 @@ Quatro bancos de HTTP puro, escolhidos para exercitarem o máximo de dimensões 
 
 Feito: `Dockerfile` não-root sem Chromium, logs com `X-Request-ID` (`KAN-43`), CORS com lista explícita, `/healthz`, e a forma de produção **corrida em local a 2026-08-01** — migrações como passo próprio, base fechada, proxy com TLS, e o restauro de `pg_dump` executado.
 
-⏳ **Alojamento adiado** (2026-08-01), até isto estar testado a fundo. Nada está preso a fornecedor nenhum. O `fly.toml` fica e não descreve nada executado.
+🔶 **Alojamento: a forma está escrita, e nada está exposto** (2026-08-07). `compose.producao.yml` — Caddy → simulador → Postgres numa só máquina, um VPS com **IPv4 dedicado**. Escolhido por causa deste serviço e não por gosto: o IP de saída é o que os **bancos** vêem, e uma faixa partilhada de PaaS é reputação de terceiros. Corrido de ponta a ponta em local: migrações como passo próprio, `/healthz` a responder, e as rotas retiradas a dar 404 na imagem construída.
 
-🔶 **Medir o `PROXIES_DE_CONFIANCA`** com um pedido real. ⚠️ Fica vazio até estar medido, e a razão é assimétrica: larga de mais deixa contornar o tecto de vez; vazia, o tecto do site inteiro passa a ser o de um utilizador — o bug de produção do v1. **Um tecto apertado de mais é visível; um contornável não é.**
+⚠️ O `fly.toml` fica como alternativa e continua a **não descrever nada executado** — e três dos seus comentários morreram com o varrimento, incluindo o que dizia que um pedido «custa milissegundos». Com `auto_stop_machines`, o cold start somava-se aos 8,4 s da cauda do Montepio.
 
-**Feito a 2026-08-07:** o *comportamento* está medido contra um proxy a sério — Caddy em contentor, no portão. **Por fazer: o valor**, que depende do alojamento adiado. Ver a `KAN-14` na Fase 6.
+✅ **O `PROXIES_DE_CONFIANCA` deixou de ser uma medição** (2026-08-07). ⚠️ Fica vazio até estar medido, e a razão é assimétrica: larga de mais deixa contornar o tecto de vez; vazia, o tecto do site inteiro passa a ser o de um utilizador — o bug de produção do v1. **Um tecto apertado de mais é visível; um contornável não é.**
+
+O comportamento está medido contra um proxy a sério (Caddy em contentor, no portão), e o **valor passou a ser conhecido de antemão**: o `compose.producao.yml` dá ao Caddy um endereço **fixo** e o omissão é esse. ⚠️ **Não se mediu porque medir não servia** — o diário não regista o endereço do cliente, e os endereços do Docker mudam quando um contentor é recriado, portanto um valor medido apodrecia em silêncio e do lado mau.
 
 ## Fase 5 — Ecrã de mercado ⛔ *cancelada a 2026-08-06*
 

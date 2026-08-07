@@ -143,6 +143,12 @@ docker run --rm -e DATABASE_URL=… simulador-v2 migrar
 docker run --rm -p 8080:8080 -e DATABASE_URL=… simulador-v2 servir
 ```
 
+**A forma de produção** — Caddy à frente, Postgres na mesma máquina, TLS — está
+em `compose.producao.yml`, e o passo a passo em
+[`docs/DEPLOY.md`](docs/DEPLOY.md). ⚠️ **Escrita e corrida em local, nada
+exposto:** a `KAN-24` bloqueia publicar, e subir a máquina não é publicar o
+serviço.
+
 ⚠️ **O `migrar` não é opcional, e o binário obriga.** `servir` contra uma base
 por migrar recusa-se, com «base de dados por migrar — corre `simulador migrar`
 antes de servir». É a §4 do `ARQUITETURA.md` («não há auto-migração») a valer em

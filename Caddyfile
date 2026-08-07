@@ -1,0 +1,41 @@
+# O proxy da frente. Termina o TLS e entrega em claro ao serviço, na rede
+# interna do compose.
+
+{
+	email {$EMAIL_ACME}
+}
+
+{$DOMINIO} {
+	# ⚠️ **NÃO se declara `trusted_proxies` aqui, e é a decisão central deste
+	# ficheiro.** Por omissão o Caddy 2 **substitui** o `X-Forwarded-For` pelo
+	# endereço de quem lhe falou, deitando fora o que o cliente tenha escrito —
+	# medido a 2026-08-07 (`internal/infra/web/proxy_integracao_test.go`): com o
+	# cliente a mandar `203.0.113.10`, o serviço recebeu `172.17.0.1` e mais nada.
+	#
+	# Aqui isso é exactamente o que se quer: este Caddy **é a borda**, não há
+	# nada de confiança à frente dele, e um `X-Forwarded-For` que chegue da
+	# internet é alguém a tentar escolher o seu próprio identificador para
+	# contornar o tecto por IP. Declarar `trusted_proxies` aqui abria essa porta.
+	#
+	# ⚠️ Se um dia entrar um CDN à frente disto, **então** declara-se a rede dele
+	# aqui — e nunca uma rede larga. O erro é assimétrico: um tecto apertado de
+	# mais é visível, um contornável não é.
+	reverse_proxy simulador:8080
+
+	# O HSTS sai daqui e não do serviço, e é decisão escrita (`docs/API.md` §3):
+	# o serviço fala HTTP em claro e não tem como saber se o que está à frente
+	# serve TLS. Quem termina o TLS é que sabe, e é quem o emite. Há um teste que
+	# falha se o serviço começar a emiti-lo.
+	header Strict-Transport-Security "max-age=31536000; includeSubDomains"
+
+	# ⚠️ Os outros cabeçalhos de defesa (`X-Content-Type-Options`,
+	# `Referrer-Policy`) vêm do SERVIÇO e não daqui, de propósito: lá estão
+	# afirmados por teste em respostas que nascem em três sítios diferentes
+	# (KAN-46). Duplicá-los aqui dava duas fontes para a mesma regra, a divergir
+	# em silêncio.
+
+	log {
+		output stdout
+		format console
+	}
+}
