@@ -56,7 +56,9 @@ Feito: `Dockerfile` não-root sem Chromium, logs com `X-Request-ID` (`KAN-43`), 
 
 ⏳ **Alojamento adiado** (2026-08-01), até isto estar testado a fundo. Nada está preso a fornecedor nenhum. O `fly.toml` fica e não descreve nada executado.
 
-⏳ **Medir o `PROXIES_DE_CONFIANCA`** com um pedido real. ⚠️ Fica vazio até estar medido, e a razão é assimétrica: larga de mais deixa contornar o tecto de vez; vazia, o tecto do site inteiro passa a ser o de um utilizador — o bug de produção do v1. **Um tecto apertado de mais é visível; um contornável não é.**
+🔶 **Medir o `PROXIES_DE_CONFIANCA`** com um pedido real. ⚠️ Fica vazio até estar medido, e a razão é assimétrica: larga de mais deixa contornar o tecto de vez; vazia, o tecto do site inteiro passa a ser o de um utilizador — o bug de produção do v1. **Um tecto apertado de mais é visível; um contornável não é.**
+
+**Feito a 2026-08-07:** o *comportamento* está medido contra um proxy a sério — Caddy em contentor, no portão. **Por fazer: o valor**, que depende do alojamento adiado. Ver a `KAN-14` na Fase 6.
 
 ## Fase 5 — Ecrã de mercado ⛔ *cancelada a 2026-08-06*
 
@@ -98,7 +100,13 @@ Depois disso, e por esta ordem:
    ⚠️ **A validade continua por medir.** Os 5 min são um valor de partida, e a medição é uma **vigia** e não uma corrida: perguntar o mesmo ao mesmo banco de hora a hora e ver quando muda, sendo que o que decide é a **primeira** mudança e não a média.
 
    ⚠️ **Limite conhecido e escrito:** um `SHA-256` de um registo de baixa entropia confirma-se por tentativa. O resumo esconde o pedido de quem **lê** a tabela, não de quem o **adivinha** com a base na mão. Um HMAC com segredo fechava-o e traz gestão de chaves que este repositório ainda não tem.
-3. `KAN-14` — o tecto por IP dimensionado para **N pedidos por comparação**, e o `PROXIES_DE_CONFIANCA` **medido**. ⚠️ Passa de dívida a bloqueante: é ele que separa um serviço de uma ferramenta de carga contra cinco bancos.
+3. `KAN-14` 🔶 — o tecto por IP dimensionado para **N pedidos por comparação**, e o `PROXIES_DE_CONFIANCA` **medido**. ⚠️ Passa de dívida a bloqueante: é ele que separa um serviço de uma ferramenta de carga contra cinco bancos.
+
+   ✅ **O dimensionamento está contado** (2026-08-07) e o tecto **fica nos 60/min**: uma comparação são 5 pedidos, logo 12 comparações por minuto e 12× de folga sobre a primeira. O que mudou foi a justificação escrita ao lado — dizia «um endpoint que custa uma consulta só», falso desde a reversão da §1 — e a frase da §7.5 que afirmava que o tecto trancava um utilizador a meio da primeira comparação, que **não era verdade e fica corrigida**.
+
+   ✅ **Os dois critérios da issue correm contra um proxy a sério** — Caddy em contentor, e não um `httputil.ReverseProxy` no mesmo processo. ⚠️ E o teste novo apanha um defeito que a suite inteira deixava passar: **ler a cadeia da esquerda para a direita** — a falsificação clássica — passava em todos os testes que já existiam, porque o que lá havia distinguia as «duas máquinas» por um cabeçalho que o próprio cliente escrevia.
+
+   ⏳ **Falta o valor do `PROXIES_DE_CONFIANCA`**, e está bloqueado pelo alojamento: mede-se contra o proxy que estiver à frente em produção, e não há nenhum escolhido. ⚠️ Medido pelo caminho: **o Caddy substitui o `X-Forwarded-For` por omissão** e um nginx acrescenta — a cadeia que chega depende do proxy, e o valor mede-se contra o que ele faz e não contra o que se supõe.
 4. ~~`GET`~~ **`POST` `/api/v1/ofertas/{banco}`** no contrato ✅ *(2026-08-06)*, e a app a fazer o fan-out ⏳. ⚠️ O método mudou e não é detalhe: o pedido leva data de nascimento e rendimento, e num `GET` isso viajava na query string — histórico do browser, logs de qualquer proxy, `Referer`.
 5. Retirar o que morreu: `sondagens`, a escala, os encargos, a grelha. ⚠️ **Depois** de a fatia ao vivo estar de pé, e não antes — apagar primeiro deixa o repositório sem nada que responda.
 

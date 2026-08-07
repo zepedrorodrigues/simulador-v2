@@ -328,13 +328,40 @@ cache». O varrimento morreu (D1) e a cache voltou.
    **2,03** no Montepio, **4,00** no Santander. Com origem aparente nossa.
 
    O tecto por IP deixa de ser boa educação e passa a ser **estrutural**. E
-   passa a contar **N pedidos por comparação** em vez de um: dimensionado como
-   está, tranca um utilizador normal a meio da primeira comparação.
+   passa a contar **N pedidos por comparação** em vez de um.
+
+   ✅ **Contado a 2026-08-07, e o receio não se confirmou.** Dizia aqui que
+   «dimensionado como está, tranca um utilizador normal a meio da primeira
+   comparação» — **é falso, e fica corrigido**: uma comparação são 5 pedidos (um
+   por banco) contra um tecto de 60 por minuto, ou seja **12 comparações por
+   minuto** e 12× de folga sobre a primeira. O tecto **fica nos 60**, agora com a
+   conta escrita ao lado dele em vez de uma frase que ninguém tinha somado.
+
+   ⚠️ E o que sustenta os 60 é não ser este o travão que protege os bancos —
+   esse é o tecto de concorrência **por banco** (§7.2), que não depende de quantos
+   IPs apareçam. Confundir os dois leva a apertar o que se vê e a deixar aberto o
+   que conta.
 
    ⚠️ **O `PROXIES_DE_CONFIANCA` sobe de dívida a BLOQUEANTE.** Sem ele medido,
    ou o tecto é contornável, ou é o tecto do site inteiro — o bug de produção do
    v1. Antes dava para adiar; agora é ele que separa um serviço de uma
    ferramenta de carga contra cinco bancos.
+
+   🔶 **Medido a 2026-08-07 contra um proxy a sério** (Caddy em contentor,
+   `internal/infra/web/proxy_integracao_test.go`): os dois critérios da `KAN-14`
+   passam a correr no portão — um cliente que forja o cabeçalho atrás de um proxy
+   de confiança **não escapa** ao tecto, e duas máquinas atrás do mesmo proxy têm
+   tectos separados. ⚠️ **O que continua por medir é o VALOR**, e depende do
+   alojamento, que está adiado: a lista fica vazia até haver um proxy real à
+   frente cujo endereço se possa ler.
+
+   ⚠️ **E há um facto medido que muda como se configura isto:** por omissão o
+   **Caddy 2 substitui** o `X-Forwarded-For` pelo endereço de quem lhe falou, em
+   vez de acrescentar — com o cliente a mandar `203.0.113.10`, o serviço recebeu
+   `172.17.0.1` e mais nada. Um nginx com `$proxy_add_x_forwarded_for`
+   **acrescenta**. **A cadeia que chega cá depende do proxy que se puser à
+   frente**, e o `PROXIES_DE_CONFIANCA` mede-se contra o que ele faz de facto e
+   não contra o que se supõe que faça.
 
 6. **A cache volta** (`KAN-8`, que a inversão de Julho tinha matado). É a única
    defesa que corta carga sem cortar funcionalidade.

@@ -44,9 +44,25 @@ type Tecto struct {
 	ProxiesDeConfianca []*net.IPNet
 }
 
-// Os valores de omissão. ⚠️ São generosos de propósito: isto trava abuso banal,
-// e um tecto apertado sobre um endpoint que custa uma consulta só serve para
-// irritar quem carrega duas vezes no botão.
+// Os valores de omissão.
+//
+// ⚠️ **A justificação destes 60 mudou por baixo deles a 2026-08-06, e o número
+// ficou.** Dizia aqui que eram generosos «sobre um endpoint que custa uma
+// consulta só» — verdade no desenho varrido, e falso desde a reversão da §1: um
+// pedido de cliente passou a custar um pedido a um banco. O que ele significa
+// hoje, contado: a app faz fan-out de **5 pedidos por comparação** (um por
+// banco), logo 60/min são **12 comparações por minuto** de um IP, e até ~120
+// pedidos por minuto a terceiros com origem aparente nossa.
+//
+// **Reafirmado a 2026-08-07 com essa conta à frente**, e não por inércia. O que
+// o sustenta é não ser este o travão que protege os bancos — esse é o tecto de
+// concorrência por banco (§7.2, 2 vagas), que é por banco e não por cliente, e
+// que continua de pé por muitos IPs que apareçam. Este trava abuso banal de um
+// endereço, e a primeira comparação tem de caber nele com folga: 5 pedidos
+// contra 60 é 12×.
+//
+// ⚠️ Quem o descer vê-o logo — clientes trancados a meio de uma comparação.
+// Quem o subir não vê nada, e é sempre esse o lado por que se erra.
 const (
 	PedidosOmissao = 60
 	JanelaOmissao  = time.Minute
