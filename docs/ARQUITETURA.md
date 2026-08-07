@@ -244,6 +244,29 @@ cache». O varrimento morreu (D1) e a cache voltou.
    apertado de mais é visível (clientes esperam) e um largo de mais não é (o
    banco bloqueia-nos, e só se sabe depois).
 
+   ✅ **Feito a 2026-08-06** (`internal/infra/lotacao`, `VAGAS_POR_BANCO`): **2
+   vagas por banco**, em advisory locks de Postgres — N chaves distintas por
+   banco, e não uma, que é o que separa isto do fecho do varrimento. O 2 é o
+   apertado que já estava medido (1, 2 e 4 em paralelo contra a CGD a
+   2026-07-26, zero falhas nos três), e não o resultado de procurar onde o banco
+   parte.
+
+   **O N+1 desiste, não faz fila** — a §7.2 deixava as duas em aberto. Quem
+   ficasse em fila continuava a segurar uma ligação à base e a gastar o prazo do
+   cliente para no fim ouvir «o banco não respondeu», quando esperou por nós.
+   Sai `503 banco_ocupado` com `Retry-After`, e **não** uma oferta em falha: essa
+   dizia que o banco está em baixo quando quem não tem lugar somos nós.
+
+   ⚠️ **Custa uma ligação ao Postgres por pedido em voo** — o lock é de sessão.
+   Com cinco bancos a duas vagas são dez, e é por isso que o pool passou a ser
+   dimensionado a partir daqui: o omissão do `pgxpool` (o maior de 4 e o número
+   de CPUs) deixava o tecto a esfomear as consultas que ele existe para
+   proteger, e o sintoma aparecia como lentidão em toda a API.
+
+   ⚠️ **E falha FECHADO**, ao contrário do tecto por IP: se a base não responde,
+   não se serve. A assimetria é de quem paga — o tecto por IP protege-nos a nós,
+   este protege o simulador de um terceiro que não tem voz nenhuma nisto.
+
 3. **⚠️ Timeout por banco, e a falha é por banco.** Um banco lento não pode
    segurar a comparação inteira. Quem não responder dentro do prazo sai como
    `banco_indisponivel`, nomeado — nunca em silêncio e nunca substituído por

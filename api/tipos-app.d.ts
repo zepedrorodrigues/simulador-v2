@@ -428,6 +428,20 @@ export interface components {
             };
         };
         /**
+         * @description Já vão pedidos nossos a mais em curso contra este banco: o tecto de concorrência por banco está cheio (ARQUITETURA.md §7.2). Código `banco_ocupado`, e a resposta traz `Retry-After`.
+         *     ⚠️ **Não confundir com a oferta em falha `banco_indisponivel`**, que vem com 200. Essa diz que o banco não respondeu; esta diz que quem não tem lugar somos nós, e o banco está bem. A distinção é para a app poder voltar a pedir este banco daqui a um instante em vez de o riscar da lista.
+         */
+        BancoOcupado: {
+            headers: {
+                /** @description Segundos a esperar antes de voltar a pedir este banco. */
+                "Retry-After"?: number;
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["RespostaErro"];
+            };
+        };
+        /**
          * @description Não há série de mercado que responda a este pedido: nenhum dos bancos escolhidos tem observações utilizáveis.
          *     ⚠️ Substitui o `DemasiadasEmCurso` do modelo ao vivo, e não é o mesmo 503. Aquele dizia «estamos ocupados a falar com os bancos, volta»; este diz «o varrimento ainda não correu, ou correu e falhou para estes bancos». O primeiro resolvia-se esperando; este resolve-se correndo `simulador varrer` — e é por isso que a mensagem tem de os distinguir em vez de os empacotar num «tenta mais tarde».
          */
@@ -503,6 +517,7 @@ export interface operations {
                 };
             };
             429: components["responses"]["TectoExcedido"];
+            503: components["responses"]["BancoOcupado"];
         };
     };
     compararOfertas: {

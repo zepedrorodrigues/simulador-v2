@@ -38,6 +38,12 @@ Um pedido, **um banco**. É o que a §1 revertida manda e o que a app passa a us
 
 ⚠️ **O tecto por IP conta N pedidos por comparação**, e não um. Quem o dimensionar como se fosse um tranca um utilizador normal a meio da primeira comparação.
 
+**Erros:** `400` pedido inválido com o campo nomeado, `404` id que não é banco nenhum, `429` tecto por IP, e **`503 banco_ocupado`** — o tecto de concorrência **por banco** (§7.2), com `Retry-After`.
+
+⚠️ **O `503 banco_ocupado` e a oferta em falha `banco_indisponivel` dizem coisas diferentes, e a app tem de as tratar como diferentes.** O `200` com `banco_indisponivel` é o banco a não responder: aquele banco fica de fora desta comparação. O `503` é **nosso** — já vão pedidos nossos a mais em curso contra aquele banco —, o banco está bem, e passa sozinho: volta-se a pedir daí a um instante em vez de o riscar da lista. Servir o tecto nosso como oferta em falha culpava o banco por um limite que é nosso, e a app não tinha como distinguir.
+
+⚠️ **Quantos são «pedidos a mais» está em `VAGAS_POR_BANCO`, e são 2 por omissão.** É o que está medido sem falhas (1, 2 e 4 em paralelo contra a CGD, 2026-07-26) e escolheu-se o apertado, não o rápido.
+
 ### `POST /api/v1/comparacoes` → `200`
 
 ⚠️ **Um pedido, uma resposta** (KAN-32). Não há `202`, identificador para sondar, `GET /{id}` nem `503` de «demasiadas em curso». A resposta sai de uma consulta à grelha e de cálculo local.

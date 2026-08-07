@@ -76,6 +76,14 @@ type Servidor struct {
 	contador Contador
 	tecto    Tecto
 
+	// lotacao é o tecto de pedidos em voo contra o MESMO banco (§7.2). Nula
+	// desliga-o.
+	//
+	// ⚠️ Não é o `tecto` acima, e os dois nomes têm de continuar diferentes: o
+	// `tecto` conta pedidos de um CLIENTE por janela de tempo e protege-nos a nós;
+	// a `lotacao` conta pedidos NOSSOS em voo contra um banco e protege-o a ele.
+	lotacao aovivo.Lotacao
+
 	// diario escreve uma linha por pedido. Nulo desliga-o.
 	//
 	// ⚠️ Chama-se `diario` e não `registo` porque `registo` já é o registo de
@@ -128,6 +136,17 @@ func (s *Servidor) ComAoVivo(construir func(id string) (bancos.Banco, error), pr
 // cada um decidir um número que não está a medir.
 func (s *Servidor) ComTecto(contador Contador, tecto Tecto) *Servidor {
 	s.contador, s.tecto = contador, tecto
+	return s
+}
+
+// ComLotacao liga o tecto de pedidos em voo por banco (§7.2).
+//
+// ⚠️ Método e não parâmetro do `Novo`, pela mesma razão do `ComTecto` — e com um
+// efeito que não é o mesmo: sem ele, os testes da tradução falam com bancos
+// falsos sem tecto nenhum, que é o que estão a medir. **Em produção liga-se
+// sempre**, e é o `servir.go` que o garante.
+func (s *Servidor) ComLotacao(lotacao aovivo.Lotacao) *Servidor {
+	s.lotacao = lotacao
 	return s
 }
 
@@ -460,6 +479,25 @@ func (s *Servidor) ofertaDeUmBanco(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	oferta := aovivo.Pedir(r.Context(), banco, pedido, s.agora, s.prazoDoBanco)
+	oferta, err := aovivo.PedirComVaga(r.Context(), s.lotacao, banco, pedido, s.agora, s.prazoDoBanco)
+	if err != nil {
+		// ⚠️ **503 e não 200 com a oferta em falha, e é a decisão inteira.** Um 200
+		// com `banco_indisponivel` dizia à pessoa que o banco está em baixo; ele
+		// está bem, e quem não tem lugar somos nós. O estatuto separa as duas
+		// coisas para quem lê logs, e o `Retry-After` diz que isto passa sozinho —
+		// ao contrário de um banco em baixo, que não passa por se esperar 1 s.
+		if errors.Is(err, aovivo.ErrSemVaga) {
+			w.Header().Set("Retry-After", "1")
+			erro(w, http.StatusServiceUnavailable, "banco_ocupado",
+				fmt.Sprintf(
+					"Já vão pedidos nossos a mais em curso contra o %s. Tenta daqui a pouco.", banco.Nome()))
+			return
+		}
+		// A lotação não respondeu: não se sabe se há vaga, e servir sem tecto é o
+		// que o `PedirComVaga` recusa fazer. Quem está avariado somos nós.
+		erro(w, http.StatusInternalServerError, "erro_interno",
+			fmt.Sprintf("Não se conseguiu garantir o tecto de pedidos ao banco: %v", err))
+		return
+	}
 	escrever(w, http.StatusOK, ofertaDe(oferta))
 }
