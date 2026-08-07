@@ -137,7 +137,7 @@ func TestOPreflightDaComparacaoResponde(t *testing.T) {
 	servidor := servidorComOrigens(t, origemDaApp)
 
 	// É o que o browser manda antes de um POST com Content-Type: application/json.
-	req := httptest.NewRequest(http.MethodOptions, "/api/v1/comparacoes", nil)
+	req := httptest.NewRequest(http.MethodOptions, "/api/v1/ofertas/cgd", nil)
 	req.Header.Set("Origin", origemDaApp)
 	req.Header.Set("Access-Control-Request-Method", http.MethodPost)
 	req.Header.Set("Access-Control-Request-Headers", "content-type")
@@ -202,23 +202,13 @@ func TestTodoOPostDaAppTemPreflight(t *testing.T) {
 	}
 }
 
-// TestOCatalogoNaoRespondeAUmBrowser é a afirmação central desta secção.
-//
-// ⚠️ O `/api/rate-catalog` autentica-se por `X-API-Key`. Se respondesse a
-// preflights, estava a convidar quem escreve a app a pôr lá a chave — e uma
-// chave dentro de um bundle de browser é pública.
-func TestOCatalogoNaoRespondeAUmBrowser(t *testing.T) {
-	servidor := servidorComOrigens(t, origemDaApp)
-
-	req := httptest.NewRequest(http.MethodGet, "/api/rate-catalog", nil)
-	req.Header.Set("Origin", origemDaApp)
-	resp := httptest.NewRecorder()
-	servidor.Rotas().ServeHTTP(resp, req)
-
-	if got := resp.Header().Get("Access-Control-Allow-Origin"); got != "" {
-		t.Errorf("o catálogo deu permissão de CORS a %q — a chave dele acabaria num browser", got)
-	}
-}
+// ⚠️ **Havia aqui um `TestOCatalogoNaoRespondeAUmBrowser`**, e saiu com a rota
+// que ele guardava: o `/api/rate-catalog` autenticava-se por `X-API-Key`, e o
+// teste impedia que ele respondesse a preflights — porque uma chave dentro de um
+// bundle de browser é pública. Não há hoje nenhuma superfície autenticada, e por
+// isso não há o que guardar. ⚠️ **Quem voltar a pôr uma repõe este teste com
+// ela**: o grupo do `Rotas()` que separava as duas políticas ficou de pé
+// precisamente para isso.
 
 func TestSemOrigensDeclaradasNaoSaiCabecalhoNenhum(t *testing.T) {
 	// Vazio não é «tudo»: é «sem cabeçalhos», ou seja, só a mesma origem.
@@ -236,13 +226,13 @@ func TestSemOrigensDeclaradasNaoSaiCabecalhoNenhum(t *testing.T) {
 
 func servidorComOrigens(t *testing.T, origens ...string) *web.Servidor {
 	t.Helper()
-	return servidorComCatalogo(t, nil).ComOrigens(origens)
+	return servidor(t).ComOrigens(origens)
 }
 
 // TestOPreflightNaoGastaDoTecto é a consequência que ligar o CORS trouxe, e que
 // não estava à vista.
 //
-// ⚠️ Um browser manda um `OPTIONS` antes de cada `POST /api/v1/comparacoes` — o
+// ⚠️ Um browser manda um `OPTIONS` antes de cada `POST /api/v1/ofertas/cgd` — o
 // `Content-Type: application/json` obriga-o. Sem esta guarda, **cada comparação
 // feita da app custava dois do tecto** e a mesma comparação feita por `curl`
 // custava um: o tecto passava a medir o cliente em vez do uso, e a app ficava
@@ -254,7 +244,7 @@ func TestOPreflightNaoGastaDoTecto(t *testing.T) {
 
 	// Três preflights — mais do que o tecto inteiro.
 	for i := range 3 {
-		req := httptest.NewRequest(http.MethodOptions, "/api/v1/comparacoes", nil)
+		req := httptest.NewRequest(http.MethodOptions, "/api/v1/ofertas/cgd", nil)
 		req.Header.Set("Origin", origemDaApp)
 		req.Header.Set("Access-Control-Request-Method", http.MethodPost)
 		resp := httptest.NewRecorder()
@@ -296,7 +286,7 @@ func TestUmOptionsQualquerNaoEscapaAoTecto(t *testing.T) {
 
 	for i := range 3 {
 		// Sem `Access-Control-Request-Method`: não é preflight nenhum.
-		req := httptest.NewRequest(http.MethodOptions, "/api/v1/comparacoes", nil)
+		req := httptest.NewRequest(http.MethodOptions, "/api/v1/ofertas/cgd", nil)
 		req.Header.Set("Origin", origemDaApp)
 		resp := httptest.NewRecorder()
 		servidor.Rotas().ServeHTTP(resp, req)

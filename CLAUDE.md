@@ -4,7 +4,7 @@ Reescrita em **Go** do `simulador-credito-habitacao`. Serve **só JSON**; a inte
 
 ⚠️ **A §1 foi revertida a 2026-08-06: o pedido do cliente volta a ir ao banco.** Não há varrimento, não há grelha, não há modelo de preço nosso. O porquê está em `docs/DECISAO-AO-VIVO.md`, e a razão curta é que guardar uma cópia do modelo de preço de cada banco obriga a acertar em como eles preçam — e num só dia de confronto com dados reais falhámos isso quatro vezes (`KAN-54` a `KAN-57`).
 
-⚠️ **Enquanto a Fase 6 do `PLAN.md` não estiver feita, o código no `development` ainda é o do desenho antigo.** Os documentos descrevem para onde se vai; o código descreve de onde se vem. Quando discordarem, é o código que está por mudar — e não o documento que está errado.
+✅ **A Fase 6 está feita (2026-08-07), e o desenho antigo saiu do repositório.** Durante duas semanas os documentos descreviam para onde se ia e o código de onde se vinha; essa distância acabou. ⚠️ A regra de desempate **mantém-se** para o que vier: quando um documento e o código discordarem, é o código que está por mudar — excepto quando o documento afirma um **facto sobre o mundo**, e aí verifica-se o facto. Foi assim que a D1 caiu.
 
 As convenções da casa (pt-PT, branches, commits, labels, verificação por reversão) estão em `~/.claude/convencoes-repos.md` — não se repetem aqui.
 
@@ -26,7 +26,7 @@ make verificar    # o portão completo (ver abaixo)
 
 ⚠️ **Somos um amplificador.** Um pedido nosso vira ~10 aos bancos, com origem aparente nossa. O tecto por IP é **estrutural** e o `PROXIES_DE_CONFIANCA` é **bloqueante** — sem ele medido, ou o tecto é contornável, ou é o tecto do site inteiro (o bug de produção do v1).
 
-⚠️ **Os subcomandos `varrer` e `sondar` vão desaparecer** com a Fase 6. Enquanto existirem, continuam a custar ~96 e ~4 pedidos por banco — não se correm sem razão.
+✅ **Os subcomandos `varrer` e `sondar` desapareceram** (2026-08-07, Fase 6 passo 5), com o `medicao` do Makefile. Sobram três: `servir`, `migrar`, `reverter`. ⚠️ Os alvos de rede que ficam — `teste-rede`, `teste-fidelidade`, `latencia` — continuam a custar pedidos a terceiros e não se correm sem razão.
 
 O portão são cinco coisas, e passa-se o portão **inteiro**:
 
@@ -43,8 +43,8 @@ go test -race ./...           # o -race não é opcional: o modelo é fan-out co
 cmd/simulador/     o binário
 internal/dominio/  tipos e regras puras. Não importa mais nada do projecto.
 internal/bancos/   um pacote por banco + as 4 estratégias de transporte
-internal/aplicacao/casos de uso: comparar (fala com bancos), limites. Sem HTTP, sem SQL.
-internal/infra/    chi, pgx/sqlc, travão por banco, config
+internal/aplicacao/aovivo: o caso de uso — pedir a UM banco, com vaga. Sem HTTP, sem SQL.
+internal/infra/    chi, pgx/sqlc, tecto por banco, tecto por IP, cache, config
 api/openapi.yaml   o contrato — fonte da verdade dos tipos Go e TypeScript
 db/                migrações goose + queries sqlc
 ```
@@ -63,8 +63,8 @@ Um comentário ganha o seu lugar quando diz o que o código não pode dizer: um 
 
 - **Não editar código gerado.** O do `sqlc` e o do `oapi-codegen` são reconstruídos; edições à mão desaparecem no `make gerar` seguinte.
 - **Não escrever um banco sem captura primeiro.** A ordem está em `docs/CONTRATO-BANCO.md` §3: capturar → parser contra a captura → payload → só então ligar a rede. E ver o teste **falhar** antes de o pôr a passar.
-- ⚠️ **A** `/api/rate-catalog` **está congelada E em retirada.** Campos em inglês e `snake_case`, ao contrário de todo o resto do repositório. O `viabilidade-imobiliaria` lê-a em produção; mudar o formato parte-o sem aviso, e **apagá-la também**. A série que a alimentava morreu com o varrimento (D1) — a retirada é trabalho combinado com o outro repositório, e **falta escolher como** (`DECISAO-AO-VIVO.md` §4, D1). Há um teste de contrato — se ele falha, o erro é teu, não dele.
-- **Nada de estado em-processo** para dedup, cache ou tecto por banco. Vive em **Postgres**. ⚠️ **E o travão muda de natureza com a §1 revertida:** o `pg_try_advisory_lock` era um **fecho** contra dois varrimentos do mesmo banco, e ao vivo isso está errado — dois clientes a perguntar pelo mesmo banco é o normal. O que é preciso é um **tecto de concorrência**, e o N mede-se banco a banco. O v1 tinha-o em memória e avisava no arranque que com mais de um worker o mesmo banco levava N scrapes em paralelo. ⚠️ Dizia aqui «Vive em Redis», e o Redis saiu do desenho na §7 — e do ambiente na KAN-39. Não volta sem uma entrada nova na §7.
+- ✅ **A** `/api/rate-catalog` **saiu** (2026-08-07), e a D1 fechou-se assim: o `viabilidade-imobiliaria` consome a do **v1** (`simulador-credito-habitacao`, o `chmonitor`), que mantém os seus scrapers e **não é tocado**. A daqui era uma reimplementação congelada que nunca teve consumidor — este serviço não está alojado. ⚠️ **Dizia-se aqui, e em mais quatro documentos, que ele a lia «em produção»** — era falso nos dois sentidos, e foi verificado a 2026-08-07 no README e no `CLAUDE.md` do outro repositório. ⚠️ Um dia o v2 responderá às perguntas do `viabilidade`, mas **nunca por esta rota**: ela publica uma série temporal, e sem varrimento não há como a produzir.
+- **Nada de estado em-processo** para cache ou tecto. Vive em **Postgres**: `internal/infra/lotacao` (2 vagas por banco), `internal/infra/limites` (tecto por IP) e `internal/infra/cache` (respostas, 5 min). ⚠️ O `infra/travao` era um **fecho** contra dois varrimentos do mesmo banco e **saiu com ele**: ao vivo, dois clientes a perguntar pelo mesmo banco é o normal, e o que se limita é quantos de cada vez. O v1 tinha-o em memória e avisava no arranque que com mais de um worker o mesmo banco levava N scrapes em paralelo. ⚠️ Dizia aqui «Vive em Redis», e o Redis saiu do desenho na §7 — e do ambiente na KAN-39. Não volta sem uma entrada nova na §7.
 - **Sem pasta de scripts.** Foi onde o v1 acumulou 50+ ficheiros ad-hoc e 338 erros de lint permanentes que cegaram o portão. Trabalho de sondagem vive numa branch e não é submetido, ou vira um teste.
 - **Nada de dados pessoais nem segredos nas capturas** — o repositório é público. Titular fictício; cookies, tokens e cabeçalhos de autenticação removidos.
 - **Confirmar o** `git branch --show-current` **antes de commitar.** O `main` só recebe merges de `development`.

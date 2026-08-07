@@ -166,19 +166,27 @@ cortar carga sobre os bancos, não para memorizar que um deles tropeçou.
 ⚠️ E é assimétrico de propósito: uma falha não guardada custa um pedido a mais ao
 banco; uma falha guardada custa uma oferta que não se serve a quem a podia ter.
 
-### `catalogo_taxas` e `sondagens` — o que lhes acontece
+### `catalogo_taxas` e `sondagens` — ⛔ apagadas a 2026-08-07
 
-Ficam **órfãs**: nada as escreve e nada as lê no caminho do cliente.
+Caíram na migração `00008_o_varrimento_morre`, com o `/api/rate-catalog` que a
+primeira alimentava. **A migração fica escrita como o fim de um desenho, e não
+como limpeza** — é o que esta secção prometia.
 
-⚠️ **Não se apagam já**, e a razão não é sentimental: a `catalogo_taxas` tem a
-última fotografia do mercado, e é ela que o `/api/rate-catalog` serviria enquanto
-a retirada com o `viabilidade-imobiliaria` não estiver combinada
-(`DECISAO-AO-VIVO.md` §4, D1). Assim que essa decisão fechar, caem as duas — e a
-migração que as deixa cair fica escrita como o fim de um desenho, não como
-limpeza.
+⚠️ **A D1 desbloqueou-se por os factos não serem os que aqui estavam escritos.**
+Dizia-se que a `catalogo_taxas` tinha de ficar porque o `/api/rate-catalog`
+serviria a última fotografia ao `viabilidade-imobiliaria` «em produção». Ambas as
+metades eram falsas, e verificaram-se a 2026-08-07: aquele repositório consome o
+`/api/rate-catalog` do **v1** (o `chmonitor`), não o daqui; e **não há produção**
+— nem o v2 nem o v1 estão alojados. A rota daqui nunca teve consumidor.
+
+⚠️ **O Down da 00008 recria a forma, não os dados.** Uma migração de remoção não
+guarda o que apaga; quem precisar da série repõe-na de um `pg_dump`. Há teste a
+afirmar que o Down corre sem partir, e a afirmar que depois de migrar tudo as
+duas tabelas **não existem**.
 
 ⚠️ **Uma tabela com nome de funcionalidade morta é o indicador que o `PLAN.md`
-conta**, e o v1 tinha 1 em 3. Deixá-las aqui indefinidamente é reproduzi-lo.
+conta**, e o v1 tinha 1 em 3. Este repositório volta a **0**, e agora há um teste
+a vigiá-lo.
 
 ## 5. Contrato dos bancos
 

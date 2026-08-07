@@ -42,31 +42,6 @@ type Querier interface {
 	// Com `DO NOTHING`, uma entrada a expirar nunca se renovava e a cache deixava de
 	// acertar sem nada a dizer porquê.
 	GravarRespostaEmCache(ctx context.Context, arg GravarRespostaEmCacheParams) error
-	// Queries das sondagens. Geradas pelo sqlc para internal/infra/bd/.
-	// GravarSondagem regista o que uma corrida da sonda apurou sobre um banco.
-	//
-	// ⚠️ Grava-se SEMPRE, e não só na divergência. Uma sondagem que confirma é o que
-	// distingue «confirmada» de «ninguém olhou», e são estados diferentes para quem
-	// lê a oferta (ARQUITETURA.md §4, «A fiabilidade de um banco deriva-se»).
-	GravarSondagem(ctx context.Context, arg GravarSondagemParams) (int64, error)
-	// Queries do catálogo de taxas. Geradas pelo sqlc para internal/infra/bd/.
-	// InserirTaxa grava uma linha de um banco num varrimento. Os campos de resposta
-	// são opcionais: numa falha entram nulos e `erro` preenchido.
-	//
-	// ⚠️ ltv_min, ltv_max e spread_minimo são nulos numa linha que não seja um
-	// degrau da escala de LTV — uma observação de um período fixo, de um tenor, de
-	// uma finalidade ou de um produto é medida no LTV de referência e não afirma
-	// intervalo nenhum (ARQUITETURA.md §4). O LTV dessa observação continua
-	// derivável de montante/valor_imovel, que já vão na linha.
-	// ⚠️ residuo_prestacao é nulo onde não havia o que comparar — linha de falha,
-	// oferta sem plano de fases, ou plano de zero meses (§4, «O resíduo mora numa
-	// coluna»). Nulo não é zero: zero seria uma medição que fechou ao cêntimo.
-	//
-	// ⚠️ base_fixa é nula em tudo o que não seja taxa fixa, e também numa linha de
-	// taxa fixa cujo varrimento não mediu escala de LTV nenhuma — aí não há por onde
-	// corrigir a TAN para o LTV de quem pergunta, e a linha grava-se como dado bruto
-	// mas não se serve (§4, «Onde a base vive»).
-	InserirTaxa(ctx context.Context, arg InserirTaxaParams) (int64, error)
 	// Queries da cache do pedido ao vivo (ARQUITETURA.md §4, tabela
 	// `respostas_em_cache`).
 	//
@@ -93,53 +68,6 @@ type Querier interface {
 	// `LimparLimitesAntigos`: apagar a cada pedido punha uma escrita a mais em cada
 	// visita para poupar linhas que a leitura já ignora.
 	LimparRespostasExpiradas(ctx context.Context, agora pgtype.Timestamptz) (int64, error)
-	// ListarPontos serve o points[] do /api/rate-catalog. Os filtros são todos
-	// opcionais (nulo = não filtra); `limite` nulo devolve tudo (LIMIT NULL no PG).
-	// Só linhas bem-sucedidas: o consumidor lê tan/spread/euribor, ausentes em falha.
-	ListarPontos(ctx context.Context, arg ListarPontosParams) ([]ListarPontosRow, error)
-	// ListarSnapshots serve o /api/rate-catalog/snapshots: um por varrimento, com a
-	// data e a contagem de linhas.
-	ListarSnapshots(ctx context.Context) ([]ListarSnapshotsRow, error)
-	// NovoVarrimentoID cunha o id que agrupa as linhas de uma corrida.
-	//
-	// ⚠️ Sai da base e não do processo, e é de propósito: é a base que já é a
-	// autoridade sobre o que existe, e assim não entra no go.mod uma dependência
-	// de UUID para gerar dezasseis bytes.
-	NovoVarrimentoID(ctx context.Context) (pgtype.UUID, error)
-	// ⚠️ Aqui viviam o `UltimoVarrimentoID` e o `ObservacoesDoVarrimento`, que
-	// serviam a resposta pelas linhas de UMA corrida. Saíram na KAN-50, e saíram em
-	// vez de ficarem sem uso: a leitura por «último varrimento» é exactamente o
-	// defeito corrigido, e uma consulta com esse nome à mão é o convite a
-	// reintroduzi-lo. Recuperam-se em git.
-	// ObservacoesDeCadaBanco devolve, para CADA banco, as linhas do varrimento mais
-	// recente em que ele teve sucesso — e não as de uma corrida só (ARQUITETURA.md
-	// §4, «Que observações compõem a série servida», KAN-50).
-	//
-	// ⚠️ O `DISTINCT ON` corre sobre linhas de sucesso, e é isso que faz um banco
-	// cuja última corrida falhou inteira cair na anterior em vez de desaparecer.
-	// Quão velha é essa anterior não se decide aqui: quem chama aplica a guarda da
-	// viragem do dia (§7.3), que precisa do fuso de Lisboa e não de SQL.
-	//
-	// Não traz `varrimento_id`: com um por banco, ele deixou de identificar a
-	// resposta e guardá-lo convidava a voltar a raciocinar por corrida.
-	ObservacoesDeCadaBanco(ctx context.Context) ([]ObservacoesDeCadaBancoRow, error)
-	// UltimaSondagemDeCadaBanco devolve, por banco, a corrida da sonda mais recente.
-	//
-	// ⚠️ Não filtra por «divergiu». A fiabilidade deriva-se de comparar esta data com
-	// a do último varrimento do banco, e uma sondagem que confirmou é tão necessária
-	// a essa conta como uma que divergiu — sem ela, um banco confirmado ficava
-	// indistinguível de um que ninguém sondou.
-	UltimaSondagemDeCadaBanco(ctx context.Context) ([]UltimaSondagemDeCadaBancoRow, error)
-	// UltimoVarrimentoEm é a guarda de idempotência (`--se-antigo`): diz quando foi
-	// a observação mais recente, para não se dispararem varrimentos em cima uns dos
-	// outros. Nulo quando nunca se varreu nada.
-	//
-	// ⚠️ Olha para TODAS as linhas e não só para as de sucesso. Um varrimento em que
-	// todos os bancos falharam continua a ser um varrimento que já se fez, e
-	// repeti-lo já a seguir é bater no banco outra vez pela mesma razão que a guarda
-	// existe para evitar. O v1 estragou a primeira medição assim: cinco corridas em
-	// 14 minutos não são cinco dias de dados.
-	UltimoVarrimentoEm(ctx context.Context) (pgtype.Timestamptz, error)
 }
 
 var _ Querier = (*Queries)(nil)

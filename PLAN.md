@@ -108,7 +108,13 @@ Depois disso, e por esta ordem:
 
    ⏳ **Falta o valor do `PROXIES_DE_CONFIANCA`**, e está bloqueado pelo alojamento: mede-se contra o proxy que estiver à frente em produção, e não há nenhum escolhido. ⚠️ Medido pelo caminho: **o Caddy substitui o `X-Forwarded-For` por omissão** e um nginx acrescenta — a cadeia que chega depende do proxy, e o valor mede-se contra o que ele faz e não contra o que se supõe.
 4. ~~`GET`~~ **`POST` `/api/v1/ofertas/{banco}`** no contrato ✅ *(2026-08-06)*, e a app a fazer o fan-out ⏳. ⚠️ O método mudou e não é detalhe: o pedido leva data de nascimento e rendimento, e num `GET` isso viajava na query string — histórico do browser, logs de qualquer proxy, `Referer`.
-5. Retirar o que morreu: `sondagens`, a escala, os encargos, a grelha. ⚠️ **Depois** de a fatia ao vivo estar de pé, e não antes — apagar primeiro deixa o repositório sem nada que responda.
+5. ✅ **Retirado o que morreu** *(2026-08-07)*: `varrimento`, `grelha`, `sonda`, `varrer`, `sondar`, `catalogo`, `travao`, as tabelas `catalogo_taxas` e `sondagens`, o `/api/rate-catalog` e o `POST /api/v1/comparacoes`. **14 438 linhas.** Depois de a fatia ao vivo estar de pé, e não antes.
+
+   ⚠️ **A D1 desbloqueou-se por verificação, não por decisão.** Bloqueava por se afirmar, em cinco documentos, que o `viabilidade-imobiliaria` consumia o nosso `/api/rate-catalog` **em produção**. As duas metades eram falsas: ele consome o do **v1** (o `chmonitor`, que mantém os seus scrapers), e **não há produção** — nem o v2 nem o v1 estão alojados (a issue #13 do v1, «Verificar o deployment no ambiente real», continua aberta). A rota daqui nunca teve consumidor, e retirá-la não partiu nada.
+
+   ⚠️ **O `POST /api/v1/comparacoes` foi uma mudança que PARTE o `/api/v1`**, que este plano diz só poder mudar por acrescento. A regra existe por causa de apps nas lojas e a A8 está bloqueada pela `KAN-24` — era esta a única janela em que sair custava zero, e ela fecha no dia em que houver uma versão no terreno.
+
+   ⚠️ **Um dia o v2 responde às perguntas do `viabilidade`, e não será por aquela rota:** ela publica uma série temporal, e sem varrimento não há como a produzir. O caminho é o ao vivo — perguntar um cenário de referência quando alguém precisar dele —, e é decisão nova.
 
 ---
 

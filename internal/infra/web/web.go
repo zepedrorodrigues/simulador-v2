@@ -1,14 +1,16 @@
-// Package web serve as duas fronteiras HTTP do §6: a da app e a congelada.
+// Package web serve a fronteira HTTP da app (§6).
 //
-// ⚠️ **Traduz, não calcula.** Os números saem do `aplicacao/comparar`; aqui
-// converte-se `dominio` para os tipos do contrato e escreve-se JSON. É a
+// ⚠️ **Era duas, e passou a uma** (Fase 6, passo 5): a fronteira congelada — o
+// `/api/rate-catalog`, com a sua chave de máquina — saiu com o varrimento, que
+// era quem lhe dava dados.
+//
+// ⚠️ **Traduz, não calcula.** Os números vêm do banco, pelo `aplicacao/aovivo`;
+// aqui converte-se `dominio` para os tipos do contrato e escreve-se JSON. É a
 // fronteira, e a §3 quer-la fina — cada regra que aqui entrasse deixava de poder
 // ser afirmada sem um servidor de pé.
 //
 // ⚠️ E **um pedido, uma resposta**. Não há 202, não há identificador para
-// sondar, não há progresso — nem no caminho antigo nem no novo. O que mudou com
-// a reversão da §1 (2026-08-06) é de onde vem a resposta: o `/comparacoes` lê o
-// último varrimento e calcula, o `/ofertas/{banco}` **pergunta ao banco**, e o
+// sondar, não há progresso. O `/ofertas/{banco}` pergunta a UM banco, e o
 // progresso que a app mostra vem de ela pedir um banco de cada vez (D2).
 package web
 
@@ -26,28 +28,15 @@ import (
 
 	"github.com/zepedrorodrigues/simulador-v2/api"
 	"github.com/zepedrorodrigues/simulador-v2/internal/aplicacao/aovivo"
-	"github.com/zepedrorodrigues/simulador-v2/internal/aplicacao/comparar"
 	"github.com/zepedrorodrigues/simulador-v2/internal/bancos"
 	"github.com/zepedrorodrigues/simulador-v2/internal/bancos/transporte"
 	"github.com/zepedrorodrigues/simulador-v2/internal/dominio"
 )
 
-// Fonte é de onde vêm as observações com que se responde.
-//
-// ⚠️ Declara-se aqui, do lado de quem a usa, e implementa-se no
-// `infra/catalogo`. É o que deixa estes handlers ser afirmados com um catálogo
-// em memória, sem Postgres — e é a mesma razão por que o `varrimento.Catalogo`
-// existe.
-type Fonte interface {
-	SerieServivel(ctx context.Context) (comparar.Serie, error)
-}
-
 // Servidor serve o contrato.
 type Servidor struct {
-	fonte    Fonte
-	catalogo FonteDoCatalogo
-	registo  *bancos.Registo
-	agora    func() time.Time
+	registo *bancos.Registo
+	agora   func() time.Time
 
 	// bancoAoVivo constrói um banco pronto a ser interrogado NESTE pedido.
 	//
@@ -66,10 +55,6 @@ type Servidor struct {
 	// indisponível. ⚠️ Medido a 2026-08-06: o Montepio não respondeu dentro de
 	// 10 s em 4 cenários, em hora de expediente.
 	prazoDoBanco time.Duration
-
-	// chaves são as credenciais de máquina do /api/rate-catalog. Vazio deixa a
-	// fronteira aberta — modo de desenvolvimento, com aviso alto no arranque.
-	chaves []string
 
 	// contador e tecto são o limite de pedidos por IP. Contador nulo, ou tecto a
 	// zero, desliga-o.
@@ -98,8 +83,7 @@ type Servidor struct {
 
 	// origens são as que podem chamar `/api/v1/*` e o `/healthz` de dentro de um
 	// browser. Vazio desliga o CORS — e desligado quer dizer «só a mesma
-	// origem», não «toda a gente». ⚠️ O `/api/rate-catalog` fica sempre de fora:
-	// autentica-se por chave, e uma chave num browser é pública (§6).
+	// origem», não «toda a gente».
 	origens []string
 }
 
@@ -156,20 +140,21 @@ func (s *Servidor) ComLotacao(lotacao aovivo.Lotacao) *Servidor {
 }
 
 // Novo monta o servidor. `agora` nulo vale time.Now.
+//
+// ⚠️ **Deixou de receber uma fonte de dados** (Fase 6, passo 5). Recebia duas — a
+// série do varrimento e o catálogo — e as duas morreram com ele. O que este
+// servidor serve vem dos bancos, no momento do pedido, e o único estado que
+// consulta é o tecto, a lotação e a cache, que entram pelos `Com...`.
 func Novo(
-	fonte Fonte, catalogo FonteDoCatalogo, registo *bancos.Registo,
-	chaves []string, agora func() time.Time,
+	registo *bancos.Registo, agora func() time.Time,
 ) (*Servidor, error) {
-	if fonte == nil {
-		return nil, errors.New("servidor sem fonte de observações — não haveria com que responder")
-	}
 	if registo == nil {
 		return nil, errors.New("servidor sem registo de bancos")
 	}
 	if agora == nil {
 		agora = time.Now
 	}
-	s := &Servidor{fonte: fonte, catalogo: catalogo, registo: registo, chaves: chaves, agora: agora}
+	s := &Servidor{registo: registo, agora: agora}
 	s.bancoAoVivo = s.construirAoVivo
 	s.prazoDoBanco = PrazoDoBancoOmissao
 	return s, nil
@@ -201,17 +186,21 @@ func (s *Servidor) Rotas() http.Handler {
 	// pode fechar a ligação sem uma palavra.
 	r.Use(s.limitar)
 
-	// ⚠️ **Duas superfícies com políticas de acesso diferentes**, e a separação é
-	// literal: o que está dentro deste grupo responde a browsers; o que está
-	// fora, não. A §6 explica porquê — o `/api/rate-catalog` autentica-se por
-	// `X-API-Key`, e uma chave dentro de um bundle de browser é uma chave
-	// pública. Juntá-los num router só abria a porta do catálogo à app.
+	// ⚠️ **Havia aqui duas superfícies com políticas de acesso diferentes**, e o
+	// grupo separava-as: dentro respondia-se a browsers, fora ficava o
+	// `/api/rate-catalog`, que se autentica por `X-API-Key` — e uma chave dentro
+	// de um bundle de browser é uma chave pública.
+	//
+	// **O de fora saiu com o varrimento** (Fase 6, passo 5): a série morreu e a
+	// rota não tinha o que servir. O grupo **fica**, e não se dissolve no router:
+	// é ele que mantém o CORS aplicado por decisão e não por omissão, e é onde
+	// entra a próxima rota que não seja para browsers. Dissolvê-lo poupava uma
+	// indentação e transformava a política numa coincidência.
 	r.Group(func(g chi.Router) {
 		g.Use(s.permitirOrigens)
 
 		g.Get("/healthz", s.saude)
 		g.Get("/api/v1/bancos", s.listarBancos)
-		g.Post("/api/v1/comparacoes", s.compararOfertas)
 		g.Post("/api/v1/ofertas/{banco}", s.ofertaDeUmBanco)
 
 		// ⚠️ O preflight precisa de rota registada. Sem ela o chi responde 405
@@ -219,12 +208,8 @@ func (s *Servidor) Rotas() http.Handler {
 		// falha com um erro de CORS que não nomeia nada. Os cabeçalhos vêm do
 		// middleware; este handler só fecha a resposta com 204.
 		g.Options("/api/v1/bancos", preflight)
-		g.Options("/api/v1/comparacoes", preflight)
 		g.Options("/api/v1/ofertas/{banco}", preflight)
 	})
-
-	r.Get("/api/rate-catalog", s.exigirChave(s.obterRateCatalog))
-	r.Get("/api/rate-catalog/snapshots", s.exigirChave(s.obterSnapshots))
 
 	return r
 }
@@ -267,81 +252,6 @@ func (s *Servidor) listarBancos(w http.ResponseWriter, r *http.Request) {
 		resposta.Bancos = append(resposta.Bancos, bancoDe(b.Requisitos()))
 	}
 	escrever(w, http.StatusOK, resposta)
-}
-
-// compararOfertas responde a um pedido com as ofertas de todos os bancos.
-func (s *Servidor) compararOfertas(w http.ResponseWriter, r *http.Request) {
-	var corpo api.ComparacaoPedido
-	if err := json.NewDecoder(r.Body).Decode(&corpo); err != nil {
-		erro(w, http.StatusBadRequest, "pedido_ilegivel",
-			fmt.Sprintf("O corpo do pedido não é JSON válido: %v", err))
-		return
-	}
-
-	pedido, err := pedidoDe(corpo)
-	if err != nil {
-		var validacao *dominio.ErroValidacao
-		if errors.As(err, &validacao) {
-			erroComCampo(w, http.StatusBadRequest, "pedido_invalido", validacao.Mensagem, validacao.Campo)
-			return
-		}
-		erro(w, http.StatusBadRequest, "pedido_invalido", err.Error())
-		return
-	}
-
-	serie, err := s.fonte.SerieServivel(r.Context())
-	if err != nil {
-		// ⚠️ Um serviço sem varrimento nenhum não é «erro do banco»: é este
-		// serviço ainda não ter dados. Dizê-lo assim evita que quem lê conclua
-		// que os bancos estão em baixo.
-		erro(w, http.StatusServiceUnavailable, "sem_varrimento",
-			fmt.Sprintf("Ainda não há preços varridos com que responder: %v", err))
-		return
-	}
-
-	catalogo, err := comparar.NovoCatalogo(serie)
-	if err != nil {
-		erro(w, http.StatusServiceUnavailable, "sem_varrimento",
-			fmt.Sprintf("A série varrida não serve para responder: %v", err))
-		return
-	}
-
-	hoje := dominio.DataDeInstante(s.agora())
-	// ⚠️ Os bancos pedidos vão para dentro do `Comparar`, e não se filtram à
-	// saída. Filtrar à saída era o que se fazia até 2026-08-01, e só conseguia
-	// tirar da lista — um banco pedido que a grelha não tinha nunca lá chegava
-	// para ser tirado, e desaparecia sem uma palavra (KAN-45).
-	ofertas, err := catalogo.Comparar(pedido, corpo.Bancos, requisitosDe(s.registo), hoje)
-	if err != nil {
-		var validacao *dominio.ErroValidacao
-		if errors.As(err, &validacao) {
-			erroComCampo(w, http.StatusBadRequest, "pedido_invalido", validacao.Mensagem, validacao.Campo)
-			return
-		}
-		erro(w, http.StatusBadRequest, "pedido_invalido", err.Error())
-		return
-	}
-
-	resposta := api.Comparacao{
-		CalculadoEm: s.agora().UTC(),
-		Ofertas:     make([]api.Oferta, 0, len(ofertas)),
-	}
-	for _, o := range ofertas {
-		resposta.Ofertas = append(resposta.Ofertas, ofertaDe(o))
-	}
-	escrever(w, http.StatusOK, resposta)
-}
-
-func requisitosDe(r *bancos.Registo) map[string]dominio.Requisitos {
-	todos, err := r.Todos(transportesVazios())
-	if err != nil {
-		return nil
-	}
-	m := make(map[string]dominio.Requisitos, len(todos))
-	for _, b := range todos {
-		m[b.ID()] = b.Requisitos()
-	}
-	return m
 }
 
 // transportesVazios constrói os bancos sem transporte nenhum.
@@ -435,17 +345,17 @@ func (s *Servidor) ofertaDeUmBanco(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// ⚠️ Os produtos entram pelo mesmo `pedidoDe` do `/comparacoes`, agrupados
-	// pelo banco do CAMINHO. Atribuí-los à mão a `pedido.Produtos` saltava a
-	// verificação do prefixo, e um produto de outro banco passava em silêncio: o
+	// ⚠️ Os produtos vão ao `pedidoDe` agrupados pelo banco do CAMINHO, e não
+	// atribuídos à mão a `pedido.Produtos`: atribuí-los saltava a verificação do
+	// prefixo, e um produto de outro banco passava em silêncio — o
 	// `ProdutosDoBanco` reparte-os por prefixo, este banco não o reclamava, e a
-	// oferta saía sem ele — com o cliente convencido de que o tinha escolhido.
-	var produtos *map[string][]string
+	// oferta saía sem ele, com o cliente convencido de que o tinha escolhido.
+	var produtos map[string][]string
 	if corpo.Produtos != nil {
-		produtos = &map[string][]string{id: *corpo.Produtos}
+		produtos = map[string][]string{id: *corpo.Produtos}
 	}
 
-	pedido, err := pedidoDe(api.ComparacaoPedido{Pedido: corpo.Pedido, Produtos: produtos})
+	pedido, err := pedidoDe(corpo.Pedido, produtos)
 	if err != nil {
 		var validacao *dominio.ErroValidacao
 		if errors.As(err, &validacao) {

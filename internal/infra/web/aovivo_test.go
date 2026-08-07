@@ -66,32 +66,12 @@ func TestUmaOfertaAoVivoEServidaComoBoa(t *testing.T) {
 	}
 }
 
-// TestUmaOfertaAoVivoNaoPrecisaDeVarrimento separa os dois caminhos onde eles se
-// tocam.
-//
-// ⚠️ O `/comparacoes` sem varrimento responde `503 sem_varrimento`. Este endpoint
-// não lê varrimento nenhum, e um 503 aqui seria recusar servir por falta de uma
-// coisa de que não depende — precisamente o acoplamento que a Fase 6 desfaz.
-func TestUmaOfertaAoVivoNaoPrecisaDeVarrimento(t *testing.T) {
-	// A mesma fonte avariada que faz o `/comparacoes` responder 503.
-	s, err := web.Novo(fonteVazia{}, nil, bancos.Predefinido(), nil, relogio)
-	if err != nil {
-		t.Fatalf("Novo: %v", err)
-	}
-	tan := taxa(t, "3.250")
-	s = s.ComAoVivo(bancoQueResponde(&bancoFalso{
-		id: "cgd", nome: "CGD",
-		responder: func(context.Context, dominio.Pedido) (dominio.Oferta, error) {
-			return dominio.Oferta{TAN: &tan}, nil
-		},
-	}), time.Second)
-
-	resposta := pedirOferta(t, s, "cgd", corpoDeOferta(nil))
-	if resposta.Code != http.StatusOK {
-		t.Fatalf("estado %d sem varrimento: %s — este caminho pergunta ao banco e não lê a série",
-			resposta.Code, resposta.Body.String())
-	}
-}
+// ⚠️ **Havia aqui um `TestUmaOfertaAoVivoNaoPrecisaDeVarrimento`**, que montava
+// o servidor com uma fonte de série avariada e afirmava que esta rota servia à
+// mesma. Saiu com a Fase 6, passo 5: **já não há fonte de série para avariar** —
+// o `web.Novo` não recebe nenhuma. O desacoplamento que ele afirmava passou a ser
+// estrutural em vez de verificado, que é a única forma de o garantir que não
+// pode apodrecer.
 
 // TestUmBancoEmBaixoSaiComo200ENaoComoErroDoPedido: não é este pedido que
 // falhou, é aquele banco que não respondeu.
@@ -267,11 +247,11 @@ func servidorAoVivo(t *testing.T, b *bancoFalso) *web.Servidor {
 	t.Helper()
 	// ⚠️ Prazo curto: os testes que esperam por um banco calado esperam-no por
 	// inteiro, e o de omissão são 15 s.
-	return servidor(t, nil).ComAoVivo(bancoQueResponde(b), 50*time.Millisecond)
+	return servidor(t).ComAoVivo(bancoQueResponde(b), 50*time.Millisecond)
 }
 
 func corpoDeOferta(produtos []string) api.OfertaPedido {
-	corpo := api.OfertaPedido{Pedido: corpoDePedido(nil).Pedido}
+	corpo := api.OfertaPedido{Pedido: pedidoDeProva()}
 	if produtos != nil {
 		corpo.Produtos = &produtos
 	}

@@ -21,197 +21,64 @@ func TestMigrarCriaTabelasEReverterDesfazAUltima(t *testing.T) {
 	db := subirBase(t)
 
 	// Base acabada de subir: sem as nossas tabelas.
-	if existeTabela(t, db, "catalogo_taxas") || existeTabela(t, db, "limites") {
-		t.Fatal("uma base recém-subida não devia ter catalogo_taxas nem limites")
+	if existeTabela(t, db, "limites") || existeTabela(t, db, "respostas_em_cache") {
+		t.Fatal("uma base recém-subida não devia ter limites nem respostas_em_cache")
 	}
 
 	if err := esquema.Migrar(ctx, db); err != nil {
 		t.Fatalf("Migrar: %v", err)
 	}
-	if !existeTabela(t, db, "catalogo_taxas") || !existeTabela(t, db, "limites") {
-		t.Fatal("Migrar devia ter criado catalogo_taxas e limites")
-	}
 
-	// A 00006 acrescenta a terceira tabela — o veredicto da sonda (§4, KAN-49).
-	if !existeTabela(t, db, "sondagens") {
-		t.Error("Migrar devia ter criado sondagens")
+	// ⚠️ **As duas tabelas que sobreviveram ao varrimento, e são as únicas** (§4):
+	// o tecto por IP e a cache das respostas ao vivo.
+	if !existeTabela(t, db, "limites") {
+		t.Error("Migrar devia ter criado limites")
 	}
-
-	// A 00007 acrescenta a cache das respostas ao vivo (§4, §7.6, KAN-58).
 	if !existeTabela(t, db, "respostas_em_cache") {
 		t.Error("Migrar devia ter criado respostas_em_cache")
 	}
 
-	// A 00003 acrescenta o intervalo de LTV medido, a 00004 o resíduo da §7.4 e
-	// a 00005 a base da taxa fixa.
-	for _, coluna := range []string{"ltv_min", "ltv_max", "spread_minimo", "residuo_prestacao", "base_fixa"} {
-		if !existeColuna(t, db, "catalogo_taxas", coluna) {
-			t.Errorf("Migrar devia ter criado catalogo_taxas.%s", coluna)
+	// ⚠️ **E as do varrimento têm de estar mesmo apagadas no fim da cadeia.** A
+	// 00001 e a 00006 criam-nas e a 00008 deixa-as cair; o que importa é o estado
+	// depois de migrar tudo, que é o que uma base nova recebe.
+	//
+	// ⚠️ O `PLAN.md` conta «tabelas com nome de funcionalidade morta» como
+	// indicador de entulho, e o v1 tinha 1 em 3. Isto é o teste desse indicador.
+	for _, morta := range []string{"catalogo_taxas", "sondagens"} {
+		if existeTabela(t, db, morta) {
+			t.Errorf("a %s sobreviveu à 00008 — morreu com o varrimento", morta)
 		}
 	}
 
-	// Down desfaz a última migração aplicada — hoje a 00007_respostas_em_cache.
+	// Down desfaz a última migração aplicada — hoje a 00008_o_varrimento_morre.
+	//
+	// ⚠️ E o Down dela **recria a forma e não os dados**, que é o que uma
+	// migração de remoção pode prometer. O que se afirma aqui é que ela é
+	// reversível sem partir, não que a série volta.
 	if err := esquema.Reverter(ctx, db); err != nil {
 		t.Fatalf("Reverter: %v", err)
 	}
-	if existeTabela(t, db, "respostas_em_cache") {
-		t.Error("Reverter devia ter removido a tabela respostas_em_cache")
+	if !existeTabela(t, db, "catalogo_taxas") || !existeTabela(t, db, "sondagens") {
+		t.Error("o Down da 00008 devia ter recriado as tabelas vazias")
 	}
-	// ⚠️ E só essa. A `sondagens` era a última até a 00007 entrar, e é agora a
-	// primeira coisa que um Down a mais levaria — por isso passa a estar aqui
-	// nomeada, e não só na lista de criadas acima.
-	if !existeTabela(t, db, "sondagens") {
-		t.Error("Reverter desfez mais do que a última: a sondagens desapareceu")
+	// ⚠️ E só essa: a `respostas_em_cache` é da 00007 e um Down a mais levava-a.
+	if !existeTabela(t, db, "respostas_em_cache") {
+		t.Error("Reverter desfez mais do que a última: a respostas_em_cache desapareceu")
 	}
-	// ⚠️ Um Down que levasse a migração anterior atrás apagaria a base da taxa
-	// fixa e o intervalo de LTV medido — ~86 pedidos por banco — sem ninguém
-	// pedir.
-	for _, coluna := range []string{"ltv_min", "ltv_max", "spread_minimo", "residuo_prestacao", "base_fixa"} {
-		if !existeColuna(t, db, "catalogo_taxas", coluna) {
-			t.Errorf("Reverter desfez mais do que a última: catalogo_taxas.%s desapareceu", coluna)
-		}
-	}
-	if !existeTabela(t, db, "catalogo_taxas") || !existeTabela(t, db, "limites") {
-		t.Fatal("Reverter só devia desfazer a última: as duas tabelas ficam")
+	if !existeTabela(t, db, "limites") {
+		t.Error("Reverter desfez mais do que a última: a limites desapareceu")
 	}
 }
 
-// Os CHECK da 00003 não são decoração: cada um recusa uma linha que, passando,
-// serviria um número errado com ar de certo (§7.4). Prova-se um a um contra o
-// Postgres, porque é ele que os impõe — em Go não há como os ver falhar.
-func TestOsCheckDoIntervaloDeLTVRecusamOQueNaoEUmDegrau(t *testing.T) {
-	ctx := context.Background()
-	db := subirBase(t)
-	if err := esquema.Migrar(ctx, db); err != nil {
-		t.Fatalf("Migrar: %v", err)
-	}
+// ⚠️ **Havia aqui dois testes dos CHECK da `catalogo_taxas`** — o intervalo de
+// LTV e a precisão de numeric(9,8) —, e a tabela caiu com o varrimento na 00008
+// (Fase 6, passo 5). Iam com ela: um CHECK de uma tabela que não existe não é
+// afirmável, e mantê-los obrigava a recriar a tabela só para os correr.
+//
+// ⚠️ O que se perdeu com eles foi a **prova de que a base recusa**, e não a
+// razão: ela está escrita na 00003, que continua no histórico. O que fica de pé
+// é o teste acima, que agora também vigia o Down desta remoção.
 
-	for _, caso := range []struct {
-		nome           string
-		ltvMin, ltvMax any
-		spread         any
-		spreadMinimo   any
-		aceita         bool
-	}{
-		{
-			nome:   "um degrau resolvido, com o intervalo inteiro",
-			ltvMin: "0.66593750", ltvMax: "0.67875000", spread: "2.050", spreadMinimo: nil,
-			aceita: true,
-		},
-		{
-			nome:   "um degrau por resolver, com o lado barato guardado",
-			ltvMin: "0.66500000", ltvMax: "0.66750000", spread: "2.050", spreadMinimo: "2.000",
-			aceita: true,
-		},
-		{
-			nome:   "uma observação num ponto: sem intervalo nenhum",
-			ltvMin: nil, ltvMax: nil, spread: "1.350", spreadMinimo: nil,
-			aceita: true,
-		},
-		{
-			nome:   "meio intervalo — um degrau sem fim, e ninguém sabe até onde o spread vale",
-			ltvMin: "0.66500000", ltvMax: nil, spread: "2.050", spreadMinimo: nil,
-			aceita: false,
-		},
-		{
-			nome:   "um intervalo ao contrário",
-			ltvMin: "0.68000000", ltvMax: "0.66000000", spread: "2.050", spreadMinimo: nil,
-			aceita: false,
-		},
-		{
-			nome:   "um intervalo de largura zero — afirmava que o preço muda num ponto",
-			ltvMin: "0.80000000", ltvMax: "0.80000000", spread: "1.350", spreadMinimo: nil,
-			aceita: false,
-		},
-		{
-			// ⚠️ O caso que interessa: servir o lado BARATO num intervalo onde
-			// não se sabe qual é. É o oposto do que o Anexo I, Parte II, alínea
-			// (d) da MCD manda, e é a mesma guarda que o NovaEscalaDeLTV faz.
-			nome:   "o spread_minimo é o lado caro",
-			ltvMin: "0.66500000", ltvMax: "0.66750000", spread: "2.000", spreadMinimo: "2.050",
-			aceita: false,
-		},
-		{
-			nome:   "spread_minimo numa linha que não é degrau",
-			ltvMin: nil, ltvMax: nil, spread: "2.000", spreadMinimo: "1.500",
-			aceita: false,
-		},
-	} {
-		t.Run(caso.nome, func(t *testing.T) {
-			err := inserirLinha(db, caso.ltvMin, caso.ltvMax, caso.spread, caso.spreadMinimo)
-			if caso.aceita && err != nil {
-				t.Errorf("a base recusou uma linha válida: %v", err)
-			}
-			if !caso.aceita && err == nil {
-				t.Error("a base aceitou a linha, e um CHECK devia tê-la recusado")
-			}
-		})
-	}
-}
-
-// A precisão declarada tem de chegar para as fronteiras que a descoberta
-// produz: sete casas decimais no pior caso do plano de omissão (duas do domínio
-// mais cinco bissecções). Em numeric(6,3) — o que a §4 declarava até
-// 2026-07-27 — a fronteira de 0,6659375 ficava 0,666, e os ~18 pedidos gastos a
-// estreitá-la não tinham servido para nada.
-func TestAPrecisaoDoLTVGuardaAFronteiraQueSeMediu(t *testing.T) {
-	ctx := context.Background()
-	db := subirBase(t)
-	if err := esquema.Migrar(ctx, db); err != nil {
-		t.Fatalf("Migrar: %v", err)
-	}
-
-	const medida = "0.66593750" // fronteira real da CGD, medida a 2026-07-27
-	if err := inserirLinha(db, medida, "0.67875000", "2.050", nil); err != nil {
-		t.Fatalf("inserir: %v", err)
-	}
-
-	var guardado string
-	if err := db.QueryRow(`SELECT ltv_min::text FROM catalogo_taxas LIMIT 1`).Scan(&guardado); err != nil {
-		t.Fatalf("ler: %v", err)
-	}
-	if guardado != medida {
-		t.Errorf("mediu-se %s e a base guardou %s", medida, guardado)
-	}
-}
-
-// inserirLinha grava uma observação de sucesso, variando só o que este ficheiro
-// afirma. O resto dos campos é preenchimento válido: o que está a teste são os
-// CHECK do intervalo de LTV, não os que a 00001 já trazia.
-func inserirLinha(db *sql.DB, ltvMin, ltvMax, spread, spreadMinimo any) error {
-	_, err := db.Exec(`
-		INSERT INTO catalogo_taxas (
-			varrimento_id, capturado_em, cenario, banco_id, banco_nome, rate_type,
-			valor_imovel, montante, prazo_anos, euribor_indexante,
-			tan, taeg, spread, euribor_valor, prestacao_mensal, mtic,
-			ltv_min, ltv_max, spread_minimo, sucesso
-		) VALUES (
-			gen_random_uuid(), now(), 'variavel/0/propria', 'cgd', 'Caixa Geral de Depósitos', 'variavel',
-			400000, 320000, 30, '6m',
-			4.5, 4.7, $3, 2.45, 1600, 600000,
-			$1, $2, $4, true
-		)`, ltvMin, ltvMax, spread, spreadMinimo)
-	return err
-}
-
-func existeColuna(t *testing.T, db *sql.DB, tabela, coluna string) bool {
-	t.Helper()
-	var existe bool
-	err := db.QueryRow(
-		`SELECT EXISTS (
-			SELECT FROM information_schema.columns
-			WHERE table_schema = 'public' AND table_name = $1 AND column_name = $2
-		)`, tabela, coluna,
-	).Scan(&existe)
-	if err != nil {
-		t.Fatalf("existeColuna(%s.%s): %v", tabela, coluna, err)
-	}
-	return existe
-}
-
-// O critério de pronto do KAN-1: contra uma base por migrar, ExigirEmDia recusa
-// com ErrPorMigrar; depois de migrada, aceita. É o que separa o arranque
-// guardado de um create_all silencioso.
 func TestExigirEmDiaRecusaBasePorMigrarEAceitaMigrada(t *testing.T) {
 	ctx := context.Background()
 	db := subirBase(t)

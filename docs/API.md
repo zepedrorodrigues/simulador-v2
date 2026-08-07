@@ -50,15 +50,13 @@ Um pedido, **um banco**. É o que a §1 revertida manda e o que a app passa a us
 
 ⚠️ **Uma oferta em falha nunca fica em cache.** Um `banco_indisponivel` é sempre uma ida ao banco agora, e não a memória de um soluço de há minutos — guardá-lo transformava segundos de avaria em indisponibilidade por toda a validade, para toda a gente com o mesmo pedido.
 
-### `POST /api/v1/comparacoes` → `200`
+### ⛔ `POST /api/v1/comparacoes` — **retirada a 2026-08-07**
 
-⚠️ **Um pedido, uma resposta** (KAN-32). Não há `202`, identificador para sondar, `GET /{id}` nem `503` de «demasiadas em curso». A resposta sai de uma consulta à grelha e de cálculo local.
+Comparava todos os bancos numa resposta, a partir da série varrida e de cálculo local. Saiu com o varrimento (Fase 6, passo 5): ficou **sem fonte de dados**, e o que a substitui é a app a fazer fan-out sobre o `/ofertas/{banco}`.
 
-⚠️ **E a ausência do `GET /{id}` é a decisão, não uma lacuna.** Sondar obrigava a **guardar o pedido que a gerou** — precisamente o dado pessoal que este serviço se recusa a ter (§4 do `ARQUITETURA.md`). Não há recurso a que voltar porque não há nada guardado.
+⚠️ **Foi uma mudança que PARTE o `/api/v1`**, e a §4 deste documento diz que ele só muda por acrescento. A regra existe por causa de apps nas lojas, e a A8 está bloqueada pela `KAN-24` — **não havia nada publicado**, e era esta a única janela em que sair custava zero. Depois de haver uma versão no terreno, deixa de haver.
 
-⚠️ **A resposta traz uma oferta por banco PEDIDO, não por banco medido** (KAN-45). `bancos` vazio quer dizer todos os do registo. Um banco nomeado sem preços varridos vem com `sucesso: false` e código `sem_serie` — **não é omitido**. Antes disso pediam-se cinco e vinham dois, sem uma palavra sobre os três em falta, porque a lista se filtrava à saída e um banco que nunca lá chegou não podia ser filtrado.
-
-**Erros:** `400` pedido inválido com o campo nomeado, `429` tecto por IP com `Retry-After`. ⚠️ Um id em `bancos` que **não é banco nenhum** é `400` com `campo: "bancos"`, e não uma linha de recusa: «ainda não temos preços deste banco» e «não há tal banco» são coisas diferentes, e responder à segunda com a primeira ensinava o cliente que um id mal escrito é um banco que existe.
+⚠️ **O que ela afirmava e continua a valer** está no `/ofertas/{banco}`: um pedido uma resposta, sem `202` e sem `GET /{id}` — porque sondar obrigava a **guardar o pedido**, que é o dado pessoal que este serviço se recusa a ter.
 
 ### O que a resposta obriga a mostrar
 
@@ -99,25 +97,20 @@ Um pedido, **um banco**. É o que a §1 revertida manda e o que a app passa a us
 
 ⚠️ **E o `serie_desactualizada` não é o `sem_serie`, apesar de os dois se resolverem varrendo** (`KAN-50`). A diferença é o que se sabe: no `sem_serie` não há preço nenhum deste banco; no `serie_desactualizada` **há**, e não se serve porque a Euribor mudou de dia entretanto e compará-lo com os outros seria comparar preços de fixings diferentes. Servi-lo à mesma era o defeito que a §7.3 do `ARQUITETURA.md` proíbe; dá-lo como `sem_serie` era dizer que não se foi lá, quando se foi.
 
-## 2. `/api/rate-catalog` — congelada **e em retirada**
+## 2. ⛔ `/api/rate-catalog` — **retirada a 2026-08-07**
 
-⚠️ **A fonte morreu a 2026-08-06.** A série que este endpoint publica vinha do varrimento, e o varrimento acabou com a reversão da §1 (D1). Ele **continua a responder** com a última fotografia gravada, que deixou de avançar.
+Publicava a série do preçário, congelada e compatível ao byte com o v1, autenticada por `X-API-Key`. Saiu com o varrimento que a alimentava, e com ela saiu a **única superfície autenticada** deste serviço: hoje não há `API_KEYS` nem chave nenhuma.
 
-⚠️ **Uma série parada é pior do que uma série ausente se quem a lê não souber.** O consumidor é o `viabilidade-imobiliaria`, em produção, e a retirada tem de ser combinada com ele — as saídas estão em `DECISAO-AO-VIVO.md` §4, D1, e **falta escolher qual**. Até lá, o que está escrito abaixo continua a valer ao byte.
+⚠️ **A D1 resolveu-se por os factos não serem os que estavam escritos.** Cinco documentos deste repositório diziam que o `viabilidade-imobiliaria` consumia **esta** rota **em produção**, e as duas metades eram falsas — verificado a 2026-08-07:
 
-⚠️ **Compatível com o v1, ao byte.** O consumidor existe e está a correr: `viabilidade-imobiliaria/src/viabilidade/taxas.py`. Os nomes ficam **em inglês e em `snake_case`**, ao contrário de todo o resto do repositório. Mudá-los parte o outro repositório sem aviso.
+- ele consome a do **v1** (`simulador-credito-habitacao`, o `chmonitor`), como o README e o `CLAUDE.md` dele dizem, e como confirma o cliente em `src/viabilidade/taxas.py` («o chmonitor raspa 10 bancos»);
+- **não há produção**: o v2 nunca foi alojado, e o v1 também não — a issue #13 dele, «Verificar o deployment no ambiente real», continua aberta.
 
-`GET /api/rate-catalog?scenario=&bank=&rate_type=&since=&limit=`, cabeçalho `X-API-Key`. E `GET /api/rate-catalog/snapshots`, que **esteve declarada sem handler desde que o contrato existe** e passou a ser servida na KAN-44 — o portão não a apanhava porque verifica que o **gerado** está em dia com o spec, não que o **servido** está.
+Logo a retirada **não partiu consumidor nenhum**, e o v1 continua a servir o que servia.
 
-**Campos que o consumidor lê hoje e não podem desaparecer nem mudar de tipo:** `points[].tan`, `.spread`, `.euribor_valor`, `.euribor_indexante`, `.fixed_period_years`, `.bank_id`, `.bank_name`, `.scenario_key`, `.rate_type`, `.prazo_anos`, `.captured_at`; e `scenarios[]`.
+⚠️ **Um dia o v2 responderá às perguntas do `viabilidade`** — mas **nunca por esta rota**. Ela publica uma série temporal, e sem varrimento não há como a produzir. Esse dia é uma decisão de desenho nova, e o caminho é o ao vivo: perguntar aos bancos um cenário de referência quando alguém precisar dele.
 
-⚠️ **Três armadilhas de compatibilidade**, cobertas por teste de contrato contra amostra real do v1:
-
-1. **Números, não strings.** O v1 era Python e serializava `float`; a biblioteca de decimais de Go serializa para string entre aspas por omissão.
-2. **`captured_at` sem fuso.** O v1 guardava instantes ingénuos (`2026-07-22T05:00:11`, sem `Z`). A base do v2 é `timestamptz`; a serialização **neste endpoint** replica o formato antigo.
-3. **`products` é sempre lista, nunca `null`** — quem lê tem de distinguir «correu sem produtos» de «não sei».
-
-Sem chave configurada o endpoint fica **aberto**: é o modo de desenvolvimento, e o arranque avisa alto.
+⚠️ **O que se perdeu, e fica dito:** as três armadilhas de compatibilidade que o teste de contrato cobria — números e não strings, `captured_at` sem fuso, `products` sempre lista e nunca `null`. Quem reconstruir uma fronteira para o `viabilidade` volta a encontrá-las, e elas estão no histórico deste ficheiro.
 
 ## 3. Transversal
 

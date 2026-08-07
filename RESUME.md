@@ -2,17 +2,17 @@
 
 Estado actual e próximos passos. ⚠️ **Sem changelog** — o relato de sessões não vive aqui. O `RESUME.md` do v1 chegou a 1317 linhas antes de ser esvaziado à força.
 
-**Actualizado:** 2026-08-06
+**Actualizado:** 2026-08-07
 
 ⚠️ **A §1 foi revertida: o pedido do cliente volta a ir ao banco.** Decidido a 2026-08-06, depois de um dia a confrontar o servido com dados reais. O porquê, com os números, está em `docs/DECISAO-AO-VIVO.md`.
 
-⚠️ **Os documentos descrevem o desenho novo; o código do `development` ainda é o antigo.** Quando discordarem, é o **código** que está por mudar.
+✅ **O código e os documentos voltaram a bater certo** (2026-08-07): o desenho antigo saiu do repositório. Durante duas semanas os documentos descreviam para onde se ia e o código de onde se vinha; deixou de haver essa distância.
 
-**A Fase 6 começou, e os passos 1 e 2 estão feitos.** No `development`: o `aplicacao/aovivo` pergunta a UM banco, o `POST /api/v1/ofertas/{banco}` serve-o, e o tecto de concorrência por banco está de pé (`internal/infra/lotacao`, **2 vagas**, `503 banco_ocupado` para o pedido a mais).
+**A Fase 6 está feita.** No `development`: o `aplicacao/aovivo` pergunta a UM banco, o `POST /api/v1/ofertas/{banco}` serve-o, e o tecto de concorrência por banco está de pé (`internal/infra/lotacao`, **2 vagas**, `503 banco_ocupado` para o pedido a mais).
 
-**E a cache está escrita** (branch `feat/cache-do-pedido-ao-vivo`, por submeter): `internal/infra/cache`, tabela `respostas_em_cache`, chave = `SHA-256` de (versão, banco, pedido), validade de **5 min**. Guarda o **servido** e não o objecto de domínio; lê-se **antes** do tecto, para um acerto não gastar vaga; uma falha nunca se guarda.
+**E a cache está no `development`**: `internal/infra/cache`, tabela `respostas_em_cache`, chave = `SHA-256` de (versão, banco, pedido), validade de **5 min**. Guarda o **servido** e não o objecto de domínio; lê-se **antes** do tecto, para um acerto não gastar vaga; uma falha nunca se guarda.
 
-⚠️ **Falta o resto da fase** — prazo por banco, tecto por IP dimensionado (`KAN-14`), e a retirada do varrimento.
+**O que falta para produção não é código:** o **alojamento** (adiado desde 2026-08-01, e é ele que desbloqueia o valor do `PROXIES_DE_CONFIANCA`) e o **parecer jurídico** (`KAN-24`). ⏳ Fica em código o **prazo por banco**, que espera mais amostras de latência.
 
 ## Onde estamos
 
@@ -39,12 +39,12 @@ Num só dia, quatro assunções do modelo de preço caíram contra dados varrido
 
 ## Próximo passo
 
-1. **Fechar a D1**: o que acontece ao `/api/rate-catalog`, que perde a fonte e é consumido pelo `viabilidade-imobiliaria` **em produção**. Bloqueia a §4 e a §6 do `ARQUITETURA.md`. Três saídas escritas, nenhuma escolhida.
+1. ✅ **A D1 está fechada** (2026-08-07), e não por se ter escolhido uma das três saídas: por se ter ido verificar a premissa. O `viabilidade-imobiliaria` consome o `/api/rate-catalog` do **v1** (o `chmonitor`), e **nada está em produção** — nem o v2 nem o v1 têm alojamento. A rota daqui foi apagada sem partir consumidor nenhum.
 2. **Os três números da Fase 6:** a latência por banco está **medida** (`make latencia`, 2026-08-06 às 17h13 — tabela no `DOSSIE-BANCOS.md`). Os outros dois não se medem com uma corrida — ver o `PLAN.md`: a concorrência não se procura subindo até o banco recusar, e a validade da cache pede uma vigia de horas.
 3. **`KAN-7`** 🔶 — o caminho está de pé e o **tecto de concorrência por banco está feito** (2 vagas, `internal/infra/lotacao`). Falta o **prazo por banco**: o de 15 s está medido, mas é um só para cinco bancos que diferem 7× na cauda — e diferenciá-lo pede mais amostras (`LATENCIA_AMOSTRAS`), que custam pedidos aos bancos.
 4. **`KAN-58`** ✅ — cache em Postgres, feita a 2026-08-07. ⚠️ **A validade fica por medir**: os 5 min são de partida, e o que os mede é uma **vigia** de horas — perguntar o mesmo ao mesmo banco de hora a hora, sendo a **primeira** mudança o que decide, não a média.
 5. **`KAN-14`** 🔶 — o dimensionamento está **contado** e o tecto fica nos **60/min** (uma comparação são 5 pedidos, logo 12 comparações/min e 12× de folga). Os dois critérios correm contra um **proxy a sério** (Caddy em contentor). ⏳ **Falta o valor do `PROXIES_DE_CONFIANCA`**, bloqueado pelo alojamento adiado — mede-se contra o proxy que estiver à frente, e não há nenhum escolhido.
-6. **Só então** retirar o que morreu: `sondagens`, escala, encargos, grelha. ⚠️ Apagar antes deixa o repositório sem nada que responda.
+6. ✅ **Retirado o que morreu** (2026-08-07): 14 438 linhas — `varrimento`, `grelha`, `sonda`, `varrer`, `sondar`, `catalogo`, `travao`, as tabelas `catalogo_taxas` e `sondagens`, o `/api/rate-catalog` e o `POST /api/v1/comparacoes`. ⚠️ **A D1 caiu por verificação:** o `viabilidade-imobiliaria` lê o `/api/rate-catalog` do **v1**, não o nosso, e **não há produção** em lado nenhum — cinco documentos afirmavam o contrário.
 
 ## O que está por resolver
 
