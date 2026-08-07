@@ -74,7 +74,7 @@ A fase que a reversão da §1 abre, e a que passa a ser o produto.
 |---|---|
 | ~~latência por banco~~ ✅ **medida** (2026-08-06, 17h13) | 25 simulações frias: Novo Banco 460 ms de mediana, Montepio 2,01 s e **cauda de 8,4 s**. Fixa o timeout — os 15 s passam a ser ~1,8× o pior observado, e não um palpite. `make latencia`, tabela no `DOSSIE-BANCOS.md` |
 | ~~concorrência que cada banco tolera~~ ✅ **escolhida** (2026-08-06) | **2 vagas por banco**, o apertado que já estava medido. ⚠️ **Não se mediu procurando onde parte** — ver abaixo. Está no `internal/infra/lotacao`, e o que fica por medir é se 2 chega quando houver clientes a sério |
-| validade útil da cache | fixa o TTL do §7.6. ⚠️ **Não é uma corrida, é uma vigia**: pede horas ou dias de relógio, não pedidos. Fica **curta** até estar medida |
+| validade útil da cache | fixa o TTL do §7.6. ⚠️ **Não é uma corrida, é uma vigia**: pede horas ou dias de relógio, não pedidos. Fica **curta** até estar medida — **5 min** desde 2026-08-07, e o número é de partida e não medido |
 
 ⚠️ **A concorrência que um banco «tolera» não se mede subindo até ele recusar.** Isso é um teste de carga contra o simulador público de um terceiro, e o resultado que produz — o ponto onde parte — é exactamente o que não se quer usar. O que este repositório já fez, e é o método: mediu **1, 2 e 4 pedidos em paralelo** contra a CGD (2026-07-26, 8 pontos) — 1,086 s por ponto, 603 ms e 367 ms, **zero falhas nos três** — e escolheu **2**, não 4. A razão está escrita no `PorBancoOmissao`, e vale inteira aqui: comprar 40 % de velocidade ao preço de quadruplicar a carga que se põe num sistema alheio não é uma troca que se faça por se poder fazer.
 
@@ -89,7 +89,15 @@ Depois disso, e por esta ordem:
    ✅ **O tecto de concorrência por banco está feito** (2026-08-06): `internal/infra/lotacao`, **2 vagas por banco** em advisory locks de Postgres, o pedido a mais com `503 banco_ocupado` e não com uma oferta em falha. O número é o apertado já medido, e não o resultado de procurar onde um banco parte.
 
    ⏳ **Falta o prazo por banco.** Os cinco diferem **7×** no máximo observado (1,15 s no Novo Banco, 8,4 s no Montepio) e há um número só. ⚠️ **E não se diferencia com o que está medido:** 5 amostras dão um máximo, não um percentil, e cortar um banco lento que ia responder é pior do que esperar 10 s a mais. Quem lhe pegar sobe primeiro o `LATENCIA_AMOSTRAS` — o que custa pedidos aos bancos, e é por isso que não se fez de passagem.
-2. **`KAN-58`** — cache em Postgres, chave = pedido exacto, com o pedido em claro **fora** do disco. ⚠️ Era a `KAN-8`, **apagada do `KAN` a 2026-08-06** na triagem da reversão: é trabalho por fazer e não trabalho morto, e uma chave nova foi o que restou para o repor.
+2. **`KAN-58`** ✅ *(2026-08-07)* — cache em Postgres, chave = pedido exacto, com o pedido em claro **fora** do disco. ⚠️ Era a `KAN-8`, **apagada do `KAN` a 2026-08-06** na triagem da reversão: é trabalho por fazer e não trabalho morto, e uma chave nova foi o que restou para o repor.
+
+   `internal/infra/cache`, tabela `respostas_em_cache`, `CACHE_VALIDADE` a **5 minutos**. A chave é o `SHA-256` de (versão, banco, pedido normalizado) — determinística para dois clientes iguais partilharem o acerto, e sem volta para a linha não dizer quem são. **Guarda-se o servido** (a resposta já traduzida) e não o objecto de domínio, para um acerto ser igual a uma resposta fresca por construção; o porquê e o preço estão na §4.
+
+   ⚠️ **O acerto lê-se ANTES do tecto por banco**, e é a ordem que faz a cache valer alguma coisa: um acerto que gastasse vaga deixava dez clientes com o mesmo pedido em fila uns pelos outros — a levar `503` — por uma resposta que já estava em Postgres.
+
+   ⚠️ **A validade continua por medir.** Os 5 min são um valor de partida, e a medição é uma **vigia** e não uma corrida: perguntar o mesmo ao mesmo banco de hora a hora e ver quando muda, sendo que o que decide é a **primeira** mudança e não a média.
+
+   ⚠️ **Limite conhecido e escrito:** um `SHA-256` de um registo de baixa entropia confirma-se por tentativa. O resumo esconde o pedido de quem **lê** a tabela, não de quem o **adivinha** com a base na mão. Um HMAC com segredo fechava-o e traz gestão de chaves que este repositório ainda não tem.
 3. `KAN-14` — o tecto por IP dimensionado para **N pedidos por comparação**, e o `PROXIES_DE_CONFIANCA` **medido**. ⚠️ Passa de dívida a bloqueante: é ele que separa um serviço de uma ferramenta de carga contra cinco bancos.
 4. ~~`GET`~~ **`POST` `/api/v1/ofertas/{banco}`** no contrato ✅ *(2026-08-06)*, e a app a fazer o fan-out ⏳. ⚠️ O método mudou e não é detalhe: o pedido leva data de nascimento e rendimento, e num `GET` isso viajava na query string — histórico do browser, logs de qualquer proxy, `Referer`.
 5. Retirar o que morreu: `sondagens`, a escala, os encargos, a grelha. ⚠️ **Depois** de a fatia ao vivo estar de pé, e não antes — apagar primeiro deixa o repositório sem nada que responda.

@@ -46,6 +46,14 @@ type Limite struct {
 	BloqueadoAte pgtype.Timestamptz
 }
 
+type RespostasEmCache struct {
+	Chave       string
+	BancoID     string
+	Resposta    []byte
+	CapturadoEm pgtype.Timestamptz
+	ExpiraEm    pgtype.Timestamptz
+}
+
 type Sondagen struct {
 	ID          int64
 	BancoID     string

@@ -130,6 +130,42 @@ diferentes — a Euribor é diária, os spreads não. ⚠️ Fica **curta** até
 medido, pela mesma assimetria de sempre: uma cache curta de mais custa pedidos, e
 uma longa de mais custa um preço errado.
 
+**Parte de omissão: 5 minutos** (`CACHE_VALIDADE`), decidido a 2026-08-07. Cobre
+o padrão que existe hoje — a mesma pessoa a comparar, a mexer num campo e a
+voltar — e é curto ao ponto de uma Euribor que fixa de manhã nunca ficar cinco
+minutos errada em cima de quem pergunta. ⚠️ **Não é a validade medida**; é o
+valor com que se serve enquanto a vigia do §7.6 não existir.
+
+#### ⚠️ Guarda-se o **servido**, e não o objecto de domínio
+
+O valor da linha é a resposta **já traduzida para o contrato** — o mesmo JSON que
+sairia de uma resposta fresca. Decidido a 2026-08-07, e a razão é de
+verificabilidade: assim um acerto é igual a uma resposta fresca **por
+construção**, e não por cuidado de quem escreveu o código.
+
+⚠️ A alternativa — guardar o `dominio.Oferta` — obrigava a pôr um formato de
+persistência dentro do domínio puro, porque os `ajustes`, as `notas` e os
+`pressupostos` não são exportados e o `Ajuste` fecha os seus campos **de
+propósito**, para que um ajuste sem nota não seja construível a partir de fora do
+pacote. Ressuscitar um por JSON abria essa porta, e criava uma segunda descrição
+da forma da `Oferta` a divergir da primeira em silêncio — que é exactamente o que
+aconteceu à interface `Banco` copiada para o `CONTRATO-BANCO.md`.
+
+**O preço desta escolha, escrito:** a cache vive na fronteira HTTP e não no caso
+de uso, portanto um `comparar` que voltasse a fazer fan-out **no servidor** não a
+herdava. Hoje quem faz fan-out é a app (§7.4), logo o único chamador é o
+handler — e no dia em que deixar de ser, isto muda de sítio.
+
+#### ⚠️ Uma falha nunca se guarda
+
+Só respostas com `sucesso` entram na cache. Guardar um `banco_indisponivel`
+transformava um soluço de segundos numa indisponibilidade de **toda a validade**,
+e multiplicava por todos os clientes com o mesmo pedido. A cache existe para
+cortar carga sobre os bancos, não para memorizar que um deles tropeçou.
+
+⚠️ E é assimétrico de propósito: uma falha não guardada custa um pedido a mais ao
+banco; uma falha guardada custa uma oferta que não se serve a quem a podia ter.
+
 ### `catalogo_taxas` e `sondagens` — o que lhes acontece
 
 Ficam **órfãs**: nada as escreve e nada as lê no caminho do cliente.
@@ -310,6 +346,22 @@ cache». O varrimento morreu (D1) e a cache voltou.
    protecção estrutural que a grelha dava, porque não há grelha.
 
    **A chave é o pedido exacto.** Um acerto a mais não paga um preço errado.
+
+   ✅ **Feito a 2026-08-07** (`internal/infra/cache`, `respostas_em_cache`,
+   `CACHE_VALIDADE`): chave = `SHA-256` do par (banco, pedido normalizado), valor
+   = a resposta já traduzida para o contrato, validade de **5 minutos**.
+
+   ⚠️ **«Normalizado» não é «quantizado».** O que a normalização faz é fixar uma
+   ordem e uma grafia para os mesmos valores — é serialização determinística, e
+   nenhum número muda. A quantização mudava-os, e é a `KAN-15`, que continua
+   morta. Nada se arredonda, nada se ordena: dois pedidos que difiram num cêntimo
+   são chaves diferentes, e a ordem dos produtos escolhidos entra na chave tal
+   como veio, porque tratá-la como conjunto já era uma decisão sobre o que o
+   banco considera igual.
+
+   ⚠️ **A versão do formato entra no que se resume.** Sem ela, mudar a
+   serialização fazia linhas antigas responderem a pedidos novos — um acerto
+   errado e silencioso, que é a única coisa que esta cache pode causar de grave.
 
 7. **⚠️ Nada de estado em-processo**, e a regra fica **mais** necessária, não
    menos. O tecto por banco, o tecto por IP e a cache vivem em Postgres — que já

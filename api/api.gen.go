@@ -223,6 +223,11 @@ type Oferta struct {
 	// ⚠️ Presente sempre que `sucesso` é verdadeiro, e é o campo mais importante desta lista para a honestidade do produto: é o único que diz à pessoa que está a ver um preço de ontem à noite e não de agora. A app é obrigada a mostrá-lo. Escondê-lo apresentaria dados varridos como se fossem uma consulta ao vivo ao banco, que é exactamente o que este serviço não faz.
 	CapturadoEm *time.Time `json:"capturado_em,omitempty"`
 
+	// EmCache Verdadeiro quando esta oferta se serviu da cache (§7.6) em vez de se perguntar ao banco agora.
+	// ⚠️ **Não é o mesmo que `capturado_em`, e nenhum dos dois substitui o outro.** O `capturado_em` diz de QUANDO é o preço, e num acerto de cache é o instante em que se falou com o banco — nunca o de agora. Este diz se ESTE pedido chegou a sair para o banco. Uma oferta fresca e um acerto de um segundo atrás têm `capturado_em` quase igual e `em_cache` diferente.
+	// ⚠️ Ausente vale `false`, e não leva `default:` de propósito — pela mesma razão do `fiabilidade` acima: o `openapi-typescript` traduz um campo com omissão para um campo OBRIGATÓRIO no tipo gerado.
+	EmCache *bool `json:"em_cache,omitempty"`
+
 	// Erro Estruturado de propósito: `codigo` é para a app decidir, `mensagem` é para a pessoa ler, em português.
 	Erro             *OfertaErro `json:"erro,omitempty"`
 	EuriborIndexante *string     `json:"euribor_indexante,omitempty"`

@@ -84,6 +84,11 @@ type Servidor struct {
 	// a `lotacao` conta pedidos NOSSOS em voo contra um banco e protege-o a ele.
 	lotacao aovivo.Lotacao
 
+	// cache serve respostas já dadas sem voltar a perguntar ao banco (§7.6).
+	// Nula desliga-a. Vem sempre acompanhada do chaveDeCache.
+	cache        Cache
+	chaveDeCache ChaveDeCache
+
 	// diario escreve uma linha por pedido. Nulo desliga-o.
 	//
 	// ⚠️ Chama-se `diario` e não `registo` porque `registo` já é o registo de
@@ -479,6 +484,16 @@ func (s *Servidor) ofertaDeUmBanco(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// ⚠️ **A cache lê-se ANTES da lotação, e a ordem é a razão de ela existir.**
+	// Um acerto não pode gastar uma das duas vagas do banco: se gastasse, dez
+	// clientes com o mesmo pedido continuavam a fazer fila uns pelos outros para
+	// receberem uma resposta que já estava em Postgres.
+	chave, acerto := s.lerDaCache(r.Context(), banco.ID(), pedido)
+	if acerto != nil {
+		escrever(w, http.StatusOK, *acerto)
+		return
+	}
+
 	oferta, err := aovivo.PedirComVaga(r.Context(), s.lotacao, banco, pedido, s.agora, s.prazoDoBanco)
 	if err != nil {
 		// ⚠️ **503 e não 200 com a oferta em falha, e é a decisão inteira.** Um 200
@@ -499,5 +514,55 @@ func (s *Servidor) ofertaDeUmBanco(w http.ResponseWriter, r *http.Request) {
 			fmt.Sprintf("Não se conseguiu garantir o tecto de pedidos ao banco: %v", err))
 		return
 	}
-	escrever(w, http.StatusOK, ofertaDe(oferta))
+	servida := ofertaDe(oferta)
+	s.gravarNaCache(r.Context(), chave, banco.ID(), servida)
+	escrever(w, http.StatusOK, servida)
+}
+
+// lerDaCache devolve a chave derivada e a resposta guardada, se houver.
+//
+// ⚠️ **Falha ABERTO, ao contrário da lotação, e a assimetria é deliberada.** Ali
+// não se serve sem tecto garantido porque o tecto é a última coisa entre nós e o
+// simulador de um terceiro; aqui o tecto continua de pé mesmo com a cache em
+// baixo — perde-se a poupança de pedidos, não a protecção. Uma cache avariada a
+// derrubar o serviço trocava uma degradação por uma indisponibilidade.
+//
+// A chave volta mesmo quando não há acerto: é a mesma que o `gravarNaCache` usa,
+// e derivá-la duas vezes deixava as duas metades livres de divergir.
+func (s *Servidor) lerDaCache(
+	ctx context.Context, bancoID string, pedido dominio.Pedido,
+) (string, *api.Oferta) {
+	if s.cache == nil {
+		return "", nil
+	}
+	chave, err := s.chaveDeCache(bancoID, pedido)
+	if err != nil {
+		return "", nil
+	}
+	oferta, houve, err := s.cache.Ler(ctx, chave, s.agora())
+	if err != nil || !houve {
+		return chave, nil
+	}
+	return chave, &oferta
+}
+
+// gravarNaCache guarda a resposta servida. Chave vazia é «não há cache».
+//
+// ⚠️ O erro descarta-se de propósito: a resposta já está pronta e correcta, e
+// falhar um pedido de cliente porque não se conseguiu guardar uma cópia dela era
+// deitar fora o trabalho que se acabou de pedir a um banco. Quem filtra o que
+// não se guarda — uma oferta em falha — é o `infra/cache`.
+func (s *Servidor) gravarNaCache(ctx context.Context, chave, bancoID string, oferta api.Oferta) {
+	if s.cache == nil || chave == "" {
+		return
+	}
+
+	// ⚠️ `context.WithoutCancel`, pela mesma razão do `sair` da lotação: a
+	// resposta custou um pedido a um banco, e deitá-la fora porque o cliente
+	// desligou entretanto é pagar o pedido e não ficar com nada. O próximo
+	// cliente com o mesmo pedido merece o acerto.
+	ctx, cancelar := context.WithTimeout(context.WithoutCancel(ctx), PrazoParaGravarNaCache)
+	defer cancelar()
+
+	_ = s.cache.Gravar(ctx, chave, bancoID, oferta, s.agora())
 }

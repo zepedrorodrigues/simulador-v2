@@ -37,6 +37,11 @@ func TestMigrarCriaTabelasEReverterDesfazAUltima(t *testing.T) {
 		t.Error("Migrar devia ter criado sondagens")
 	}
 
+	// A 00007 acrescenta a cache das respostas ao vivo (§4, §7.6, KAN-58).
+	if !existeTabela(t, db, "respostas_em_cache") {
+		t.Error("Migrar devia ter criado respostas_em_cache")
+	}
+
 	// A 00003 acrescenta o intervalo de LTV medido, a 00004 o resíduo da §7.4 e
 	// a 00005 a base da taxa fixa.
 	for _, coluna := range []string{"ltv_min", "ltv_max", "spread_minimo", "residuo_prestacao", "base_fixa"} {
@@ -45,16 +50,22 @@ func TestMigrarCriaTabelasEReverterDesfazAUltima(t *testing.T) {
 		}
 	}
 
-	// Down desfaz a última migração aplicada — hoje a 00006_sondagens.
+	// Down desfaz a última migração aplicada — hoje a 00007_respostas_em_cache.
 	if err := esquema.Reverter(ctx, db); err != nil {
 		t.Fatalf("Reverter: %v", err)
 	}
-	if existeTabela(t, db, "sondagens") {
-		t.Error("Reverter devia ter removido a tabela sondagens")
+	if existeTabela(t, db, "respostas_em_cache") {
+		t.Error("Reverter devia ter removido a tabela respostas_em_cache")
 	}
-	// ⚠️ E só essa. Um Down que levasse a migração anterior atrás apagaria a base
-	// da taxa fixa e o intervalo de LTV medido — ~86 pedidos por banco — sem
-	// ninguém pedir.
+	// ⚠️ E só essa. A `sondagens` era a última até a 00007 entrar, e é agora a
+	// primeira coisa que um Down a mais levaria — por isso passa a estar aqui
+	// nomeada, e não só na lista de criadas acima.
+	if !existeTabela(t, db, "sondagens") {
+		t.Error("Reverter desfez mais do que a última: a sondagens desapareceu")
+	}
+	// ⚠️ Um Down que levasse a migração anterior atrás apagaria a base da taxa
+	// fixa e o intervalo de LTV medido — ~86 pedidos por banco — sem ninguém
+	// pedir.
 	for _, coluna := range []string{"ltv_min", "ltv_max", "spread_minimo", "residuo_prestacao", "base_fixa"} {
 		if !existeColuna(t, db, "catalogo_taxas", coluna) {
 			t.Errorf("Reverter desfez mais do que a última: catalogo_taxas.%s desapareceu", coluna)
