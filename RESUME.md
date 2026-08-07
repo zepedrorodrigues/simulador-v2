@@ -43,7 +43,7 @@ Num só dia, quatro assunções do modelo de preço caíram contra dados varrido
 2. **Os três números da Fase 6:** a latência por banco está **medida** (`make latencia`, 2026-08-06 às 17h13 — tabela no `DOSSIE-BANCOS.md`). Os outros dois não se medem com uma corrida — ver o `PLAN.md`: a concorrência não se procura subindo até o banco recusar, e a validade da cache pede uma vigia de horas.
 3. **`KAN-7`** 🔶 — o caminho está de pé e o **tecto de concorrência por banco está feito** (2 vagas, `internal/infra/lotacao`). Falta o **prazo por banco**: o de 15 s está medido, mas é um só para cinco bancos que diferem 7× na cauda — e diferenciá-lo pede mais amostras (`LATENCIA_AMOSTRAS`), que custam pedidos aos bancos.
 4. **`KAN-58`** ✅ — cache em Postgres, feita a 2026-08-07. ⚠️ **A validade fica por medir**: os 5 min são de partida, e o que os mede é uma **vigia** de horas — perguntar o mesmo ao mesmo banco de hora a hora, sendo a **primeira** mudança o que decide, não a média.
-5. **`KAN-14`** — tecto por IP dimensionado para **N pedidos por comparação**, e `PROXIES_DE_CONFIANCA` **medido**. Passou de dívida a bloqueante. **É o próximo.**
+5. **`KAN-14`** 🔶 — o dimensionamento está **contado** e o tecto fica nos **60/min** (uma comparação são 5 pedidos, logo 12 comparações/min e 12× de folga). Os dois critérios correm contra um **proxy a sério** (Caddy em contentor). ⏳ **Falta o valor do `PROXIES_DE_CONFIANCA`**, bloqueado pelo alojamento adiado — mede-se contra o proxy que estiver à frente, e não há nenhum escolhido.
 6. **Só então** retirar o que morreu: `sondagens`, escala, encargos, grelha. ⚠️ Apagar antes deixa o repositório sem nada que responda.
 
 ## O que está por resolver
@@ -83,6 +83,8 @@ Num só dia, quatro assunções do modelo de preço caíram contra dados varrido
 **Uma guarda que recusa servir denuncia mais do que um teste que passa.** A `KAN-55` recusou uma TAEG e, ao recusar, expôs a `KAN-56` e a `KAN-57` — duas coisas que estavam na base desde sempre e que ninguém confrontava.
 
 **Um comentário que descreve uma verificação não é a verificação.** O `comProdutos` dizia que a linha da combinação existia «para poder contradizer a aditividade»; ninguém a confrontava. Os resíduos do ajuste eram calculados e descartados com `_`. As duas peças existiam, escritas e explicadas, e não corriam.
+
+**Um proxy escrito em Go não pode contradizer o que o Go acha que um proxy faz.** O teste do tecto por IP usava um `httputil.ReverseProxy` no mesmo processo e distinguia as «duas máquinas» por um `X-Forwarded-For` que o próprio cliente escrevia — nessa montagem um cliente honesto e um falsificador são **indistinguíveis**. Medido a 2026-08-07: ler a cadeia da esquerda para a direita, que é a falsificação clássica, **passava em toda a suite**. E o Caddy a sério contradisse a suposição logo à primeira — **substitui** o cabeçalho em vez de acrescentar.
 
 **Um teste cujos dois lados se constroem do mesmo sítio não vê a diferença entre eles.** O primeiro critério da `KAN-55` comparava fases da oferta com fases da observação: passava nos testes (a fixture constrói-as) e **nunca disparava em produção** (o `leitura.go` não as reconstrói). Só se viu ao correr contra o varrimento real.
 
