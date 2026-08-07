@@ -16,6 +16,7 @@ import (
 	"github.com/zepedrorodrigues/simulador-v2/internal/bancos"
 	"github.com/zepedrorodrigues/simulador-v2/internal/infra/cache"
 	"github.com/zepedrorodrigues/simulador-v2/internal/infra/catalogo"
+	"github.com/zepedrorodrigues/simulador-v2/internal/infra/limites"
 	"github.com/zepedrorodrigues/simulador-v2/internal/infra/lotacao"
 )
 
@@ -185,7 +186,7 @@ func Servir(ctx context.Context, url, endereco string, saida io.Writer) error {
 			"CORS desligado (nenhuma ORIGENS_PERMITIDAS declarada): só a mesma origem chama esta API")
 	}
 
-	servidor = servidor.ComTecto(cat, Tecto{
+	servidor = servidor.ComTecto(limites.NovoPostgres(pool), Tecto{
 		Pedidos:            PedidosOmissao,
 		Janela:             JanelaOmissao,
 		ProxiesDeConfianca: proxies,

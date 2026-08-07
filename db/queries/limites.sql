@@ -11,8 +11,12 @@
 --
 -- ⚠️ Tudo numa instrução, e é isso que a torna correcta sob concorrência: um
 -- SELECT seguido de UPDATE deixa duas ligações a lerem a mesma contagem e a
--- escreverem a mesma soma, e o tecto passava a valer o dobro. O `ON CONFLICT`
--- resolve a corrida dentro da base, que é quem sabe arbitrar.
+-- escreverem a mesma soma. O `ON CONFLICT` resolve a corrida dentro da base, que
+-- é quem sabe arbitrar.
+--
+-- ⚠️ **Dizia aqui «o tecto passava a valer o dobro», e é MEDIDO que é muito pior**
+-- (2026-08-07, internal/infra/limites): com a contagem lida e depois escrita, 30
+-- pedidos em paralelo deram contagem **2** — perderam-se 28, e o tecto valia 15×.
 --
 -- A janela é FIXA e não deslizante: quando a actual expira, começa uma nova com
 -- contagem 1. Uma janela deslizante exigiria guardar cada pedido — e isto é uma
