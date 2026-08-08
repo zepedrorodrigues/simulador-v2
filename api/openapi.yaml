@@ -63,6 +63,8 @@ paths:
       description: >-
         É a única fonte desta informação — a app não tem listas de bancos
         escritas à mão.
+      parameters:
+        - $ref: "#/components/parameters/VersaoDaApp"
       responses:
         "200":
           description: A lista de bancos e os inputs canónicos.
@@ -70,6 +72,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/BancosResposta"
+        "426":
+          $ref: "#/components/responses/VersaoDemasiadoAntiga"
 
   /api/v1/ofertas/{banco}:
     post:
@@ -98,6 +102,7 @@ paths:
           schema:
             type: string
           description: O id do banco, como vem em GET /api/v1/bancos.
+        - $ref: "#/components/parameters/VersaoDaApp"
       requestBody:
         required: true
         content:
@@ -119,6 +124,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/RespostaErro"
+        "426":
+          $ref: "#/components/responses/VersaoDemasiadoAntiga"
         "429":
           $ref: "#/components/responses/TectoExcedido"
         "503":
@@ -145,7 +152,41 @@ components:
   # máquina repõe isto E o grupo de rotas que a separa das do browser, porque uma
   # chave dentro de um bundle de browser é uma chave pública.
 
+  parameters:
+    VersaoDaApp:
+      name: X-App-Versao
+      in: header
+      required: false
+      schema:
+        type: string
+        pattern: '^\d+\.\d+\.\d+$'
+        example: "1.2.0"
+      description: >-
+        A versão da app que está a pedir, em três números.
+
+        ⚠️ **Opcional, e tem de continuar a ser.** O alvo web e quem
+        experimenta a API por `curl` não a mandam, e exigi-la seria em si uma
+        mudança que parte o `/api/v1` — que é o que este cabeçalho existe para
+        evitar. Ausente, ou ilegível, serve-se na mesma: o que se recusa é uma
+        versão conhecida e velha, nunca a falta de informação.
+
   responses:
+    VersaoDemasiadoAntiga:
+      description: >-
+        A app que pediu é anterior à versão mínima que este servidor serve.
+        Código `versao_demasiado_antiga`.
+
+        ⚠️ **426 e não 400:** o pedido está bem formado e o problema é o
+        cliente. Um 400 mandava a app corrigir o corpo, que é a acção errada.
+
+        ⚠️ **Só acontece se o servidor tiver `APP_VERSAO_MINIMA` declarada**, e
+        por omissão não tem. Existe desde 2026-08-08, antes de haver qualquer
+        versão publicada, porque acrescentá-lo depois não serve de nada: as
+        versões que precisavam de o entender já teriam saído sem ele.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/RespostaErro"
     PedidoInvalido:
       description: Pedido inválido, com o campo nomeado.
       content:

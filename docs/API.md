@@ -146,4 +146,16 @@ Logo a retirada **não partiu consumidor nenhum**, e o v1 continua a servir o qu
 
 ⚠️ **A 2026-08-07 esta regra foi quebrada de propósito, uma vez.** Saíram o `POST /api/v1/comparacoes`, a `Comparacao`, o `pressupostos` e o `fiabilidade` — remoções, não acrescentos. A regra não caiu; caiu a premissa em que ela assenta: **não há app publicada**. A A8 está bloqueada pela `KAN-24`, e esta era a única janela em que partir o `/api/v1` custava zero. **Ela fecha no dia em que houver uma versão no terreno**, e a partir daí uma remoção obriga a `/api/v2` em paralelo.
 
-⚠️ **O que falta para essa janela poder fechar em segurança:** o caminho de «esta versão é demasiado antiga». Custa pouco agora e é impossível de acrescentar quando faz falta — que é quando já há versões antigas lá fora. **Por fazer.**
+✅ **O caminho de «esta versão é demasiado antiga» está feito** (2026-08-08), e era o que faltava para essa janela poder fechar em segurança. Feito **antes** de haver uma app publicada de propósito: acrescentá-lo depois não serve de nada, porque as versões que precisavam de o entender já teriam saído sem ele.
+
+Como funciona:
+
+- a app diz quem é no cabeçalho **`X-App-Versao`**, em três números (`1.2.0`);
+- o servidor compara com o **`APP_VERSAO_MINIMA`**, e responde **`426 Upgrade Required`** com o código `versao_demasiado_antiga` e uma mensagem que diz **para que versão** actualizar;
+- por omissão a verificação está **desligada** — sem `APP_VERSAO_MINIMA` não se recusa ninguém.
+
+⚠️ **O cabeçalho é opcional, e tem de continuar a ser.** Ausente ou ilegível, serve-se na mesma. Exigi-lo era, em si, uma mudança que parte o `/api/v1` — o alvo web e quem experimenta a API por `curl` não o mandam. E tratar o ilegível como velho transformava um defeito de escrita do cliente num bloqueio total: para o corrigir teria de sair uma versão nova, que é o que o bloqueio impede de instalar. **Falha aberto, como o tecto.**
+
+⚠️ **A comparação é numérica e nunca textual.** Em texto, `1.10.0` vem **antes** de `1.9.0` — e o efeito seria mandar parar exactamente as apps mais recentes no dia em que a versão menor passasse de 9 para 10. Há teste a afirmá-lo, e visto a falhar.
+
+⚠️ **Isto não substitui a regra de só mudar por acrescento.** É o travão de emergência para o dia em que ela não chegue: servir uma app velha que interpreta mal o que se lhe manda é pior do que dizer-lhe que pare.

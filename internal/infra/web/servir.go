@@ -166,6 +166,15 @@ func Servir(ctx context.Context, url, endereco string, saida io.Writer) error {
 		return fmt.Errorf("ler as origens permitidas: %w", err)
 	}
 
+	// ⚠️ Uma versão mínima mal escrita **falha o arranque**, pela mesma razão que
+	// uma origem: o modo errado desta definição não dá erro nenhum se for
+	// ignorada — dá a verificação silenciosamente desligada, e ninguém repara
+	// enquanto não for preciso.
+	versaoMinima, err := VersaoMinimaDe(os.Getenv("APP_VERSAO_MINIMA"))
+	if err != nil {
+		return fmt.Errorf("ler a versão mínima da app: %w", err)
+	}
+
 	servidor, err := Novo(registo, time.Now)
 	if err != nil {
 		return fmt.Errorf("montar o servidor: %w", err)
@@ -175,7 +184,18 @@ func Servir(ctx context.Context, url, endereco string, saida io.Writer) error {
 	// precisa de ajuda para saber quem é quem, e é aí que o v1 se enganou.
 	servidor = servidor.
 		ComDiario(DiarioDeOmissao(saida)).
-		ComOrigens(origens)
+		ComOrigens(origens).
+		ComVersaoMinima(versaoMinima)
+	// ⚠️ Diz-se sempre, ligada ou desligada, pela mesma razão que os proxies: o
+	// modo errado — um mínimo a mais — manda parar apps que funcionavam, e quem
+	// arranca tem de o ler sem ir à configuração.
+	if versaoMinima == nil {
+		_, _ = fmt.Fprintln(saida,
+			"versão mínima da app desligada (nenhuma APP_VERSAO_MINIMA declarada): serve-se qualquer versão")
+	} else {
+		_, _ = fmt.Fprintf(saida,
+			"versão mínima da app: %s — abaixo disto responde-se 426 versao_demasiado_antiga\n", versaoMinima)
+	}
 	if len(origens) == 0 {
 		_, _ = fmt.Fprintln(saida,
 			"CORS desligado (nenhuma ORIGENS_PERMITIDAS declarada): só a mesma origem chama esta API")
