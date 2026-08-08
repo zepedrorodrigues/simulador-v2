@@ -430,15 +430,23 @@ Não é uma limpeza: é a maior parte do que este repositório tinha de próprio
 preça.** As quatro que os dados contrariaram num só dia — `KAN-54` a `KAN-57` —
 eram todas desta lista. O que sobra não tem hipóteses para contrariar.
 
-⚠️ **Duas destas linhas ainda não são verdade sobre o CÓDIGO, e diz-se em vez de
-se fingir.** O `dominio.Encargos` (424 l.), o `dominio.TAEGDe` (207 l.), a
-`dominio.EscalaDeLTV` (190 l.) e o `dominio.mercado` (78 l.) — 1 892 linhas com
-os testes — **continuam no repositório e não têm um único chamador** fora do
-próprio pacote. Saíram do contrato a 2026-08-07, com a `taeg` e o `mtic` a
-passarem a ser o que o banco cotou e com o `pressupostos` a desaparecer; o código
-ficou. É dívida nomeada e está no `RESUME.md`. ⚠️ **Enquanto lá estiver, esta
-tabela e o pacote `dominio` discordam** — e quem lhes pegar apaga-os, não os
-volta a ligar.
+✅ **Esta tabela passou a ser verdade sobre o código também** (2026-08-08). O
+`dominio.Encargos` (424 l.), o `dominio.TAEGDeFluxos` (207 l.), a
+`dominio.EscalaDeLTV` (190 l.) e o `dominio.mercado` (78 l.), mais 971 linhas de
+testes, **saíram do repositório** — 1 892 linhas. Tinham saído do contrato a
+2026-08-07, com a `taeg` e o `mtic` a passarem a ser o que o banco cotou; o
+código ficou mais um dia, e durante esse dia esta tabela e o pacote `dominio`
+discordavam.
+
+⚠️ **A prova de que não tinham chamador é o compilador, e não uma busca.** Foram
+apagados de uma vez e o `go build ./...` passou à primeira: em Go, uma referência
+que ficasse para trás é `undefined` e não compila. O que o portão **não** teria
+apanhado sozinho é que existiam — código sem chamadores compila e passa nos
+testes para sempre, que é como sobreviveram um dia inteiro depois de mortos.
+
+⚠️ **Não se voltam a ligar.** Cada um era uma hipótese sobre como um banco preça,
+e quatro caíram num só dia (`KAN-54` a `KAN-57`). Quem precisar de um número
+destes pergunta ao banco.
 
 ### O que sobreviveu, e é o que resta
 
