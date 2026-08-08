@@ -14,7 +14,7 @@ O v1 tinha um formulário de \~25 campos e a tabela de resultados na mesma pági
 
 ⚠️ **Havia aqui um ecrã «A comparar» entre o pedido e as ofertas, e saiu a 2026-07-28** — ver a §2, que fica no lugar dele.
 
-E, à parte, `Mercado` — a série do `rate-catalog`. Fica para depois de a app funcionar (fase 5), mas o desenho já a prevê no separador inferior.
+⚠️ **E havia à parte um `Mercado` — a série do `rate-catalog` —, que sai a 2026-08-08.** Não é adiamento: a rota foi apagada do servidor (Fase 6, passo 5) e o varrimento que a alimentava também. Uma série temporal de preços precisa de alguém a varrer em hora morta, e ninguém varre. O separador inferior fica com os ecrãs que existem.
 
 ---
 
@@ -70,7 +70,7 @@ Havia um — «A comparar», com barra de progresso, cada banco a aparecer assim
 
 ⚠️ **E voltar a pô-lo seria pior do que nada:** uma barra de progresso sobre uma consulta de milissegundos é teatro, e teatro num sítio onde se comparam créditos ensina a pessoa a desconfiar do resto do ecrã. O submeter do passo 3 vai direito às Ofertas.
 
-**O que sobreviveu dele mudou de sítio:** os estados que não são o caminho feliz — servidor em baixo, sem rede, tecto atingido, banco sem série — deixaram de ser um ecrã intermédio e são estados **das próprias Ofertas** (§3), que é onde a pessoa está quando acontecem.
+**O que sobreviveu dele mudou de sítio:** os estados que não são o caminho feliz — servidor em baixo, sem rede, tecto atingido, banco ocupado — deixaram de ser um ecrã intermédio e são estados **das próprias Ofertas** (§3), que é onde a pessoa está quando acontecem. ⚠️ O «banco sem série» já não é um deles: não há série, e a única coisa que um banco pode fazer é responder, recusar ou não responder a tempo.
 
 ⚠️ **O único progresso que a app mostra é o dos três passos do formulário.** É contagem de passos, não espera de trabalho: a pessoa está no segundo de três, e isso é verdade sem depender de nada que esteja a correr.
 
@@ -84,19 +84,25 @@ Havia um — «A comparar», com barra de progresso, cada banco a aparecer assim
 
 ⚠️ **Os bancos que falharam continuam na lista**, com a razão em português. Um banco que desaparece parece um esquecimento; um banco que explica porque não tem oferta é informação útil.
 
-⚠️ **Esta regra esteve por cumprir até 2026-08-01, e a falta era do servidor** (`KAN-45`): ele devolvia ofertas dos bancos com série e não dos bancos pedidos — escolhiam-se cinco, o botão dizia «Comparar (5)», e a lista mostrava dois, sem rasto dos outros. Corrigido: os pedidos vêm todos, e os que não têm série vêm com o código `sem_serie` e a razão em português.
+⚠️ **Esta regra esteve por cumprir até 2026-08-01, e a falta era do servidor** (`KAN-45`): ele devolvia ofertas dos bancos com série e não dos bancos pedidos — escolhiam-se cinco, o botão dizia «Comparar (5)», e a lista mostrava dois, sem rasto dos outros.
+
+⚠️ **O código `sem_serie` que a corrigia saiu do contrato a 2026-08-07**, com a série. **A regra que ele servia é que fica**, e passou a ser mais forte: agora é a **app** que monta a lista com os cinco desde o primeiro instante (D2), portanto não há como um banco pedido não aparecer. Uma linha tem três estados — **à espera**, **servida**, ou **não chegou** — e nenhum deles é a ausência.
+
+⚠️ **E «não chegou» não se disfarça de oferta em falha.** Uma oferta com `sucesso: false` traz a razão **do banco**, escrita pelo servidor em português; um pedido que nem chegou ao servidor não tem essa frase, e fabricar-lhe uma era a app a afirmar o que o banco disse. O que ela sabe di-lo com as palavras dela: não houve rede, o serviço não respondeu, o tecto foi atingido.
 
 ⚠️ **Os produtos aplicados são visíveis em cada cartão.** Sem isso, um banco com descontos por omissão parece simplesmente mais barato. Foi a lição que o v1 demorou a aprender na sua própria série de mercado.
 
-⚠️ **A TAEG leva marca de derivada, e não é opcional** (acrescentado a 2026-07-28). A `taeg` e o `mtic` não vêm cotados pelo banco: são calculados a partir dos encargos medidos, e cada oferta traz os `pressupostos` sob os quais o foram. No cartão basta a marca — um `~` antes do número, ou «TAEG estimada» — com os pressupostos inteiros no detalhe (§4). É a condição em que a §4 do `ARQUITETURA.md` permite servir o número, e a MCD exige-a junto do valor que dela depende (Anexo I, Parte II; Anexo II). **Um número derivado servido com ar de cotado é exactamente a falha que o v1 registou** e que este projecto herdou como regra: preferir falhar com clareza a servir um número inventado com ar de oficial.
+⚠️ **A TAEG deixou de levar marca de derivada, a 2026-08-07, e isto dizia o contrário.** Dizia — desde 2026-07-28 e com razão — que a `taeg` e o `mtic` não vinham cotados pelo banco, que eram calculados dos encargos medidos, e que por isso o cartão levava um `~` antes do número e os `pressupostos` inteiros no detalhe. **Ao vivo são o que o simulador do banco devolveu.** Não há derivação, não há hipóteses nossas a declarar, e o `~` e o `pressupostos` saíram do contrato e do ecrã.
 
-⚠️ **E a idade do preço aparece, sempre.** Cada oferta traz o `capturado_em` do varrimento de que saiu, e a resposta traz o `calculado_em` dela própria. O rodapé da lista diz de quando são os preços — «preços de hoje, 05:00» — porque **um preço sem data não se serve**. Um preço de ontem continua a ser informação; um preço de ontem apresentado como o de agora, não.
+⚠️ **A obrigação da MCD não desaparece — muda de dono.** O Anexo I, Parte II e o Anexo II mandam declarar as hipóteses junto do número que delas depende, e essas hipóteses são agora **do banco** e chegam nas `notas` dele (o Montepio declara lá que projecta a taxa do período fixo para o resto do prazo). **O que a app continua obrigada a dizer** é que uma simulação não é uma proposta — mas isso é a distinção entre simulação e proposta, e não entre estimado e cotado.
 
-⚠️ **Um preço que a sonda contradisse leva aviso no cartão** (`KAN-49`, 2026-08-05). Quando `fiabilidade` vem `em_duvida`, a nota que vem em `notas` aparece **no cartão**, pela mesma regra do aviso de ajuste: uma verificação barata discordou daquele preço e ainda não foi possível confirmá-lo. Não diz «este preço está errado» — não se sabe isso — diz o que se mediu.
+⚠️ **E a regra que estava por trás do `~` fica inteira:** um número derivado servido com ar de cotado é a falha que o v1 registou. A forma de a não cometer, agora, é não derivar número nenhum.
 
-⚠️ **E os outros dois estados mostram-se com SILÊNCIO.** `confirmada` e `por_confirmar` não põem marca nenhuma no cartão. Uma etiqueta de «confirmada» em toda a gente é ruído com aspecto de informação: treina quem lê a saltá-la, e o dia em que aparecesse a que importa já ninguém a via. ⚠️ Hoje **quase tudo** é `por_confirmar` — a sonda ainda não corre agendada —, portanto uma marca de estado positivo estaria ausente em toda a parte e a negativa em toda a parte. Nenhuma das duas informa.
+⚠️ **E a idade do preço aparece, sempre.** Cada oferta traz o `capturado_em` — **o instante em que o banco cotou**, e não o de um varrimento —, e a resposta traz o `calculado_em` dela própria. ⚠️ **Os dois podem diferir, e é por isso que são dois:** uma resposta pode vir da cache do servidor (`KAN-58`, validade de 5 min), e aí o preço é de há minutos e não de agora. **Um preço sem data não se serve**, e a fronteira recusa-o — há guarda no servidor que desce uma oferta sem `capturado_em` para falha.
 
-⚠️ **A dúvida NÃO tira a estrela**, ao contrário do ajuste. A estrela diz «esta é a melhor das que estão aqui», e uma dúvida sobre a idade do preço não a torna falsa — o preço continua a ser o melhor que temos daquele banco. Tirá-la escondia a comparação em vez de a qualificar. O aviso e a estrela convivem no mesmo cartão, e é isso que se pretende: «a melhor, e há uma reserva sobre ela».
+⚠️ **Havia aqui três parágrafos sobre a `fiabilidade`** (`KAN-49`): o aviso no cartão quando uma sonda contradissesse o preço, o silêncio nos outros dois estados, e a regra de que a dúvida não tirava a estrela. **Saem com a sonda e com a grelha** (2026-08-07) — ao vivo não há uma terceira coisa entre a resposta do banco e o que se serve, logo não há sobre o que ter uma opinião.
+
+⚠️ **A regra que esses parágrafos carregavam fica escrita, porque vale para o que vier:** um estado que só se publica quando as notícias são más ensina quem o lê a tratar a ausência como boa notícia. Se voltar a haver uma verificação de preço, volta com três estados e não com um booleano — e o silêncio faz-se no ecrã, não no contrato.
 
 ⚠️ **Construído a 2026-07-29 (A5), e quatro coisas ficaram decididas aqui que não estavam desenhadas:**
 
@@ -108,7 +114,11 @@ Havia um — «A comparar», com barra de progresso, cada banco a aparecer assim
 
 ⚠️ **Uma oferta a que falte a métrica de ordenação vai para o fim das que têm preço, nunca para o meio.** `undefined` numa subtracção dá `NaN`, e um `sort` com `NaN` deixa a lista por ordem arbitrária — a pior avaria possível aqui, porque **parece ordenada**. A §4 do `ARQUITETURA.md` permite omitir uma TAEG que não se consegue dar, portanto o caso é legítimo e não hipotético.
 
-⚠️ **E o que o servidor deixar por declarar diz-se.** Quando uma oferta traz `taeg` ou `mtic` sem `pressupostos`, o cartão nomeia-o como defeito **nosso** e não do banco — é o que o contrato manda («vazio com um deles preenchido é defeito nosso, e não um caso legítimo»).
+⚠️ **Havia aqui a regra de nomear como defeito NOSSO uma `taeg` sem `pressupostos`**, e ela **ia marcar todos os cartões** a partir de 2026-08-07: o servidor ao vivo nunca preenche `pressupostos` — o campo saiu do contrato —, e a app punha uma caixa vermelha a acusar-nos de um defeito que não existe em cada oferta com preço. Foi apanhada **a ler o código** e não por um teste: o teste passava porque a fixture preenchia o campo que o servidor a sério não preenche.
+
+⚠️ **A lição fica, e é sobre fixtures e não sobre pressupostos:** uma regra que dispara sobre a **ausência** de um campo precisa de um caso em que o campo esteja mesmo ausente, e uma fixture que o preenche por conveniência apaga exactamente esse caso.
+
+⚠️ **A estrela espera pelos bancos que faltam.** Enquanto houver uma linha «à espera», nenhuma oferta leva estrela — é a mesma afirmação do parágrafo de cima levada ao fan-out: a melhor de duas de cinco desmente-se quando chega a terceira, e a pessoa lê, decide, e o ecrã muda-lhe a resposta debaixo dos olhos. ⚠️ Um banco que **falhou** não segura as estrelas: já assentou, e não vai mudar a comparação.
 
 ---
 
@@ -116,9 +126,9 @@ Havia um — «A comparar», com barra de progresso, cada banco a aparecer assim
 
 ⚠️ **O gráfico de fases é a informação que o v1 não dava bem.** Numa taxa mista, a TAN dos primeiros anos não é o custo do crédito — é o chamariz. Mostrar as fases lado a lado é a diferença entre comparar e ser induzido em erro.
 
-⚠️ **A proveniência e a hora aparecem sempre.** Dizia aqui «um valor de cache com 4 horas tem de o dizer», e **não há cache** — morreu com a inversão da §1. O que há é melhor e mais exigente: **todos** os valores vêm de um varrimento anterior, não só alguns. A hora não é uma excepção a assinalar, é parte de cada oferta (`capturado_em`), e o rodapé desta página di-la sempre.
+⚠️ **A proveniência e a hora aparecem sempre, e este parágrafo já esteve errado duas vezes.** Dizia primeiro «um valor de cache com 4 horas tem de o dizer»; passou a dizer que **não havia** cache e que todos os valores vinham de um varrimento anterior. **Nenhuma das duas coisas é verdade hoje:** os valores vêm do banco no momento em que se pergunta, e **há** cache (`KAN-58`, 5 min, em Postgres). A hora não é uma excepção a assinalar — é parte de cada oferta (`capturado_em`), e o rodapé desta página di-la sempre.
 
-⚠️ **E os `pressupostos` mostram-se aqui por inteiro**, sob a TAEG e o MTIC. É o sítio onde a lista cabe, e é a condição em que a §4 do `ARQUITETURA.md` permite servir números derivados — «assumir e declarar», nunca uma sem a outra.
+⚠️ **Os `pressupostos` deixaram de se mostrar aqui**, porque deixaram de existir (2026-08-07, §3). O que ocupa o lugar deles são as **`notas` do banco** — é onde as hipóteses de cálculo passaram a viver, e são dele e não nossas. ⚠️ **Não vão sob os números:** a app mostra-as numa secção «Notas» própria, depois das fases, dos produtos aplicados e da composição — verificado no `app/ofertas/[banco].tsx` a 2026-08-08. E quando há ajuste, juntam-se ao aviso de ajuste em vez de aparecerem duas vezes.
 
 ⚠️ **O `ate_mes` das fases é acumulado desde o início do contrato, não a duração da fase** (2026-07-29). É o contrário do que os bancos devolvem — o domínio do backend tem os dois tipos, `Fase` e `FaseDuracao`, precisamente por causa disso — e lido como duração dá «Anos 1-5» seguido de «Anos 6-11» numa mista de 5 anos a 30. **O erro parece certo:** os números são plausíveis, estão por ordem, e ninguém repara sem somar. Está escrito aqui porque este gráfico é o único sítio da app que lê o campo. ⚠️ Confirmado com dados reais nesse dia: a CGD devolveu `ate_mes` 60 e 360, e o detalhe mostra **«Anos 1-5»** e **«Anos 6-30»**.
 
