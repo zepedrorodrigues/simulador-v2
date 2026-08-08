@@ -18,9 +18,11 @@ Estado actual e próximos passos. ⚠️ **Sem changelog** — o relato de sess�
 
 ✅ **A TAEG e o MTIC deixaram de ser nossos** (2026-08-07). Ao vivo é o simulador do banco que os devolve: o `pressupostos` e o `fiabilidade` saíram do contrato, e o `~` saiu da app. ⚠️ **Isto ia partir todos os cartões:** a app marcava «É uma falha do nosso servidor» sempre que houvesse TAEG sem pressupostos, e ao vivo o servidor nunca os preenche.
 
-**O que falta:** a **`KAN-59`** — escolher o domínio, provisionar a máquina e correr o `docs/DEPLOY.md` pela primeira vez; o **parecer jurídico** (`KAN-24`); em código o **prazo por banco**, que espera mais amostras de latência; e as **1 892 linhas do modelo de preço** (abaixo).
+✅ **As 1 892 linhas do modelo de preço saíram** (2026-08-08): `dominio/encargos.go` (424 l.), `taeg.go` (207 l.), `escala_ltv.go` (190 l.), `mercado.go` (78 l.) e 971 l. de testes. A tabela «morreu» da §4 do `ARQUITETURA.md` e o pacote `dominio` deixaram de discordar. ⚠️ **A prova de que não tinham chamador foi o compilador** — apagados de uma vez, o `go build ./...` passou à primeira. Não se voltam a ligar: cada um era uma hipótese sobre como um banco preça, e quatro caíram num dia.
 
-⚠️ **Dívida nomeada: o modelo de preço saiu do contrato e ficou no código.** `dominio/encargos.go` (424 l.), `taeg.go` (207 l.), `escala_ltv.go` (190 l.) e `mercado.go` (78 l.), mais os testes (971 l.) — **sem um único chamador** fora do próprio pacote, verificado a 2026-08-07. A tabela «morreu» da §4 do `ARQUITETURA.md` já os dá por mortos e o pacote discorda. Quem lhes pegar **apaga-os**, não os volta a ligar: cada um era uma hipótese sobre como um banco preça, e quatro caíram num dia.
+**O que falta:** a **`KAN-59`** — escolher o domínio, provisionar a máquina e correr o `docs/DEPLOY.md` pela primeira vez; o **parecer jurídico** (`KAN-24`); e em código o **prazo por banco**, que espera mais amostras de latência.
+
+⚠️ **Dívida nova, e é de documento: o `docs/ECRAS.md` ficou para trás.** Quatro parágrafos dele descrevem o mundo antigo — a TAEG «leva marca de derivada» com o `~` e os pressupostos, o código `sem_serie`, o `capturado_em` «do varrimento», e o aviso de `fiabilidade: em_duvida`. Nada disso existe desde 2026-08-07. É exactamente a distância entre documento e código que a Fase 6 fechou noutros ficheiros.
 
 ## Onde estamos
 

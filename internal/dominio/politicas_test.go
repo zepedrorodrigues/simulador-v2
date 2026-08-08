@@ -2,7 +2,6 @@ package dominio_test
 
 import (
 	"errors"
-	"fmt"
 	"slices"
 	"strconv"
 	"strings"
@@ -284,49 +283,13 @@ func FuzzEncaixarPeriodoFixo(f *testing.F) {
 	})
 }
 
-// FuzzEscalaDeLTV afirma o invariante que nenhuma tabela esgota: dentro do
-// domínio que o banco preça, qualquer rácio cai em exactamente um degrau, e o
-// spread servido é um dos que foram medidos — nunca um valor interpolado.
+// ⚠️ **Havia aqui a `FuzzEscalaDeLTV`**, e sai com a `EscalaDeLTV`
+// (2026-08-08). Afirmava que qualquer rácio dentro do domínio preçado cai em
+// exactamente um degrau e recebe um spread **medido** e nunca interpolado — um
+// invariante bom sobre uma tabela que deixou de existir: ao vivo o spread é o
+// que o simulador do banco devolveu, e não há escala nossa onde procurá-lo.
 //
-// ⚠️ E afirma-se de propósito o que NÃO se afirma: a monotonia. O fuzz antigo
-// do BandaLTV exigia que o degrau não descesse quando o rácio subia, e isso é
-// falso sobre o preço — na CGD o 2,050 é um patamar isolado entre dois mais
-// baixos (KAN-35). Um invariante de monotonia aqui rejeitaria a realidade
-// medida.
-func FuzzEscalaDeLTV(f *testing.F) {
-	f.Add(uint16(6650))
-	f.Add(uint16(6675))
-	f.Add(uint16(6800))
-	f.Add(uint16(0))
-	f.Add(uint16(10000))
-
-	medidos := []string{"2", "2.05", "1.35"}
-
-	f.Fuzz(func(t *testing.T, x uint16) {
-		e, err := dominio.NovaEscalaDeLTV([]dominio.DegrauLTV{
-			{De: racio(t, "0.335"), Ate: racio(t, "0.6650"), Spread: taxa(t, "2.000")},
-			{De: racio(t, "0.6650"), Ate: racio(t, "0.6775"), Spread: taxa(t, "2.050")},
-			{De: racio(t, "0.6775"), Ate: racio(t, "0.92"), Spread: taxa(t, "1.350")},
-		})
-		if err != nil {
-			t.Fatalf("a escala medida não construiu: %v", err)
-		}
-
-		ltv := racio(t, fmt.Sprintf("0.%04d", x))
-		dentro := ltv.Cmp(racio(t, "0.335")) >= 0 && ltv.Cmp(racio(t, "0.92")) <= 0
-
-		s, _, err := e.SpreadEm(ltv)
-		switch {
-		case dentro && err != nil:
-			t.Fatalf("0.%04d está dentro da escala e mesmo assim deu erro: %v", x, err)
-		case !dentro && err == nil:
-			t.Fatalf("0.%04d está fora da escala e recebeu o spread %s", x, s)
-		case !dentro:
-			return
-		}
-
-		if !slices.Contains(medidos, s.String()) {
-			t.Fatalf("0.%04d recebeu o spread %s, que não é nenhum dos medidos %v", x, s, medidos)
-		}
-	})
-}
+// ⚠️ **O facto medido que ela guardava não morre com ela** (KAN-35): na CGD o
+// spread **não é monótono** no rácio — o 2,050 % é um patamar isolado entre dois
+// mais baixos. Era por isso que este fuzz recusava afirmar monotonia, e quem um
+// dia voltar a modelar uma escala de LTV parte deste facto e não do palpite.
