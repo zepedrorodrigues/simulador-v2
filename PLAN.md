@@ -113,7 +113,13 @@ Depois disso, e por esta ordem:
    ✅ **Os dois critérios da issue correm contra um proxy a sério** — Caddy em contentor, e não um `httputil.ReverseProxy` no mesmo processo. ⚠️ E o teste novo apanha um defeito que a suite inteira deixava passar: **ler a cadeia da esquerda para a direita** — a falsificação clássica — passava em todos os testes que já existiam, porque o que lá havia distinguia as «duas máquinas» por um cabeçalho que o próprio cliente escrevia.
 
    ⏳ **Falta o valor do `PROXIES_DE_CONFIANCA`**, e está bloqueado pelo alojamento: mede-se contra o proxy que estiver à frente em produção, e não há nenhum escolhido. ⚠️ Medido pelo caminho: **o Caddy substitui o `X-Forwarded-For` por omissão** e um nginx acrescenta — a cadeia que chega depende do proxy, e o valor mede-se contra o que ele faz e não contra o que se supõe.
-4. ~~`GET`~~ **`POST` `/api/v1/ofertas/{banco}`** no contrato ✅ *(2026-08-06)*, e a app a fazer o fan-out ⏳. ⚠️ O método mudou e não é detalhe: o pedido leva data de nascimento e rendimento, e num `GET` isso viajava na query string — histórico do browser, logs de qualquer proxy, `Referer`.
+4. ~~`GET`~~ **`POST` `/api/v1/ofertas/{banco}`** no contrato ✅ *(2026-08-06)*, e **a app a fazer o fan-out** ✅ *(2026-08-07)*. ⚠️ O método mudou e não é detalhe: o pedido leva data de nascimento e rendimento, e num `GET` isso viajava na query string — histórico do browser, logs de qualquer proxy, `Referer`.
+
+   ⚠️ **O tecto do fan-out são 3 bancos de cada vez, e o número não é medido — é escolhido, com a razão ao lado.** Contra a latência que **está** medida (2026-08-06, 17h13): com cinco bancos em dois lotes o pior caso fica ~11 s, contra os ~8,4 s de os disparar todos. Compra-se 2,6 s ao preço de nunca saírem mais de três pedidos nossos ao mesmo tempo — e a §7.4 põe essa responsabilidade na app de propósito.
+
+   ⚠️ **E a repetição por omissão do TanStack Query saiu do caminho do banco.** Eram duas tentativas; um pedido nosso custa 1 a 4 pedidos a um banco, logo repetir triplicava a amplificação por uma falha de rede. Repete-se **só** o `503 banco_ocupado`, que é a única falha que o contrato diz passar sozinha e a única que traz `Retry-After` a dizer quando.
+
+   ⚠️ **A app estava partida desde o passo 5 e ninguém o sabia**, porque os dois repositórios têm portões separados: ela chamava o `POST /api/v1/comparacoes`, que já dava 404, e a suite dela passava — nenhum teste dela fala com o servidor. O que o denunciou foi ler o código, não correr nada.
 5. ✅ **Retirado o que morreu** *(2026-08-07)*: `varrimento`, `grelha`, `sonda`, `varrer`, `sondar`, `catalogo`, `travao`, as tabelas `catalogo_taxas` e `sondagens`, o `/api/rate-catalog` e o `POST /api/v1/comparacoes`. **14 438 linhas.** Depois de a fatia ao vivo estar de pé, e não antes.
 
    ⚠️ **A D1 desbloqueou-se por verificação, não por decisão.** Bloqueava por se afirmar, em cinco documentos, que o `viabilidade-imobiliaria` consumia o nosso `/api/rate-catalog` **em produção**. As duas metades eram falsas: ele consome o do **v1** (o `chmonitor`, que mantém os seus scrapers), e **não há produção** — nem o v2 nem o v1 estão alojados (a issue #13 do v1, «Verificar o deployment no ambiente real», continua aberta). A rota daqui nunca teve consumidor, e retirá-la não partiu nada.
@@ -133,12 +139,17 @@ Repositório separado, `simulador-v2-app`. Arrancou a 2026-07-28 com as fases 0-
 | A1 esqueleto Expo, tokens, dois temas | ✅ |
 | A2 contrato sincronizado + CI a reprovar divergência | ✅ |
 | A3 os três passos do pedido | ✅ |
-| A5 ofertas e detalhe, com fases, notas e pressupostos | ✅ |
-| A6 os estados que não são o caminho feliz | ⏳ |
+| A4 resultados progressivos, com o fan-out do lado da app | ✅ *(2026-08-07)* |
+| A5 ofertas e detalhe, com fases e notas | ✅ |
+| A6 os estados que não são o caminho feliz | 🔶 |
 | A7 acessibilidade e **publicação web** — primeiro alvo a publicar | ⏳ |
 | A8 EAS Build e submissão | ⛔ bloqueado pelo `KAN-24` |
 
-⚠️ **A A4 VOLTA (2026-08-06).** Tinha sido apagada com a nota «não há espera nenhuma», e passa a haver: cada banco é um pedido e a lista enche-se à medida que respondem. Não é o ecrã de espera do v1 — não há trabalho assíncrono nosso a que se pergunte «já está?» —, é a lista a preencher-se. ⚠️ E traz consigo o fan-out **do lado da app**, com a responsabilidade de não disparar dez pedidos de uma vez.
+⚠️ **A A4 VOLTOU (2026-08-06) e está feita (2026-08-07).** Tinha sido apagada com a nota «não há espera nenhuma», e passou a haver: cada banco é um pedido e a lista enche-se à medida que respondem. Não é o ecrã de espera do v1 — não há trabalho assíncrono nosso a que se pergunte «já está?» —, é a lista a preencher-se. O fan-out vive na app, com tecto de **3 em voo**.
+
+⚠️ **A A5 perdeu os pressupostos, e não foi na app que a decisão se tomou.** Ela mostrava-os por baixo da TAEG e do MTIC, e punha um `~` em cada um, porque eram derivados de um modelo de encargos nosso. Ao vivo são o que o simulador do banco cotou: saem do contrato, saem do ecrã, e o `~` com eles. ⚠️ **O que a app continua obrigada a dizer** é que uma simulação não é uma proposta — mas isso é a distinção entre simulação e proposta, e não entre estimado e cotado.
+
+⚠️ **E apanhou-se, por leitura, um defeito que ia aparecer em TODOS os cartões:** a app marcava «É uma falha do nosso servidor» sempre que houvesse TAEG sem `pressupostos`, e ao vivo o servidor nunca os preenche. Cada oferta com preço ia trazer uma caixa vermelha a acusar-nos de um defeito que não existia.
 
 ⚠️ **A app impõe uma restrição bloqueante ao backend:** com uma app nas lojas não se controla quem actualiza, por isso `/api/v1` **só pode mudar por acrescento**. O caminho de «esta versão é demasiado antiga» custa pouco agora e é impossível de acrescentar quando já houver versões antigas no terreno — que é quando faz falta. **Por fazer.**
 

@@ -34,27 +34,6 @@ func (e BancoPeriodosFixosModo) Valid() bool {
 	}
 }
 
-// Defines values for OfertaFiabilidade.
-const (
-	Confirmada   OfertaFiabilidade = "confirmada"
-	EmDuvida     OfertaFiabilidade = "em_duvida"
-	PorConfirmar OfertaFiabilidade = "por_confirmar"
-)
-
-// Valid indicates whether the value is a known member of the OfertaFiabilidade enum.
-func (e OfertaFiabilidade) Valid() bool {
-	switch e {
-	case Confirmada:
-		return true
-	case EmDuvida:
-		return true
-	case PorConfirmar:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for PedidoEuriborIndexante.
 const (
 	N12m PedidoEuriborIndexante = "12m"
@@ -198,13 +177,14 @@ type Oferta struct {
 	BancoId   string                  `json:"banco_id"`
 	BancoNome string                  `json:"banco_nome"`
 
-	// CapturadoEm Quando o preço foi MEDIDO no banco, durante o varrimento — não quando esta resposta foi calculada (isso é o `calculado_em` da Comparacao).
-	// ⚠️ Presente sempre que `sucesso` é verdadeiro, e é o campo mais importante desta lista para a honestidade do produto: é o único que diz à pessoa que está a ver um preço de ontem à noite e não de agora. A app é obrigada a mostrá-lo. Escondê-lo apresentaria dados varridos como se fossem uma consulta ao vivo ao banco, que é exactamente o que este serviço não faz.
+	// CapturadoEm Quando se falou com o banco — o instante em que este preço foi cotado.
+	// ⚠️ **Não é «agora», e a diferença é a razão de o campo existir.** Num acerto de cache (§7.6) é o instante da ida ao banco que produziu a resposta guardada, e pode ser de há cinco minutos. Numa oferta fresca é de há segundos. Dizia aqui «durante o varrimento», e o varrimento saiu — o que fica é o mesmo compromisso por outro caminho.
+	// ⚠️ Presente sempre que `sucesso` é verdadeiro, e é o campo mais importante desta lista para a honestidade do produto. A app é obrigada a mostrá-lo, e o servidor **recusa servir** uma oferta com preço e sem ele (`traduzir.go`): um preço sem data apresenta-se como se fosse de agora.
 	CapturadoEm *time.Time `json:"capturado_em,omitempty"`
 
 	// EmCache Verdadeiro quando esta oferta se serviu da cache (§7.6) em vez de se perguntar ao banco agora.
 	// ⚠️ **Não é o mesmo que `capturado_em`, e nenhum dos dois substitui o outro.** O `capturado_em` diz de QUANDO é o preço, e num acerto de cache é o instante em que se falou com o banco — nunca o de agora. Este diz se ESTE pedido chegou a sair para o banco. Uma oferta fresca e um acerto de um segundo atrás têm `capturado_em` quase igual e `em_cache` diferente.
-	// ⚠️ Ausente vale `false`, e não leva `default:` de propósito — pela mesma razão do `fiabilidade` acima: o `openapi-typescript` traduz um campo com omissão para um campo OBRIGATÓRIO no tipo gerado.
+	// ⚠️ Ausente vale `false`, e não leva `default:` de propósito: o `openapi-typescript` traduz um campo com omissão para um campo OBRIGATÓRIO no tipo gerado, e a app passaria a afirmar que a resposta traz sempre este campo — que é precisamente o que o `required` diz que não. A regra fica na descrição, onde não mente ao gerador.
 	EmCache *bool `json:"em_cache,omitempty"`
 
 	// Erro Estruturado de propósito: `codigo` é para a app decidir, `mensagem` é para a pessoa ler, em português.
@@ -213,45 +193,26 @@ type Oferta struct {
 	EuriborValor     *float64    `json:"euribor_valor,omitempty"`
 	Fases            *[]Fase     `json:"fases,omitempty"`
 
-	// Fiabilidade O que se sabe sobre a grelha de onde este preço saiu, e não sobre o preço em si (KAN-49). A sonda confirma — com ~4 pedidos por banco — se a grelha guardada ainda descreve o banco.
-	// ⚠️ `em_duvida` quer dizer que a última sondagem DISCORDOU da grelha e que ainda não houve varrimento que resolvesse a discordância. A app é **obrigada** a mostrar a nota que vem em `notas`, junto do número — é a mesma regra do `aplicado`.
-	// ⚠️ `confirmada` e `por_confirmar` mostram-se com **silêncio**. Uma marca de «confirmada» em toda a gente é ruído com aspecto de informação, e treina quem lê a saltar a única que importa.
-	// ⚠️ **Ausente vale `por_confirmar`**, e nunca `confirmada`: uma omissão que valesse «confirmada» afirmava sobre a série inteira uma coisa que ninguém mediu. Este servidor manda-o sempre; o campo fica opcional porque `required` só tem o que uma oferta não pode não ter.
-	// ⚠️ E **não leva `default:`** de propósito. Levava, e o `openapi-typescript` traduz um campo com omissão para um campo OBRIGATÓRIO no tipo gerado — a app passava a afirmar que a resposta traz sempre este campo, que é precisamente o que o `required` diz que não. A regra fica na descrição, onde não mente ao gerador.
-	Fiabilidade *OfertaFiabilidade `json:"fiabilidade,omitempty"`
-
-	// Mtic ⚠️ DERIVADO, pela mesma razão e sobre o mesmo modelo de encargos que a `taeg`. Ver `pressupostos`.
+	// Mtic O MTIC que o simulador do banco devolveu, pela mesma razão que a `taeg`.
 	Mtic  *float64  `json:"mtic,omitempty"`
 	Notas *[]string `json:"notas,omitempty"`
 
-	// Pressupostos As hipóteses sob as quais a `taeg` e o `mtic` desta oferta foram derivados, em português e legíveis por uma pessoa.
-	// ⚠️ Lista à parte de `notas`, e não misturada nela, de propósito: as duas têm estatutos diferentes. Uma `nota` é um aviso sobre o que aconteceu a ESTE pedido — o banco encurtou o prazo, o degrau de LTV não estava resolvido. Um pressuposto é uma hipótese de cálculo que a MCD obriga a declarar junto do número que dela depende (Anexo I, Parte II; Anexo II). Empacotadas na mesma lista, a app ficava sem forma de as apresentar como o que são.
-	// ⚠️ Não vazia sempre que `taeg` ou `mtic` vêm preenchidos. Vazia com um deles preenchido é defeito nosso, e não um caso legítimo.
-	Pressupostos *[]string `json:"pressupostos,omitempty"`
-
-	// PrestacaoMensal Amortização francesa sobre a `tan` e o montante pedido. É aritmética exacta, não medição — e é por isso que responde ao montante desta pessoa, e não ao do cenário de referência.
+	// PrestacaoMensal A prestação mensal que o banco devolveu para este pedido.
 	PrestacaoMensal   *float64  `json:"prestacao_mensal,omitempty"`
 	ProdutosAplicados *[]string `json:"produtos_aplicados,omitempty"`
 
-	// Spread ⚠️ Do INTERVALO de LTV medido que contém o rácio pedido, e não de uma banda assumida. Num degrau que não se conseguiu resolver é o lado mais CARO do intervalo (Directiva 2014/17/UE, Anexo I, Parte II, alínea (d)), e `notas` traz a frase que nomeia os dois lados.
+	// Spread O spread que o banco aplicou a este pedido. ⚠️ Não é uma banda assumida nem um intervalo por resolver: é o número que ele devolveu, para o rácio de financiamento que esta pessoa pediu.
 	Spread  *float64 `json:"spread,omitempty"`
 	Sucesso bool     `json:"sucesso"`
 
-	// Taeg ⚠️ DERIVADA, não medida. Ver `pressupostos`, que é obrigatório sempre que este campo vem preenchido.
-	// A TAEG depende dos encargos (comissões, imposto, seguros) e o seguro de vida depende de quem pede — e a série de mercado é varrida com um titular NEUTRO e fictício, sobre um cenário de referência fixo (§4). Não existe, portanto, TAEG medida para esta pessoa. O que se faz é atribuir a encargos a diferença entre a TAEG e a TAN observadas no ponto de referência, e reamortizar sobre os fluxos deste pedido.
-	// ⚠️ A repartição desses encargos entre comissões, imposto e seguro NÃO está medida: é inferida. Quem lê este número tem de o tratar como indicativo, e a app é obrigada a mostrar `pressupostos` junto dele — é o que o Anexo I e o Anexo II da MCD mandam fazer a um valor que depende de hipóteses declaradas.
+	// Taeg A TAEG que o simulador do banco devolveu.
+	// ⚠️ **Cotada por ele, e não derivada por nós.** Dizia aqui «DERIVADA, não medida», e era verdade enquanto os preços vinham da série varrida. Deixou de ser a 2026-08-06.
+	// ⚠️ Continua a NÃO ser a TAEG que vincula alguém: essa vem na ficha de informação normalizada, depois de o banco avaliar quem pede. É a distinção que a app é obrigada a mostrar — mas é uma distinção entre simulação e proposta, não entre medido e estimado.
 	Taeg *float64 `json:"taeg,omitempty"`
 
-	// Tan Spread do degrau de LTV que contém o rácio pedido, mais a Euribor do tenor aplicável — ambos medidos. Na fixa e na mista, a taxa da fase fixa é a observação do período que o banco pratica.
+	// Tan A TAN que o banco devolveu para este pedido.
 	Tan *float64 `json:"tan,omitempty"`
 }
-
-// OfertaFiabilidade O que se sabe sobre a grelha de onde este preço saiu, e não sobre o preço em si (KAN-49). A sonda confirma — com ~4 pedidos por banco — se a grelha guardada ainda descreve o banco.
-// ⚠️ `em_duvida` quer dizer que a última sondagem DISCORDOU da grelha e que ainda não houve varrimento que resolvesse a discordância. A app é **obrigada** a mostrar a nota que vem em `notas`, junto do número — é a mesma regra do `aplicado`.
-// ⚠️ `confirmada` e `por_confirmar` mostram-se com **silêncio**. Uma marca de «confirmada» em toda a gente é ruído com aspecto de informação, e treina quem lê a saltar a única que importa.
-// ⚠️ **Ausente vale `por_confirmar`**, e nunca `confirmada`: uma omissão que valesse «confirmada» afirmava sobre a série inteira uma coisa que ninguém mediu. Este servidor manda-o sempre; o campo fica opcional porque `required` só tem o que uma oferta não pode não ter.
-// ⚠️ E **não leva `default:`** de propósito. Levava, e o `openapi-typescript` traduz um campo com omissão para um campo OBRIGATÓRIO no tipo gerado — a app passava a afirmar que a resposta traz sempre este campo, que é precisamente o que o `required` diz que não. A regra fica na descrição, onde não mente ao gerador.
-type OfertaFiabilidade string
 
 // OfertaErro Estruturado de propósito: `codigo` é para a app decidir, `mensagem` é para a pessoa ler, em português.
 type OfertaErro struct {

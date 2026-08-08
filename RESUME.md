@@ -8,13 +8,19 @@ Estado actual e próximos passos. ⚠️ **Sem changelog** — o relato de sess�
 
 ✅ **O código e os documentos voltaram a bater certo** (2026-08-07): o desenho antigo saiu do repositório. Durante duas semanas os documentos descreviam para onde se ia e o código de onde se vinha; deixou de haver essa distância.
 
-**A Fase 6 está feita.** No `development`: o `aplicacao/aovivo` pergunta a UM banco, o `POST /api/v1/ofertas/{banco}` serve-o, e o tecto de concorrência por banco está de pé (`internal/infra/lotacao`, **2 vagas**, `503 banco_ocupado` para o pedido a mais).
+**A Fase 6 está feita, e a app volta a falar com o servidor** (2026-08-07). O `aplicacao/aovivo` pergunta a UM banco, o `POST /api/v1/ofertas/{banco}` serve-o, o tecto de concorrência por banco está de pé (`internal/infra/lotacao`, **2 vagas**, `503 banco_ocupado` para o pedido a mais), e a app faz o fan-out com tecto de **3 em voo**.
+
+⚠️ **A app estava partida desde o passo 5, e a suite dela passava.** Chamava o `POST /api/v1/comparacoes`, apagado no dia anterior. Nenhum teste dela fala com o servidor, e os dois repositórios têm portões separados — o que o denunciou foi ler o código.
 
 **E a cache está no `development`**: `internal/infra/cache`, tabela `respostas_em_cache`, chave = `SHA-256` de (versão, banco, pedido), validade de **5 min**. Guarda o **servido** e não o objecto de domínio; lê-se **antes** do tecto, para um acerto não gastar vaga; uma falha nunca se guarda.
 
 **A forma de produção está escrita e corrida em local** (`compose.producao.yml`, `Caddyfile`, `docs/DEPLOY.md`): VPS com IPv4 dedicado, Caddy à frente, Postgres na mesma máquina e sem portas publicadas. ⚠️ **Nada está exposto, e é decisão** — a `KAN-24` bloqueia publicar, e subir a máquina não é publicar o serviço.
 
-**O que falta:** a **`KAN-59`** — escolher o domínio, provisionar a máquina e correr o `docs/DEPLOY.md` pela primeira vez; o **parecer jurídico** (`KAN-24`); e em código o **prazo por banco**, que espera mais amostras de latência.
+✅ **A TAEG e o MTIC deixaram de ser nossos** (2026-08-07). Ao vivo é o simulador do banco que os devolve: o `pressupostos` e o `fiabilidade` saíram do contrato, e o `~` saiu da app. ⚠️ **Isto ia partir todos os cartões:** a app marcava «É uma falha do nosso servidor» sempre que houvesse TAEG sem pressupostos, e ao vivo o servidor nunca os preenche.
+
+**O que falta:** a **`KAN-59`** — escolher o domínio, provisionar a máquina e correr o `docs/DEPLOY.md` pela primeira vez; o **parecer jurídico** (`KAN-24`); em código o **prazo por banco**, que espera mais amostras de latência; e as **1 892 linhas do modelo de preço** (abaixo).
+
+⚠️ **Dívida nomeada: o modelo de preço saiu do contrato e ficou no código.** `dominio/encargos.go` (424 l.), `taeg.go` (207 l.), `escala_ltv.go` (190 l.) e `mercado.go` (78 l.), mais os testes (971 l.) — **sem um único chamador** fora do próprio pacote, verificado a 2026-08-07. A tabela «morreu» da §4 do `ARQUITETURA.md` já os dá por mortos e o pacote discorda. Quem lhes pegar **apaga-os**, não os volta a ligar: cada um era uma hipótese sobre como um banco preça, e quatro caíram num dia.
 
 ## Onde estamos
 
@@ -24,7 +30,7 @@ Estado actual e próximos passos. ⚠️ **Sem changelog** — o relato de sess�
 
 **Fidelidade:** 3002 ofertas conferidas em cada banco, **zero divergências** em 147 098 comparações. ⚠️ Deixa de ser curiosidade e passa a ser a **garantia central**: é ela que diz que o que servimos é o que o banco disse.
 
-**A app** (`simulador-v2-app`): Expo SDK 57, os três passos do pedido (A3) e a lista com detalhe (A5). ⚠️ A **A4 volta** — resultados progressivos, com o fan-out do lado da app.
+**A app** (`simulador-v2-app`): Expo SDK 57, os três passos do pedido (A3), a lista com detalhe (A5) e os **resultados progressivos** (A4, 2026-08-07) — um `POST /api/v1/ofertas/{banco}` por banco escolhido, três em voo, a lista a encher-se. Uma linha por banco, com três estados: à espera, servida, ou não chegou. ⚠️ **«Não chegou» não se disfarça de oferta em falha** — essa traz a razão *do banco*, escrita pelo servidor; um pedido que nunca lá chegou não tem essa frase, e inventá-la era a app a afirmar o que o banco disse.
 
 ## Porque é que se reverteu
 
@@ -91,6 +97,8 @@ Num só dia, quatro assunções do modelo de preço caíram contra dados varrido
 **Um teste cujos dois lados se constroem do mesmo sítio não vê a diferença entre eles.** O primeiro critério da `KAN-55` comparava fases da oferta com fases da observação: passava nos testes (a fixture constrói-as) e **nunca disparava em produção** (o `leitura.go` não as reconstrói). Só se viu ao correr contra o varrimento real.
 
 **Correr a forma de produção é um teste, e encontra o que nenhuma suite encontra.** Continua verdadeiro, e foi assim que este dia aconteceu.
+
+**Um portão que verifica rotas não verifica schemas, e a assimetria custou oito definições.** O `spec_test.go` afirmava desde a `KAN-44` que toda a rota declarada tem handler. Ao apagar duas rotas, ficaram no contrato `Comparacao`, `ComparacaoPedido`, `SerieIndisponivel`, `RateCatalog`, `Scenario`, `Point`, `SnapshotsResposta` e `Snapshot` — cada uma a gerar um tipo Go exportado e uma entrada no `.d.ts` que a app consome, com o portão verde. ⚠️ **A app estava mesmo a compilar contra a `Comparacao` enquanto chamava uma rota que dava 404**: o contrato oferecia-lhe a forma de uma resposta que ninguém servia. Passou a haver `TestTodoOSchemaDoSpecEAlcancavel`, e a regra é **quando uma rota sai, sai o que só ela usava**.
 
 **Um caso de uso escrito à imagem de outro herda a forma e não as responsabilidades.** O `aovivo` nasceu com a forma do `varrimento` e sem o carimbo do `CapturadoEm` — e o efeito não era um preço sem data, era **nenhuma oferta servida**, porque a fronteira recusa um preço que não diz de quando é. Os testes do `aovivo` passavam todos: nenhum ia à fronteira. ⚠️ **A guarda que apanhou isto foi escrita a atravessar as duas camadas**, e é o único sítio onde se via.
 

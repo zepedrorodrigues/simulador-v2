@@ -5,11 +5,10 @@
 # este ficheiro manda nos detalhes. Correr `make gerar` depois de qualquer
 # alteração — o portão reprova se o gerado ficar para trás.
 #
-# Duas fronteiras com estatutos diferentes:
-#   /api/v1/*        nossa, versionada, evolui com a app. Nomes em português.
-#   /api/rate-catalog  ⚠️ CONGELADA. Inglês e snake_case, ao contrário de todo o
-#                    resto — o viabilidade-imobiliaria lê-a em produção e mudá-la
-#                    parte-o sem aviso. Não "arrumar" os nomes.
+# ⚠️ **Uma fronteira só**, desde a Fase 6 passo 5 (2026-08-07): `/api/v1/*`,
+# nossa, versionada, em português e sem autenticação — é uma app sem contas a
+# falar com ela, e quem a protege é o tecto por IP. Eram duas: a `/api/rate-catalog`
+# saiu com o varrimento, que era quem lhe dava dados.
 #
 # O que atravessa a fronteira para o repositório da app é ESTE ficheiro, não o
 # api/tipos-app.d.ts. A app corre o openapi-typescript dela sobre este yaml e
@@ -34,15 +33,16 @@ info:
   title: simulador-v2
   version: 1.0.0
   description: >-
-    Comparação de ofertas de crédito à habitação, e a série temporal de mercado
-    de onde ela sai. Serve JSON e mais nada. A interface é uma app React Native
-    noutro repositório.
+    Ofertas de crédito à habitação, perguntadas aos simuladores públicos dos
+    bancos no momento em que alguém pergunta. Serve JSON e mais nada. A
+    interface é uma app React Native noutro repositório.
 
-    ⚠️ Dizia aqui «ao vivo», e era verdade até 2026-07-25. A §1 do
-    ARQUITETURA.md inverteu-se nesse dia: os simuladores públicos dos bancos
-    correm-se em hora morta, por `simulador varrer`, e uma comparação
-    responde-se por consulta a essa série e cálculo local. Nenhum pedido de um
-    cliente chega a um banco.
+    ⚠️ **Ao vivo, e é a segunda vez que o é.** Entre 2026-07-25 e 2026-08-06 os
+    preços vinham de uma série varrida em hora morta, e nenhum pedido de um
+    cliente chegava a um banco. A §1 do ARQUITETURA.md foi revertida — guardar
+    uma cópia do modelo de preço de cada banco obriga a acertar em como eles
+    preçam, e num só dia de confronto com dados reais isso falhou quatro vezes.
+    Ver docs/DECISAO-AO-VIVO.md.
 
 servers:
   - url: /
@@ -51,8 +51,6 @@ servers:
 tags:
   - name: v1
     description: A API da app. Versionada, evolui por acrescento.
-  - name: rate-catalog
-    description: ⚠️ Congelada e compatível ao byte com o v1. Inglês, snake_case.
   - name: plataforma
     description: Sondagem de saúde para a plataforma de alojamento.
 
@@ -90,8 +88,9 @@ paths:
 
 
         ⚠️ Um banco que não responde a tempo NÃO é um erro deste pedido: a
-        resposta é 200 com a oferta em falha e o código `banco_indisponivel`. É
-        o mesmo vocabulário do POST /api/v1/comparacoes.
+        resposta é 200 com a oferta em falha e o código `banco_indisponivel`.
+        Quem falhou foi o banco, e a app põe uma linha com ele nomeado em vez de
+        um ecrã de erro.
       parameters:
         - name: banco
           in: path
@@ -139,11 +138,12 @@ paths:
                 $ref: "#/components/schemas/Saude"
 
 components:
-  securitySchemes:
-    ApiKeyAuth:
-      type: apiKey
-      in: header
-      name: X-API-Key
+  # ⚠️ **Não há `securitySchemes`, e não é esquecimento.** Havia um `ApiKeyAuth`
+  # — a credencial de máquina do `/api/rate-catalog` —, e saiu com a rota (Fase 6
+  # passo 5). Este serviço não tem hoje credencial nenhuma: o `/api/v1` é público
+  # de propósito, e quem o protege é o tecto por IP. Quem repuser uma fronteira de
+  # máquina repõe isto E o grupo de rotas que a separa das do browser, porque uma
+  # chave dentro de um bundle de browser é uma chave pública.
 
   responses:
     PedidoInvalido:
@@ -156,13 +156,15 @@ components:
       description: >-
         Tecto de pedidos por IP excedido.
 
-        ⚠️ A razão mudou com a inversão da §1, e o tecto não. Existia porque cada
-        submissão custava dezenas de segundos de scraping a partir do NOSSO IP
-        contra os bancos — hoje custa uma consulta, e essa justificação caiu.
-        Fica por outra, ordinária e suficiente: isto é JSON público e um tecto é
-        o que impede um cliente avariado de esgotar o pool de ligações dos
-        outros. É o mesmo endpoint e um limiar muito mais alto; o que não se faz
-        é apagar o tecto por a primeira razão ter deixado de valer.
+        ⚠️ **É estrutural, e não higiene.** Somos um amplificador: uma comparação
+        a cinco bancos são cinco pedidos aqui e ~10 aos simuladores deles, com
+        origem aparente nossa. Sem este tecto, isto é uma ferramenta de carga
+        contra terceiros com uma app à frente.
+
+        ⚠️ Dizia aqui que uma submissão «hoje custa uma consulta». Era verdade
+        entre 2026-07-25 e 2026-08-06, e deixou de ser com a reversão da §1. O
+        tecto fica nos 60/min: uma comparação são 5 pedidos, logo 12 comparações
+        por minuto.
       headers:
         Retry-After:
           description: Segundos a esperar antes de repetir.
@@ -188,22 +190,6 @@ components:
           description: Segundos a esperar antes de voltar a pedir este banco.
           schema:
             type: integer
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/RespostaErro"
-
-    SerieIndisponivel:
-      description: >-
-        Não há série de mercado que responda a este pedido: nenhum dos bancos
-        escolhidos tem observações utilizáveis.
-
-        ⚠️ Substitui o `DemasiadasEmCurso` do modelo ao vivo, e não é o mesmo
-        503. Aquele dizia «estamos ocupados a falar com os bancos, volta»; este
-        diz «o varrimento ainda não correu, ou correu e falhou para estes
-        bancos». O primeiro resolvia-se esperando; este resolve-se correndo
-        `simulador varrer` — e é por isso que a mensagem tem de os distinguir em
-        vez de os empacotar num «tenta mais tarde».
       content:
         application/json:
           schema:
@@ -349,25 +335,6 @@ components:
           items:
             type: string
 
-    ComparacaoPedido:
-      type: object
-      required: [bancos, pedido]
-      properties:
-        bancos:
-          type: array
-          items:
-            type: string
-          example: ["cgd", "novobanco", "montepio", "bancoctt"]
-        pedido:
-          $ref: "#/components/schemas/Pedido"
-        produtos:
-          type: object
-          description: Produtos escolhidos por banco. Chave = id do banco.
-          additionalProperties:
-            type: array
-            items:
-              type: string
-
     Pedido:
       type: object
       required:
@@ -425,46 +392,13 @@ components:
           type: number
           format: double
 
-    Comparacao:
-      type: object
-      description: >-
-        O resultado completo, de uma vez.
-
-        ⚠️ Não tem `id`, `estado` nem `progresso`, e nenhum dos três falta por
-        esquecimento — a resposta É o cálculo inteiro, e não o primeiro estado de
-        um trabalho que continua. Estavam aqui um `SimulacaoCriada`
-        (`{id, estado, bancos, duracao_estimada_s}`) e um `Simulacao` com
-        `estado: em_curso | terminado` e `progresso: {prontos, total}`: existiam
-        para a app desenhar uma barra enquanto se falava com os bancos. Já não se
-        fala com os bancos no caminho do cliente, e uma barra de progresso sobre
-        uma consulta a Postgres seria teatro.
-
-        ⚠️ Também não tem `pedido_efectivo`. Aquele campo trazia
-        `{montante, valor_imovel, quantizado}` porque a cache quantizava o
-        montante para partilhar entradas entre pedidos parecidos, e a app tinha
-        de mostrar o valor efectivamente simulado em vez do pedido. Sem cache não
-        há quantização: o cálculo usa o montante que foi pedido, ao cêntimo. O
-        que um banco ajusta (prazo, período fixo, indexante) continua a viajar em
-        `Oferta.aplicado`, com a nota obrigatória agarrada — por banco, que é
-        onde o ajuste acontece, e não num campo global que fingia valer para
-        todos.
-      required: [calculado_em, ofertas]
-      properties:
-        calculado_em:
-          type: string
-          format: date-time
-          description: >-
-            Quando ESTA resposta foi calculada.
-
-            ⚠️ Não é o `capturado_em` de cada oferta, que é quando o preço foi
-            medido no banco. Os dois são diferentes por construção, e é
-            precisamente essa diferença que diz à pessoa a idade do preço que
-            está a ver — por isso viajam os dois, e por isso nenhum deles é
-            opcional numa oferta com sucesso.
-        ofertas:
-          type: array
-          items:
-            $ref: "#/components/schemas/Oferta"
+    # ⚠️ **Havia aqui uma `Comparacao`** — `{calculado_em, ofertas[]}`, o resultado
+    # dos N bancos de uma vez —, e saiu com o `POST /api/v1/comparacoes` (Fase 6,
+    # passo 5). Uma comparação deixou de ser uma resposta: é N respostas, uma por
+    # banco, e o fan-out vive na app (ARQUITETURA.md §7.4, D2). O `calculado_em`
+    # dela não tem sucessor e não faz falta — com cada oferta a vir do banco no
+    # momento, o `capturado_em` de cada uma É a idade do preço, e um segundo
+    # instante global só diria quando a última chegou.
 
     Oferta:
       type: object
@@ -481,74 +415,56 @@ components:
         sucesso:
           type: boolean
 
-        # --- Medidos, ou aritmética exacta sobre medições ---
+        # --- Todos estes são o que o banco respondeu a ESTE pedido. ---
+        #
+        # ⚠️ **Eram duas famílias, «medidos» e «derivados», e passou a ser uma**
+        # (2026-08-07). A separação existia porque a série de mercado era varrida
+        # com um titular neutro sobre um cenário de referência: a TAN saía do
+        # degrau de LTV observado e a TAEG tinha de ser reconstruída por um modelo
+        # de encargos nosso. Ao vivo pergunta-se com os valores desta pessoa e o
+        # simulador do banco devolve a TAEG e o MTIC dele — não há o que derivar.
+        # Foi este modelo, e não os parsers, que a reversão da §1 matou.
         tan:
           type: number
           format: double
-          description: >-
-            Spread do degrau de LTV que contém o rácio pedido, mais a Euribor do
-            tenor aplicável — ambos medidos. Na fixa e na mista, a taxa da fase
-            fixa é a observação do período que o banco pratica.
+          description: A TAN que o banco devolveu para este pedido.
         spread:
           type: number
           format: double
           description: >-
-            ⚠️ Do INTERVALO de LTV medido que contém o rácio pedido, e não de uma
-            banda assumida. Num degrau que não se conseguiu resolver é o lado
-            mais CARO do intervalo (Directiva 2014/17/UE, Anexo I, Parte II,
-            alínea (d)), e `notas` traz a frase que nomeia os dois lados.
+            O spread que o banco aplicou a este pedido. ⚠️ Não é uma banda
+            assumida nem um intervalo por resolver: é o número que ele devolveu,
+            para o rácio de financiamento que esta pessoa pediu.
         prestacao_mensal:
           type: number
           format: double
-          description: >-
-            Amortização francesa sobre a `tan` e o montante pedido. É aritmética
-            exacta, não medição — e é por isso que responde ao montante desta
-            pessoa, e não ao do cenário de referência.
-
-        # --- Derivados: dependem de hipóteses, e declaram-nas ---
+          description: A prestação mensal que o banco devolveu para este pedido.
         taeg:
           type: number
           format: double
           description: >-
-            ⚠️ DERIVADA, não medida. Ver `pressupostos`, que é obrigatório sempre
-            que este campo vem preenchido.
+            A TAEG que o simulador do banco devolveu.
 
-            A TAEG depende dos encargos (comissões, imposto, seguros) e o seguro
-            de vida depende de quem pede — e a série de mercado é varrida com um
-            titular NEUTRO e fictício, sobre um cenário de referência fixo (§4).
-            Não existe, portanto, TAEG medida para esta pessoa. O que se faz é
-            atribuir a encargos a diferença entre a TAEG e a TAN observadas no
-            ponto de referência, e reamortizar sobre os fluxos deste pedido.
+            ⚠️ **Cotada por ele, e não derivada por nós.** Dizia aqui «DERIVADA,
+            não medida», e era verdade enquanto os preços vinham da série varrida.
+            Deixou de ser a 2026-08-06.
 
-            ⚠️ A repartição desses encargos entre comissões, imposto e seguro NÃO
-            está medida: é inferida. Quem lê este número tem de o tratar como
-            indicativo, e a app é obrigada a mostrar `pressupostos` junto dele —
-            é o que o Anexo I e o Anexo II da MCD mandam fazer a um valor que
-            depende de hipóteses declaradas.
+            ⚠️ Continua a NÃO ser a TAEG que vincula alguém: essa vem na ficha de
+            informação normalizada, depois de o banco avaliar quem pede. É a
+            distinção que a app é obrigada a mostrar — mas é uma distinção entre
+            simulação e proposta, não entre medido e estimado.
         mtic:
           type: number
           format: double
-          description: >-
-            ⚠️ DERIVADO, pela mesma razão e sobre o mesmo modelo de encargos que
-            a `taeg`. Ver `pressupostos`.
-        pressupostos:
-          type: array
-          description: >-
-            As hipóteses sob as quais a `taeg` e o `mtic` desta oferta foram
-            derivados, em português e legíveis por uma pessoa.
+          description: O MTIC que o simulador do banco devolveu, pela mesma razão que a `taeg`.
 
-            ⚠️ Lista à parte de `notas`, e não misturada nela, de propósito: as
-            duas têm estatutos diferentes. Uma `nota` é um aviso sobre o que
-            aconteceu a ESTE pedido — o banco encurtou o prazo, o degrau de LTV
-            não estava resolvido. Um pressuposto é uma hipótese de cálculo que a
-            MCD obriga a declarar junto do número que dela depende (Anexo I,
-            Parte II; Anexo II). Empacotadas na mesma lista, a app ficava sem
-            forma de as apresentar como o que são.
-
-            ⚠️ Não vazia sempre que `taeg` ou `mtic` vêm preenchidos. Vazia com um
-            deles preenchido é defeito nosso, e não um caso legítimo.
-          items:
-            type: string
+        # ⚠️ **Havia aqui um `pressupostos`** — as hipóteses sob as quais a `taeg`
+        # e o `mtic` tinham sido derivados, que a MCD (Anexo I, Parte II; Anexo II)
+        # obriga a declarar junto de um número que delas depende. Sai porque o
+        # número deixou de depender de hipóteses nossas: é o do banco. As hipóteses
+        # que o BANCO declara continuam a chegar, e chegam onde sempre chegaram —
+        # em `notas`, palavra por palavra (o Montepio, por exemplo, diz lá que
+        # projecta a taxa do período fixo para o resto do prazo).
 
         euribor_indexante:
           type: string
@@ -571,33 +487,14 @@ components:
           type: array
           items:
             type: string
-        fiabilidade:
-          type: string
-          enum: [por_confirmar, confirmada, em_duvida]
-          description: >-
-            O que se sabe sobre a grelha de onde este preço saiu, e não sobre o
-            preço em si (KAN-49). A sonda confirma — com ~4 pedidos por banco —
-            se a grelha guardada ainda descreve o banco.
-
-            ⚠️ `em_duvida` quer dizer que a última sondagem DISCORDOU da grelha
-            e que ainda não houve varrimento que resolvesse a discordância. A
-            app é **obrigada** a mostrar a nota que vem em `notas`, junto do
-            número — é a mesma regra do `aplicado`.
-
-            ⚠️ `confirmada` e `por_confirmar` mostram-se com **silêncio**. Uma
-            marca de «confirmada» em toda a gente é ruído com aspecto de
-            informação, e treina quem lê a saltar a única que importa.
-
-            ⚠️ **Ausente vale `por_confirmar`**, e nunca `confirmada`: uma
-            omissão que valesse «confirmada» afirmava sobre a série inteira uma
-            coisa que ninguém mediu. Este servidor manda-o sempre; o campo fica
-            opcional porque `required` só tem o que uma oferta não pode não ter.
-
-            ⚠️ E **não leva `default:`** de propósito. Levava, e o
-            `openapi-typescript` traduz um campo com omissão para um campo
-            OBRIGATÓRIO no tipo gerado — a app passava a afirmar que a resposta
-            traz sempre este campo, que é precisamente o que o `required` diz que
-            não. A regra fica na descrição, onde não mente ao gerador.
+        # ⚠️ **Havia aqui um `fiabilidade`** — `por_confirmar | confirmada |
+        # em_duvida` (KAN-49), o que a sonda tinha apurado sobre a grelha de onde
+        # o preço saía. Sai com a sonda e com a grelha: ao vivo não há nada entre
+        # a resposta do banco e o que se serve, portanto não há terceira coisa a
+        # confirmar. ⚠️ **A regra que ele carregava não sai com ele**, e vale para
+        # o que vier: um estado que só aparece quando as notícias são más ensina a
+        # app a tratar a ausência como boa notícia.
+        #
         # ⚠️ O `em_cache` VOLTA (2026-08-07), depois de ter saído com a inversão
         # da §1 e pela razão que essa inversão criou: com tudo a vir da série
         # varrida, o campo era sempre `true` e não informava. Ao vivo volta a
@@ -616,22 +513,29 @@ components:
             e um acerto de um segundo atrás têm `capturado_em` quase igual e
             `em_cache` diferente.
 
-            ⚠️ Ausente vale `false`, e não leva `default:` de propósito — pela
-            mesma razão do `fiabilidade` acima: o `openapi-typescript` traduz um
-            campo com omissão para um campo OBRIGATÓRIO no tipo gerado.
+            ⚠️ Ausente vale `false`, e não leva `default:` de propósito: o
+            `openapi-typescript` traduz um campo com omissão para um campo
+            OBRIGATÓRIO no tipo gerado, e a app passaria a afirmar que a resposta
+            traz sempre este campo — que é precisamente o que o `required` diz que
+            não. A regra fica na descrição, onde não mente ao gerador.
         capturado_em:
           type: string
           format: date-time
           description: >-
-            Quando o preço foi MEDIDO no banco, durante o varrimento — não quando
-            esta resposta foi calculada (isso é o `calculado_em` da Comparacao).
+            Quando se falou com o banco — o instante em que este preço foi
+            cotado.
+
+            ⚠️ **Não é «agora», e a diferença é a razão de o campo existir.** Num
+            acerto de cache (§7.6) é o instante da ida ao banco que produziu a
+            resposta guardada, e pode ser de há cinco minutos. Numa oferta fresca
+            é de há segundos. Dizia aqui «durante o varrimento», e o varrimento
+            saiu — o que fica é o mesmo compromisso por outro caminho.
 
             ⚠️ Presente sempre que `sucesso` é verdadeiro, e é o campo mais
-            importante desta lista para a honestidade do produto: é o único que
-            diz à pessoa que está a ver um preço de ontem à noite e não de agora.
-            A app é obrigada a mostrá-lo. Escondê-lo apresentaria dados varridos
-            como se fossem uma consulta ao vivo ao banco, que é exactamente o que
-            este serviço não faz.
+            importante desta lista para a honestidade do produto. A app é
+            obrigada a mostrá-lo, e o servidor **recusa servir** uma oferta com
+            preço e sem ele (`traduzir.go`): um preço sem data apresenta-se como
+            se fosse de agora.
         erro:
           $ref: "#/components/schemas/OfertaErro"
 
@@ -693,163 +597,12 @@ components:
           type: string
           example: ok
 
-    # --- /api/rate-catalog — ⚠️ CONGELADA. Inglês, snake_case. ---
-    # Não traduzir estes nomes para português: o viabilidade-imobiliaria lê-os
-    # em produção. Ver a descrição do path e docs/API.md §2.
-
-    RateCatalog:
-      type: object
-      required: [scenarios, count, points]
-      properties:
-        scenarios:
-          type: array
-          items:
-            $ref: "#/components/schemas/Scenario"
-        count:
-          type: integer
-        points:
-          type: array
-          items:
-            $ref: "#/components/schemas/Point"
-
-    Scenario:
-      type: object
-      required:
-        [
-          key,
-          label,
-          ltv,
-          valor_imovel,
-          montante,
-          prazo_anos,
-          rate_type,
-          fixed_period_years,
-        ]
-      properties:
-        key:
-          type: string
-          example: ltv80_mista_30a
-        label:
-          type: string
-          example: "LTV 80% · mista · 30 anos"
-        ltv:
-          type: number
-          format: double
-        valor_imovel:
-          type: number
-          format: double
-        montante:
-          type: number
-          format: double
-        prazo_anos:
-          type: integer
-        rate_type:
-          type: string
-        fixed_period_years:
-          type: integer
-          nullable: true
-          description: >-
-            ⚠️ **Nulo na taxa variável**, e é assim que o v1 o envia — medido a
-            2026-07-28 contra o v1 a correr. Um inteiro não-nulo em Go serializa
-            `0`, e o `viabilidade-imobiliaria` receberia zero anos de período
-            fixo onde espera «não se aplica».
-
-    Point:
-      type: object
-      description: >-
-        ⚠️ `captured_at` é `string` (sem fuso, formato v1) de propósito.
-        `products` é sempre lista, nunca null. Os números são `number`, não
-        string.
-      required:
-        [
-          snapshot_id,
-          captured_at,
-          scenario_key,
-          bank_id,
-          bank_name,
-          rate_type,
-          valor_imovel,
-          montante,
-          prazo_anos,
-          fixed_period_years,
-          tan,
-          taeg,
-          spread,
-          prestacao_mensal,
-          mtic,
-          euribor_indexante,
-          euribor_valor,
-          products,
-        ]
-      properties:
-        snapshot_id:
-          type: string
-        captured_at:
-          type: string
-          description: "⚠️ Sem fuso, formato v1 (ex.: 2026-07-22T05:00:11). NÃO é date-time."
-          example: "2026-07-22T05:00:11"
-        scenario_key:
-          type: string
-        bank_id:
-          type: string
-        bank_name:
-          type: string
-        rate_type:
-          type: string
-        valor_imovel:
-          type: number
-          format: double
-        montante:
-          type: number
-          format: double
-        prazo_anos:
-          type: integer
-        fixed_period_years:
-          type: integer
-          nullable: true
-          description: ⚠️ Nulo na taxa variável, como o v1 o envia. Ver o Scenario.
-        tan:
-          type: number
-          format: double
-        taeg:
-          type: number
-          format: double
-        spread:
-          type: number
-          format: double
-        prestacao_mensal:
-          type: number
-          format: double
-        mtic:
-          type: number
-          format: double
-        euribor_indexante:
-          type: string
-        euribor_valor:
-          type: number
-          format: double
-        products:
-          type: array
-          items:
-            type: string
-
-    SnapshotsResposta:
-      type: object
-      required: [snapshots]
-      properties:
-        snapshots:
-          type: array
-          items:
-            $ref: "#/components/schemas/Snapshot"
-
-    Snapshot:
-      type: object
-      required: [snapshot_id, captured_at, rows]
-      properties:
-        snapshot_id:
-          type: string
-        captured_at:
-          type: string
-          description: ⚠️ Sem fuso, formato v1.
-        rows:
-          type: integer
+    # ⚠️ **Havia aqui sete schemas em inglês e snake_case** — `RateCatalog`,
+    # `Scenario`, `Point`, `SnapshotsResposta`, `Snapshot` e o que os
+    # acompanhava —, a fronteira congelada do `/api/rate-catalog`. Saíram com a
+    # rota (Fase 6, passo 5): a série que ela publicava vinha do varrimento.
+    #
+    # ⚠️ **Ficaram aqui um dia inteiro depois de a rota sair**, sem que nada
+    # reparasse: o `spec_test.go` afirmava que toda a ROTA declarada tem handler,
+    # e não o inverso. Passou a haver teste para isso — ver
+    # `TestTodoOSchemaDoSpecEAlcancavel`.

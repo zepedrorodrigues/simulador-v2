@@ -23,10 +23,11 @@ nenhum, não se interpola, não se deriva TAEG, não se compõem descontos. O qu
 serve é o que o banco disse, traduzido para o nosso vocabulário e mais nada. É
 esta frase que substitui a §4 antiga inteira.
 
-⚠️ **A série temporal de mercado deixou de existir** (D1). O `/api/rate-catalog`
-fica sem fonte, e a sua retirada é trabalho coordenado com o
-`viabilidade-imobiliaria`, que o consome em produção — ver
-`DECISAO-AO-VIVO.md` §4.
+⚠️ **A série temporal de mercado deixou de existir** (D1), e o `/api/rate-catalog`
+**saiu com ela** a 2026-08-07. Dizia-se aqui que a retirada era trabalho
+coordenado com o `viabilidade-imobiliaria`, «que o consome em produção» — e as
+duas metades eram falsas. Ele consome o do **v1**, e não há produção em lado
+nenhum. Ver a §6.
 
 O que **sobrevive** desta reversão, e é o activo do repositório: os **parsers**,
 as **capturas** e o `DOSSIE-BANCOS.md`. Nada disso é modelo nosso — é
@@ -144,10 +145,9 @@ verificabilidade: assim um acerto é igual a uma resposta fresca **por
 construção**, e não por cuidado de quem escreveu o código.
 
 ⚠️ A alternativa — guardar o `dominio.Oferta` — obrigava a pôr um formato de
-persistência dentro do domínio puro, porque os `ajustes`, as `notas` e os
-`pressupostos` não são exportados e o `Ajuste` fecha os seus campos **de
-propósito**, para que um ajuste sem nota não seja construível a partir de fora do
-pacote. Ressuscitar um por JSON abria essa porta, e criava uma segunda descrição
+persistência dentro do domínio puro, porque os `ajustes` e as `notas` não são
+exportados e o `Ajuste` fecha os seus campos **de propósito**, para que um ajuste
+sem nota não seja construível a partir de fora do pacote. Ressuscitar um por JSON abria essa porta, e criava uma segunda descrição
 da forma da `Oferta` a divergir da primeira em silêncio — que é exactamente o que
 aconteceu à interface `Banco` copiada para o `CONTRATO-BANCO.md`.
 
@@ -227,29 +227,27 @@ No v1 cada scraper reimplementava a sua variante de «abrir browser / fixar cook
 
 ## 6. Fronteiras HTTP
 
-Duas, com estatutos diferentes. Contrato completo em `API.md`, esquema executável em `api/openapi.yaml`.
+**Uma.** Contrato completo em `API.md`, esquema executável em `api/openapi.yaml`.
 
 `/api/v1/*` — a app React Native. Nossa, versionada, evolui connosco. Os tipos Go do servidor e os tipos TypeScript da app são **gerados** a partir do `openapi.yaml` (`oapi-codegen` e `openapi-typescript`). O contrato é código dos dois lados, não documentação.
+
+⚠️ **Eram duas.** A `/api/rate-catalog` — inglês, snake\_case, autenticada por `X-API-Key`, compatível ao byte com o v1 — **saiu a 2026-08-07** (Fase 6, passo 5). A série que ela publicava vinha do varrimento, e o varrimento morreu. Com ela saiu a única superfície autenticada deste serviço: hoje **não há credencial nenhuma**, e é decisão — o `/api/v1` é público porque é uma app sem contas a falar com ele, e quem o protege é o tecto por IP (§7.5).
+
+⚠️ **A D1 desbloqueou-se por verificação, não por decisão, e é a lição de §6.** Este documento e mais quatro afirmavam que o `viabilidade-imobiliaria` consumia aquela rota **em produção**, e por isso a retirada estava a ser tratada como trabalho a combinar com outro repositório. As duas metades eram falsas: ele consome o `/api/rate-catalog` do **v1** (o `chmonitor`, que mantém os seus próprios scrapers), e **não há produção** — nem o v2 nem o v1 estão alojados. A rota daqui nunca teve consumidor. **Quando um documento afirma um facto sobre o mundo, verifica-se o facto** — não se desempata com a regra de que o código manda.
+
+⚠️ **Um dia o v2 responde às perguntas do `viabilidade`, e não será por aquela rota:** ela publica uma série temporal, e sem varrimento não há como a produzir. O caminho é o ao vivo — perguntar um cenário de referência quando alguém precisar dele —, e é decisão nova.
 
 ⚠️ **O ciclo das simulações muda outra vez com a reversão da §1 (2026-08-06), e é a terceira forma.** Foi `POST` → `202` + sondagem (v1), passou a `POST /api/v1/comparacoes` → `200` com tudo dentro (`KAN-32`), e passa agora a **um pedido por banco**: `POST /api/v1/ofertas/{banco}`, que a app dispara por banco escolhido e mostra à medida que chegam (D2).
 
 ⚠️ **Não volta o `202` com sondagem, e a distinção importa:** não há trabalho assíncrono do nosso lado a que se voltasse a perguntar «já está?». Cada pedido é síncrono, fala com um banco e devolve o que ele disse ou uma falha nomeada. O que era progresso de um trabalho nosso passa a ser, do lado da app, a lista a encher-se.
 
-⚠️ **O `POST /api/v1/comparacoes` fica, e a razão é a app nas lojas:** `/api/v1` só pode mudar por **acrescento**, e uma versão antiga no terreno continuaria a chamá-lo. Passa a ser um atalho que faz o fan-out do lado do servidor, com o custo de esperar pelo banco mais lento — e a app nova deixa de o usar. O `capturado_em` de uma oferta passa a ser o instante em que se falou com o banco.
+⚠️ **O `POST /api/v1/comparacoes` SAIU** (2026-08-07). Dizia-se aqui que ficava «e a razão é a app nas lojas» — `/api/v1` só pode mudar por acrescento, e uma versão antiga no terreno continuaria a chamá-lo. **A razão não caiu; caiu a premissa:** não há versão nenhuma no terreno, a A8 está bloqueada pela `KAN-24`, e esta era a única janela em que partir o `/api/v1` custava zero. Ela fecha no dia em que houver uma app publicada, e a regra do acrescento passa a valer sem excepção.
 
-⚠️ **A rota chama-se `/api/v1/comparacoes` e nunca se chamou outra coisa.** O `API.md` prometeu `/api/v1/simulacoes` até 2026-07-28 — este parágrafo repetia-lhe o nome ao descrever o ciclo antigo, e assim **dois documentos concordavam um com o outro e ambos com o código nenhum**. O `make gerado` não apanha isto: compara o gerado com o spec, não os documentos com o spec. **Quando um documento e o `api/openapi.yaml` discordarem, o documento é que está errado.**
+⚠️ **A rota chamava-se `/api/v1/comparacoes` e nunca se chamou outra coisa.** O `API.md` prometeu `/api/v1/simulacoes` até 2026-07-28 — este parágrafo repetia-lhe o nome ao descrever o ciclo antigo, e assim **dois documentos concordavam um com o outro e ambos com o código nenhum**. O `make gerado` não apanha isto: compara o gerado com o spec, não os documentos com o spec. **Quando um documento e o `api/openapi.yaml` discordarem, o documento é que está errado** — excepto quando o documento afirma um facto sobre o mundo, e aí verifica-se o facto (ver a D1, acima).
 
-⚠️ **`/api/rate-catalog` — em retirada desde 2026-08-06 (D1).** A série que ele publica vinha do varrimento, e o varrimento morreu. **Não se apagou já**, e não é hesitação: ele é **consumido pelo `viabilidade-imobiliaria` em produção**, compatível ao byte com o v1 e com teste de contrato (`KAN-42`). Apagá-lo sem combinar parte outro repositório sem aviso.
+⚠️ **Uma rota declarada no spec e sem handler atravessa o portão inteiro em silêncio**, e o `/api/rate-catalog/snapshots` esteve assim desde que o contrato existe (corrigido a 2026-07-28, KAN-44). A razão é estrutural: o `make gerado` compara o **gerado** com o spec, não o **servido**. Há um teste que percorre os caminhos do `openapi.yaml` e falha a nomear o que ficar sem handler — fecha a classe, não o caso.
 
-O cliente que já existe (`src/viabilidade/taxas.py`) lê `points[]` com `tan, spread, euribor_valor, euribor_indexante, fixed_period_years, bank_id, bank_name, scenario_key, rate_type, prazo_anos, captured_at`, mais `scenarios[]`, com os parâmetros `scenario, bank, rate_type, since, limit` e o cabeçalho `X-API-Key`. Os nomes ficam em inglês e em snake\_case, ao contrário do resto do repositório.
-
-⚠️ **Enquanto a retirada não estiver combinada, ele serve a ÚLTIMA fotografia, que deixa de avançar.** Uma série parada é pior do que uma série ausente se quem a lê não souber — por isso a retirada é trabalho, e não um `DROP TABLE`. As saídas estão em `DECISAO-AO-VIVO.md` §4, D1, e **falta escolher qual**.
-
-Sem chave configurada o catálogo fica aberto — é o comportamento de desenvolvimento, e é um aviso alto no arranque.
-
-⚠️ **A congelação é interina, não permanente.** O `viabilidade-imobiliaria` vai levar o mesmo tratamento que este repositório está a levar. Quando isso acontecer, o contrato redesenha-se **em conjunto** — com os nomes em português e com a decomposição spread/Euribor que a issue #22 do v1 propunha. Até lá, o formato antigo é lei: quem consome está em produção e não pede licença para partir.
-
-⚠️ **Uma rota declarada no spec e sem handler atravessa o portão inteiro em silêncio**, e o `/api/rate-catalog/snapshots` esteve assim desde que o contrato existe (corrigido a 2026-07-28, KAN-44). A razão é estrutural: o `make gerado` compara o **gerado** com o spec, não o **servido**. Há agora um teste que percorre os caminhos do `openapi.yaml` e falha a nomear o que ficar sem handler — fecha a classe, não o caso.
+⚠️ **E o defeito inverso passou aqui logo a seguir, sem que nada reparasse.** O passo 5 apagou as duas rotas e deixou **oito schemas** no contrato sem caminho nenhum a alcançá-los — `Comparacao`, `ComparacaoPedido`, `SerieIndisponivel`, `RateCatalog`, `Scenario`, `Point`, `SnapshotsResposta`, `Snapshot`. Cada um gerava um tipo Go exportado e uma entrada no `.d.ts` que a app consome: o contrato continuava a oferecer-lhe a forma de respostas que o servidor já não sabia dar, e a app estava mesmo a compilar contra a `Comparacao` enquanto chamava uma rota que dava 404. Há agora `TestTodoOSchemaDoSpecEAlcancavel`, e a regra que ele impõe é simples: **quando uma rota sai, sai o que só ela usava.**
 
 ### ⚠️ CORS: quem pode chamar de um browser, e o que fica de fora
 
@@ -259,13 +257,15 @@ Sem chave configurada o catálogo fica aberto — é o comportamento de desenvol
 
 **E `AllowCredentials` é falso, sempre.** Não há cookies, não há sessões e não vai haver (§4): a app não tem nada para autenticar. Com credenciais a falso, `*` seria tecnicamente aceitável para o browser — e continua a não se usar, porque uma lista de origens é também a lista de **quem sabemos que existe**, e essa informação vale por si no dia em que aparecer tráfego de uma origem que ninguém reconhece.
 
-⚠️ **O CORS aplica-se a `/api/v1/*` e ao `/healthz`, e NÃO ao `/api/rate-catalog`.** É a decisão menos óbvia desta secção, e a razão é esta: o catálogo autentica-se por `X-API-Key`, e **uma chave dentro de um bundle de browser é uma chave pública** — qualquer pessoa a lê nas ferramentas de programador. Não abrir a porta custa uma linha; confiar que ninguém a atravessa custa a chave. O consumidor daquele endpoint é o `viabilidade-imobiliaria`, que é servidor e não browser, e para quem o CORS é irrelevante.
+⚠️ **O CORS aplica-se a `/api/v1/*` e ao `/healthz`, e hoje isso é tudo o que há.** Aplicava-se-lhes **por oposição** ao `/api/rate-catalog`, que ficava de fora: o catálogo autenticava-se por `X-API-Key`, e **uma chave dentro de um bundle de browser é uma chave pública** — qualquer pessoa a lê nas ferramentas de programador.
 
-⚠️ **A dupla fronteira é o ponto.** Este repositório serve **duas** superfícies com públicos diferentes — uma app pública sem credenciais, e uma máquina com chave — e elas não partilham política de acesso. Tratá-las como uma só, em qualquer dos sentidos, é o erro: `*` na app abre o catálogo; a chave do catálogo na app publica-a.
+⚠️ **A rota saiu (2026-08-07) e o GRUPO de rotas que a separava fica.** Não se dissolve no router, e a razão é que ele é o que mantém a política aplicada por **decisão** e não por omissão — dissolvê-lo poupava uma indentação e transformava a política numa coincidência. É lá que entra a próxima superfície que não seja para browsers, e quem a puser repõe com ela a distinção inteira: `*` na app abriria o que estiver de fora; uma chave dentro da app publica-a.
 
 **O que o browser não recebe, e é de propósito:** a app **não** manda `X-API-Key` nenhuma. Os endpoints `/api/v1` são públicos e o que os protege é o tecto por IP (§7), não uma credencial. Uma credencial que viaja para o cliente não é uma credencial.
 
-⚠️ **E ligar o CORS partia o tecto por IP ao meio, o que só apareceu por se ir medir.** Um browser manda um `OPTIONS` de sondagem antes de cada `POST /api/v1/comparacoes` — o `Content-Type: application/json` obriga-o —, portanto cada comparação feita da app custava **dois** do tecto e a mesma feita por `curl` custava **um**: o tecto passava a medir o cliente em vez do uso. Os preflights não contam. E não abre buraco, porque só é reconhecido como preflight o `OPTIONS` que traga `Access-Control-Request-Method` — senão bastava escolher o método para escapar ao tecto.
+⚠️ **E ligar o CORS partia o tecto por IP ao meio, o que só apareceu por se ir medir.** Um browser manda um `OPTIONS` de sondagem antes de cada `POST /api/v1/ofertas/{banco}` — o `Content-Type: application/json` obriga-o —, portanto cada pedido feito da app custava **dois** do tecto e o mesmo feito por `curl` custava **um**: o tecto passava a medir o cliente em vez do uso. Os preflights não contam. E não abre buraco, porque só é reconhecido como preflight o `OPTIONS` que traga `Access-Control-Request-Method` — senão bastava escolher o método para escapar ao tecto.
+
+⚠️ **Com o fan-out na app isto multiplicou-se por cinco e a conclusão não mudou.** Uma comparação são cinco `POST` e cinco preflights: a contá-los, custava **dez** do tecto de 60/min em vez de cinco, e o número de comparações por minuto caía para metade sem que nada o dissesse.
 
 ## 7. A fatia ao vivo
 
@@ -430,6 +430,16 @@ Não é uma limpeza: é a maior parte do que este repositório tinha de próprio
 preça.** As quatro que os dados contrariaram num só dia — `KAN-54` a `KAN-57` —
 eram todas desta lista. O que sobra não tem hipóteses para contrariar.
 
+⚠️ **Duas destas linhas ainda não são verdade sobre o CÓDIGO, e diz-se em vez de
+se fingir.** O `dominio.Encargos` (424 l.), o `dominio.TAEGDe` (207 l.), a
+`dominio.EscalaDeLTV` (190 l.) e o `dominio.mercado` (78 l.) — 1 892 linhas com
+os testes — **continuam no repositório e não têm um único chamador** fora do
+próprio pacote. Saíram do contrato a 2026-08-07, com a `taeg` e o `mtic` a
+passarem a ser o que o banco cotou e com o `pressupostos` a desaparecer; o código
+ficou. É dívida nomeada e está no `RESUME.md`. ⚠️ **Enquanto lá estiver, esta
+tabela e o pacote `dominio` discordam** — e quem lhes pegar apaga-os, não os
+volta a ligar.
+
 ### O que sobreviveu, e é o que resta
 
 - Os **cinco parsers** e as **capturas**. Passam a ser o activo principal.
@@ -455,7 +465,7 @@ Regra da casa: um critério de pronto vale pelo que se mediu. Reverte-se o defei
 Cinco portões, todos automáticos:
 
 1. `depguard` — a regra de dependência de §3.
-2. **Teste de contrato do** `/api/rate-catalog` — o formato de §6 que o `viabilidade-imobiliaria` consome, contra uma amostra real do v1.
+2. **Teste do contrato contra o servido** — toda a rota declarada no `openapi.yaml` tem handler (KAN-44), e todo o schema declarado é alcançável a partir de um caminho. ⚠️ Substitui o teste de contrato do `/api/rate-catalog`, que saiu com a rota; e o segundo dos dois nasceu de essa saída ter deixado **oito** schemas órfãos com o portão verde.
 3. **Testes de captura por banco** — cada `resposta.go` contra as capturas versionadas, offline e sem rede.
 4. `golangci-lint run ./...` limpo, sobre o repositório inteiro. ⚠️ Não sobre um subconjunto. O v1 tinha 368 erros permanentes fora de `src/`, o que cegou o portão por completo: ninguém lê uma saída de 368 linhas para descobrir a 369.ª. Aqui não há pasta de scripts onde eles se acumulem, e o portão é o repositório todo ou não é portão.
 5. `go test -race ./...` — o detector de corridas é obrigatório no portão. ⚠️ **E ganhou valor com a reversão da §1:** o fan-out concorrente deixou de estar num subcomando nocturno e passou a estar no caminho que serve pessoas. Uma corrida de dados aqui produz números errados, não um crash.

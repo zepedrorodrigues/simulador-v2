@@ -152,4 +152,114 @@ func rotasDoSpec(t *testing.T) []rotaDoSpec {
 	return rotas
 }
 
+// TestTodoOSchemaDoSpecEAlcancavel é o inverso do teste de cima, e o inverso
+// faltava.
+//
+// ⚠️ **O de cima trava uma rota declarada e não servida; este trava um schema
+// declarado e já sem rota.** São defeitos opostos e a Fase 6 produziu o segundo:
+// o passo 5 apagou o `POST /api/v1/comparacoes` e o `/api/rate-catalog` e deixou
+// para trás `Comparacao`, `ComparacaoPedido`, `SerieIndisponivel`, `RateCatalog`,
+// `Scenario`, `Point`, `SnapshotsResposta` e `Snapshot` — **oito definições sem
+// caminho nenhum a alcançá-las**, durante um dia inteiro, com o portão verde.
+//
+// ⚠️ Não é arrumação. Cada um deles gerava um tipo Go exportado no `api` e uma
+// entrada no `.d.ts` que a app consome: o contrato continuava a **oferecer** à
+// app a forma de uma resposta que o servidor já não sabia dar. A app estava
+// mesmo a compilar contra a `Comparacao`, e a chamar uma rota que dava 404.
+func TestTodoOSchemaDoSpecEAlcancavel(t *testing.T) {
+	spec := lerSpec(t)
+
+	declarados := make(map[string]bool, len(spec.Components.Schemas))
+	for nome := range spec.Components.Schemas {
+		declarados[nome] = true
+	}
+	if len(declarados) == 0 {
+		t.Fatal("não se leu schema nenhum do openapi.yaml — o teste estaria a afirmar o vazio")
+	}
+
+	// A partir dos caminhos, e não do bloco inteiro: é a alcançabilidade que se
+	// afirma. Um schema referido só por outro schema órfão continua órfão, e o
+	// fecho transitivo trata disso sozinho.
+	alcancados := make(map[string]bool, len(declarados))
+	var seguir func(no any)
+	seguir = func(no any) {
+		switch v := no.(type) {
+		case map[string]any:
+			for chave, valor := range v {
+				if chave == "$ref" {
+					if nome, ok := nomeDoRef(valor); ok && !alcancados[nome] {
+						alcancados[nome] = true
+						seguir(spec.Components.Schemas[nome])
+						continue
+					}
+				}
+				seguir(valor)
+			}
+		case []any:
+			for _, item := range v {
+				seguir(item)
+			}
+		}
+	}
+	seguir(spec.Paths)
+	// As respostas partilhadas só se alcançam por `$ref` a partir de um caminho,
+	// e o `seguir` já lá passa — mas o corpo delas vive noutro sítio do documento
+	// e não é visitado por descer o `paths`. Segue-se o que os caminhos citaram.
+	seguir(spec.Components.Responses)
+
+	var orfaos []string
+	for nome := range declarados {
+		if !alcancados[nome] {
+			orfaos = append(orfaos, nome)
+		}
+	}
+	sort.Strings(orfaos)
+
+	for _, nome := range orfaos {
+		t.Errorf("o schema %q está declarado no openapi.yaml e nenhum caminho lhe chega. "+
+			"Se a rota que o usava saiu, ele sai com ela — senão o contrato oferece à app "+
+			"a forma de uma resposta que ninguém serve.", nome)
+	}
+}
+
+// nomeDoRef extrai o nome de um `$ref` local a components/schemas.
+//
+// ⚠️ Um `$ref` para outro sítio — `components/responses`, um ficheiro externo —
+// devolve falso e não é seguido como schema. Tratá-lo como schema marcava
+// alcançado um nome que não existe no mapa, e o `seguir` recursivo passaria a
+// descer `nil` em silêncio.
+func nomeDoRef(valor any) (string, bool) {
+	ref, ok := valor.(string)
+	if !ok {
+		return "", false
+	}
+	const prefixo = "#/components/schemas/"
+	if !strings.HasPrefix(ref, prefixo) {
+		return "", false
+	}
+	return strings.TrimPrefix(ref, prefixo), true
+}
+
+type specLido struct {
+	Paths      map[string]any `yaml:"paths"`
+	Components struct {
+		Schemas   map[string]any `yaml:"schemas"`
+		Responses map[string]any `yaml:"responses"`
+	} `yaml:"components"`
+}
+
+func lerSpec(t *testing.T) specLido {
+	t.Helper()
+
+	bruto, err := os.ReadFile(filepath.Join("..", "..", "..", "api", "openapi.yaml"))
+	if err != nil {
+		t.Fatalf("ler o openapi.yaml: %v", err)
+	}
+	var spec specLido
+	if err := yaml.Unmarshal(bruto, &spec); err != nil {
+		t.Fatalf("o openapi.yaml não é YAML válido: %v", err)
+	}
+	return spec
+}
+
 // --- o handler que faltava (KAN-44) --------------------------------------------------
