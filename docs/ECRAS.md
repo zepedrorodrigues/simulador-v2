@@ -100,6 +100,21 @@ Havia um — «A comparar», com barra de progresso, cada banco a aparecer assim
 
 ⚠️ **Não é uma quarta linha na lista nem um ecrã à parte:** o defeito é de **um** banco, e os outros quatro continuam a encher-se. É a mesma razão por que o servidor serve isto num `200` e não num `500`.
 
+### Quantas vezes um facto se afirma (A6, 2026-08-11)
+
+⚠️ **Uma falha que aconteceu UMA vez não se mostra cinco.** O fan-out dá uma linha por banco, e uma falha que não é de banco nenhum — não há rede, o serviço não responde, o tecto por IP fechou — aparecia em cada uma delas, com o nome de um banco por cima. É o defeito que o `426` teve, e a regra que dele sai vale para todos os estatutos:
+
+| espécie | de quem é | como se mostra |
+|---|---|---|
+| `bancoOcupado` (`503`) | **daquele banco** — conta pedidos nossos em voo contra ele | uma linha por banco |
+| `semRede`, `servidorEmBaixo`, `tectoExcedido`, `pedidoInvalido`, `versaoDemasiadoAntiga` | de nós ou da ligação | **uma vez**, no ecrã, quando atinge todos |
+
+⚠️ **Só quando atinge TODOS.** Com uma oferta já servida a lista tem valor e fica; e com um banco por responder não há veredicto nenhum, porque «não há ofertas» faz a pessoa sair do ecrã enquanto uma resposta vem a caminho — é a mesma regra da estrela que não se dá a 2 de 5.
+
+⚠️ **E o botão «tentar de novo» é uma decisão, não um adorno.** Não aparece em duas espécies: no `tectoExcedido`, porque o servidor mandou esperar a **janela inteira** e não diz o que falta dela de propósito — «dizer exactamente quando reabre convida a bater à porta ao segundo» —, e na `versaoDemasiadoAntiga`, porque a acção está na loja. Um botão que não pode funcionar promete uma coisa que não acontece.
+
+⚠️ **«Nenhum dos bancos tem oferta para este pedido» afirma sobre o PEDIDO**, e por isso só se escreve quando **todos** responderam e nenhum tem preço. Um banco que não respondeu não sustenta essa conclusão: o que se sabe dele é que não se sabe.
+
 ⚠️ **Os produtos aplicados são visíveis em cada cartão.** Sem isso, um banco com descontos por omissão parece simplesmente mais barato. Foi a lição que o v1 demorou a aprender na sua própria série de mercado.
 
 ⚠️ **A TAEG deixou de levar marca de derivada, a 2026-08-07, e isto dizia o contrário.** Dizia — desde 2026-07-28 e com razão — que a `taeg` e o `mtic` não vinham cotados pelo banco, que eram calculados dos encargos medidos, e que por isso o cartão levava um `~` antes do número e os `pressupostos` inteiros no detalhe. **Ao vivo são o que o simulador do banco devolveu.** Não há derivação, não há hipóteses nossas a declarar, e o `~` e o `pressupostos` saíram do contrato e do ecrã.
