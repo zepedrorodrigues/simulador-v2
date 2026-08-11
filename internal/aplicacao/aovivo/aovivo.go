@@ -23,9 +23,8 @@ import (
 // ErrPanico marca um pânico nosso a simular, para o traduzir poder distingui-lo
 // de o banco não responder.
 //
-// ⚠️ Hoje sai como banco_indisponivel, que culpa o banco por um erro nosso. É
-// conhecido e é a KAN-30 — o sentinela existe para que essa decisão tenha por
-// onde pegar.
+// ✅ Sai como `erro_interno` desde 2026-08-11 (KAN-30). Saía como
+// `banco_indisponivel`, e era o banco a levar com um defeito nosso.
 var ErrPanico = errors.New("pânico ao simular")
 
 // Pedir interroga o banco e devolve sempre uma Oferta — nunca um erro.
@@ -131,10 +130,18 @@ func traduzir(err error, bancoNome string) *dominio.ErroOferta {
 	}
 
 	if errors.Is(err, ErrPanico) {
-		// ⚠️ Culpa o banco por um erro nosso. Conhecido, e é a KAN-30.
+		// ⚠️ **O `err` não entra na mensagem, e a omissão é a metade que falta**
+		// (KAN-30). O valor de um pânico é o interior do programa; despejá-lo num
+		// ecrã de crédito à habitação não ajuda quem lê e diz a quem não devia o
+		// que rebentou cá dentro. E não se perde rasto por sair daqui: rasto não
+		// havia — o diário regista método, caminho e estatuto, e o texto do pânico
+		// ia só para o telemóvel de quem o apanhou. Pô-lo onde se procura é a
+		// KAN-22.
 		return &dominio.ErroOferta{
-			Codigo:   dominio.ErroBancoIndisponivel,
-			Mensagem: fmt.Sprintf("Erro nosso ao simular o %s: %v", bancoNome, err),
+			Codigo: dominio.ErroInterno,
+			Mensagem: fmt.Sprintf(
+				"Não se conseguiu pedir a simulação ao %s por uma falha nossa. Não é uma falha do banco.",
+				bancoNome),
 		}
 	}
 

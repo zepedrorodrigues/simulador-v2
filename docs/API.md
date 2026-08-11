@@ -93,10 +93,17 @@ Era verdade enquanto os preços vinham da série varrida: ela era feita com um t
 | `produto_indisponivel` | o banco não faz isto de todo — modalidade, período, LTV fora da banda | mudando o pedido, ou não se resolve |
 | `banco_indisponivel` | foi-se lá e não respondeu, expirou, deu 5xx | esperando |
 | `resposta_ilegivel` | respondeu, e não se consegue ler | do nosso lado |
+| `erro_interno` | rebentou uma coisa **nossa**; o banco pode nem ter sido interrogado | do nosso lado, e não passa por esperar |
 
-⚠️ **Eram seis, e saíram dois** (2026-08-07). O `sem_serie` («não se foi lá: não há preços varridos deste banco», KAN-45) e o `serie_desactualizada` («há, e são do outro lado da viragem do dia», KAN-50) morrem com o varrimento: ao vivo vai-se sempre lá, e o que resta quando não se consegue responder é o banco não ter respondido.
+⚠️ **Eram seis, saíram dois e voltou um** (2026-08-07 e 2026-08-11). O `sem_serie` («não se foi lá: não há preços varridos deste banco», KAN-45) e o `serie_desactualizada` («há, e são do outro lado da viragem do dia», KAN-50) morrem com o varrimento: ao vivo vai-se sempre lá, e o que resta quando não se consegue responder é o banco não ter respondido. O `erro_interno` entra pela `KAN-30`.
 
-⚠️ **A distinção que o `sem_serie` existia para fazer NÃO morre com ele:** uma falta **nossa** não se serve como falha do banco, porque isso manda a pessoa tirar sobre ele uma conclusão que os dados não sustentam. É a mesma razão por que o `503 banco_ocupado` é um estatuto e não uma oferta em falha — e a mesma que a `KAN-30` tem em aberto para os pânicos nossos, que ainda saem como `banco_indisponivel` e não deviam.
+⚠️ **A distinção que o `sem_serie` existia para fazer NÃO morre com ele:** uma falta **nossa** não se serve como falha do banco, porque isso manda a pessoa tirar sobre ele uma conclusão que os dados não sustentam. É a mesma razão por que o `503 banco_ocupado` é um estatuto e não uma oferta em falha.
+
+✅ **E foi essa regra que fechou a `KAN-30`** (2026-08-11): um pânico nosso a simular saía como `banco_indisponivel` — dos quatro códigos era o único onde encaixava. O efeito prático é de contabilidade e não de ecrã: o banco ganha fama de instável, a pessoa lê «o CGD está em baixo» com o CGD bem, e o nosso defeito não aparece em métrica nenhuma **porque está contado na coluna errada**.
+
+⚠️ **A `mensagem` de um `erro_interno` não leva o interior do programa** — nem valor do pânico, nem ficheiro, nem linha. Não se perde rasto por isso: rasto não havia. O diário regista método, caminho e estatuto, e o texto do pânico ia só para o telemóvel de quem o apanhou. Pô-lo onde se procura é a `KAN-22`.
+
+⚠️ **O mesmo `erro_interno` já existia no envelope `RespostaErro`** (um `500`, §3), e a repetição é deliberada: as duas dizem «quem está avariado somos nós», em envelopes diferentes. A diferença é o alcance — no `OfertaErro` falhou **este banco** e a lista continua a encher-se; no `RespostaErro` falhou o pedido inteiro.
 
 ## 2. ⛔ `/api/rate-catalog` — **retirada a 2026-08-07**
 
@@ -142,7 +149,7 @@ Logo a retirada **não partiu consumidor nenhum**, e o v1 continua a servir o qu
 
 `/api/v1` muda **por acrescento**: campos novos são opcionais e a app antiga continua a funcionar. Remover ou mudar o tipo de um campo obriga a `/api/v2` em paralelo até a app estar actualizada nas lojas — ⚠️ com uma app móvel publicada **não se pode assumir que o cliente actualiza**.
 
-⚠️ **Um `codigo` de erro novo não é mudança de versão**, e é por desenho: o campo é `type: string` sem enum, e a app mostra a `mensagem` em vez de ramificar no código. Foi o que permitiu ao `sem_serie` nascer — e depois morrer — sem quebrar nada a jusante.
+⚠️ **Um `codigo` de erro novo não é mudança de versão**, e é por desenho: o campo é `type: string` sem enum, e a app mostra a `mensagem` em vez de ramificar no código. Foi o que permitiu ao `sem_serie` nascer — e depois morrer — sem quebrar nada a jusante, e ao `erro_interno` entrar a 2026-08-11 sem regenerar tipo nenhum.
 
 ⚠️ **A 2026-08-07 esta regra foi quebrada de propósito, uma vez.** Saíram o `POST /api/v1/comparacoes`, a `Comparacao`, o `pressupostos` e o `fiabilidade` — remoções, não acrescentos. A regra não caiu; caiu a premissa em que ela assenta: **não há app publicada**. A A8 está bloqueada pela `KAN-24`, e esta era a única janela em que partir o `/api/v1` custava zero. **Ela fecha no dia em que houver uma versão no terreno**, e a partir daí uma remoção obriga a `/api/v2` em paralelo.
 

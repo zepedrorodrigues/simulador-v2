@@ -124,6 +124,14 @@ const (
 	ErroBancoIndisponivel CodigoErro = "banco_indisponivel"
 	// ErroRespostaIlegivel: respondeu, e o que veio não se consegue ler.
 	ErroRespostaIlegivel CodigoErro = "resposta_ilegivel"
+	// ErroInterno: rebentou uma coisa NOSSA. O banco pode nem ter sido
+	// interrogado, e o que aconteceu não diz nada sobre ele.
+	//
+	// ⚠️ **É o mesmo texto que a `RespostaErro` usa num 500** (`infra/web`), e é
+	// de propósito: as duas dizem a mesma coisa — «quem está avariado somos nós» —
+	// em envelopes diferentes. Vocabulários separados para o mesmo facto obrigavam
+	// quem lê a aprender dois.
+	ErroInterno CodigoErro = "erro_interno"
 
 	// ⚠️ **Havia aqui um `sem_serie` e um `serie_desactualizada`**, e saem com o
 	// varrimento (2026-08-07). O primeiro dizia «não se foi lá: não há preços
@@ -135,8 +143,8 @@ const (
 	// (KAN-45): uma falta NOSSA não se serve como falha do banco, porque isso
 	// manda a pessoa tirar sobre ele uma conclusão que os dados não sustentam. É
 	// a mesma razão por que o `503 banco_ocupado` não é uma oferta em falha, e a
-	// mesma que a KAN-30 tem em aberto para os pânicos nossos — esses ainda saem
-	// como `banco_indisponivel`, e é conhecido.
+	// mesma que fechou a KAN-30: um pânico nosso saía como `banco_indisponivel`
+	// e passou a ter código próprio.
 )
 
 // ErroOferta é a falha de um banco, estruturada.
