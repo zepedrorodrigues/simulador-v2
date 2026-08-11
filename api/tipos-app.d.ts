@@ -243,6 +243,19 @@ export interface components {
         };
     };
     responses: {
+        /**
+         * @description A app que pediu é anterior à versão mínima que este servidor serve. Código `versao_demasiado_antiga`.
+         *     ⚠️ **426 e não 400:** o pedido está bem formado e o problema é o cliente. Um 400 mandava a app corrigir o corpo, que é a acção errada.
+         *     ⚠️ **Só acontece se o servidor tiver `APP_VERSAO_MINIMA` declarada**, e por omissão não tem. Existe desde 2026-08-08, antes de haver qualquer versão publicada, porque acrescentá-lo depois não serve de nada: as versões que precisavam de o entender já teriam saído sem ele.
+         */
+        VersaoDemasiadoAntiga: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["RespostaErro"];
+            };
+        };
         /** @description Pedido inválido, com o campo nomeado. */
         PedidoInvalido: {
             headers: {
@@ -282,7 +295,13 @@ export interface components {
             };
         };
     };
-    parameters: never;
+    parameters: {
+        /**
+         * @description A versão da app que está a pedir, em três números.
+         *     ⚠️ **Opcional, e tem de continuar a ser.** O alvo web e quem experimenta a API por `curl` não a mandam, e exigi-la seria em si uma mudança que parte o `/api/v1` — que é o que este cabeçalho existe para evitar. Ausente, ou ilegível, serve-se na mesma: o que se recusa é uma versão conhecida e velha, nunca a falta de informação.
+         */
+        VersaoDaApp: string;
+    };
     requestBodies: never;
     headers: never;
     pathItems: never;
@@ -292,7 +311,13 @@ export interface operations {
     listarBancos: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /**
+                 * @description A versão da app que está a pedir, em três números.
+                 *     ⚠️ **Opcional, e tem de continuar a ser.** O alvo web e quem experimenta a API por `curl` não a mandam, e exigi-la seria em si uma mudança que parte o `/api/v1` — que é o que este cabeçalho existe para evitar. Ausente, ou ilegível, serve-se na mesma: o que se recusa é uma versão conhecida e velha, nunca a falta de informação.
+                 */
+                "X-App-Versao"?: components["parameters"]["VersaoDaApp"];
+            };
             path?: never;
             cookie?: never;
         };
@@ -307,12 +332,19 @@ export interface operations {
                     "application/json": components["schemas"]["BancosResposta"];
                 };
             };
+            426: components["responses"]["VersaoDemasiadoAntiga"];
         };
     };
     ofertaDeUmBanco: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /**
+                 * @description A versão da app que está a pedir, em três números.
+                 *     ⚠️ **Opcional, e tem de continuar a ser.** O alvo web e quem experimenta a API por `curl` não a mandam, e exigi-la seria em si uma mudança que parte o `/api/v1` — que é o que este cabeçalho existe para evitar. Ausente, ou ilegível, serve-se na mesma: o que se recusa é uma versão conhecida e velha, nunca a falta de informação.
+                 */
+                "X-App-Versao"?: components["parameters"]["VersaoDaApp"];
+            };
             path: {
                 /** @description O id do banco, como vem em GET /api/v1/bancos. */
                 banco: string;
@@ -344,6 +376,7 @@ export interface operations {
                     "application/json": components["schemas"]["RespostaErro"];
                 };
             };
+            426: components["responses"]["VersaoDemasiadoAntiga"];
             429: components["responses"]["TectoExcedido"];
             503: components["responses"]["BancoOcupado"];
         };

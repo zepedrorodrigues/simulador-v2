@@ -286,6 +286,9 @@ type Titular struct {
 	RendimentoMensal float64            `json:"rendimento_mensal"`
 }
 
+// VersaoDaApp Example: 1.2.0
+type VersaoDaApp = string
+
 // BancoOcupado defines model for BancoOcupado.
 type BancoOcupado = RespostaErro
 
@@ -295,6 +298,23 @@ type PedidoInvalido = RespostaErro
 // TectoExcedido defines model for TectoExcedido.
 type TectoExcedido = RespostaErro
 
+// VersaoDemasiadoAntiga defines model for VersaoDemasiadoAntiga.
+type VersaoDemasiadoAntiga = RespostaErro
+
+// ListarBancosParams defines parameters for ListarBancos.
+type ListarBancosParams struct {
+	// XAppVersao A versão da app que está a pedir, em três números.
+	// ⚠️ **Opcional, e tem de continuar a ser.** O alvo web e quem experimenta a API por `curl` não a mandam, e exigi-la seria em si uma mudança que parte o `/api/v1` — que é o que este cabeçalho existe para evitar. Ausente, ou ilegível, serve-se na mesma: o que se recusa é uma versão conhecida e velha, nunca a falta de informação.
+	XAppVersao *VersaoDaApp `json:"X-App-Versao,omitempty"`
+}
+
+// OfertaDeUmBancoParams defines parameters for OfertaDeUmBanco.
+type OfertaDeUmBancoParams struct {
+	// XAppVersao A versão da app que está a pedir, em três números.
+	// ⚠️ **Opcional, e tem de continuar a ser.** O alvo web e quem experimenta a API por `curl` não a mandam, e exigi-la seria em si uma mudança que parte o `/api/v1` — que é o que este cabeçalho existe para evitar. Ausente, ou ilegível, serve-se na mesma: o que se recusa é uma versão conhecida e velha, nunca a falta de informação.
+	XAppVersao *VersaoDaApp `json:"X-App-Versao,omitempty"`
+}
+
 // OfertaDeUmBancoJSONRequestBody defines body for OfertaDeUmBanco for application/json ContentType.
 type OfertaDeUmBancoJSONRequestBody = OfertaPedido
 
@@ -302,10 +322,10 @@ type OfertaDeUmBancoJSONRequestBody = OfertaPedido
 type ServerInterface interface {
 	// ListarBancos Tudo o que a app precisa para montar o formulário adaptativo.
 	// (GET /api/v1/bancos)
-	ListarBancos(w http.ResponseWriter, r *http.Request)
+	ListarBancos(w http.ResponseWriter, r *http.Request, params ListarBancosParams)
 	// OfertaDeUmBanco Pergunta a UM banco o preço do crédito descrito. Ao vivo.
 	// (POST /api/v1/ofertas/{banco})
-	OfertaDeUmBanco(w http.ResponseWriter, r *http.Request, banco string)
+	OfertaDeUmBanco(w http.ResponseWriter, r *http.Request, banco string, params OfertaDeUmBancoParams)
 	// Saude Sondagem de saúde trivial para a plataforma.
 	// (GET /healthz)
 	Saude(w http.ResponseWriter, r *http.Request)
@@ -317,13 +337,13 @@ type Unimplemented struct{}
 
 // ListarBancos Tudo o que a app precisa para montar o formulário adaptativo.
 // (GET /api/v1/bancos)
-func (_ Unimplemented) ListarBancos(w http.ResponseWriter, r *http.Request) {
+func (_ Unimplemented) ListarBancos(w http.ResponseWriter, r *http.Request, params ListarBancosParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // OfertaDeUmBanco Pergunta a UM banco o preço do crédito descrito. Ao vivo.
 // (POST /api/v1/ofertas/{banco})
-func (_ Unimplemented) OfertaDeUmBanco(w http.ResponseWriter, r *http.Request, banco string) {
+func (_ Unimplemented) OfertaDeUmBanco(w http.ResponseWriter, r *http.Request, banco string, params OfertaDeUmBancoParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -345,8 +365,35 @@ type MiddlewareFunc func(http.Handler) http.Handler
 // ListarBancos operation middleware
 func (siw *ServerInterfaceWrapper) ListarBancos(w http.ResponseWriter, r *http.Request) {
 
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListarBancosParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "X-App-Versao" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-App-Versao")]; found {
+		var XAppVersao VersaoDaApp
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-App-Versao", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-App-Versao", valueList[0], &XAppVersao, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-App-Versao", Err: err})
+			return
+		}
+
+		params.XAppVersao = &XAppVersao
+
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ListarBancos(w, r)
+		siw.Handler.ListarBancos(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -371,8 +418,32 @@ func (siw *ServerInterfaceWrapper) OfertaDeUmBanco(w http.ResponseWriter, r *htt
 		return
 	}
 
+	// Parameter object where we will unmarshal all parameters from the context
+	var params OfertaDeUmBancoParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "X-App-Versao" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-App-Versao")]; found {
+		var XAppVersao VersaoDaApp
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-App-Versao", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-App-Versao", valueList[0], &XAppVersao, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-App-Versao", Err: err})
+			return
+		}
+
+		params.XAppVersao = &XAppVersao
+
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.OfertaDeUmBanco(w, r, banco)
+		siw.Handler.OfertaDeUmBanco(w, r, banco, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {

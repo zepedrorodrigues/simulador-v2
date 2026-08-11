@@ -61,6 +61,10 @@ type Servidor struct {
 	contador Contador
 	tecto    Tecto
 
+	// versaoMinima é a versão da app abaixo da qual se recusa servir. Nulo
+	// desliga a verificação, e é o valor de partida — ver `versao.go`.
+	versaoMinima *Versao
+
 	// lotacao é o tecto de pedidos em voo contra o MESMO banco (§7.2). Nula
 	// desliga-o.
 	//
@@ -185,6 +189,12 @@ func (s *Servidor) Rotas() http.Handler {
 	// identificador como qualquer outra resposta, e um pânico dentro do tecto não
 	// pode fechar a ligação sem uma palavra.
 	r.Use(s.limitar)
+	// ⚠️ A versão entra DEPOIS do tecto, e a ordem é a decisão. Montada antes,
+	// um cliente que mandasse uma versão velha era recusado sem ser contado — e
+	// passava a haver um caminho barato para pedir sem entrar na conta do tecto.
+	// Recusar custa uma comparação de três inteiros; ser contado custa uma
+	// consulta, e é essa consulta que protege os bancos de nós.
+	r.Use(s.exigirVersao)
 
 	// ⚠️ **Havia aqui duas superfícies com políticas de acesso diferentes**, e o
 	// grupo separava-as: dentro respondia-se a browsers, fora ficava o

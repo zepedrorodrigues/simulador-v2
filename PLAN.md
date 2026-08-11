@@ -151,7 +151,7 @@ Repositório separado, `simulador-v2-app`. Arrancou a 2026-07-28 com as fases 0-
 
 ⚠️ **E apanhou-se, por leitura, um defeito que ia aparecer em TODOS os cartões:** a app marcava «É uma falha do nosso servidor» sempre que houvesse TAEG sem `pressupostos`, e ao vivo o servidor nunca os preenche. Cada oferta com preço ia trazer uma caixa vermelha a acusar-nos de um defeito que não existia.
 
-⚠️ **A app impõe uma restrição bloqueante ao backend:** com uma app nas lojas não se controla quem actualiza, por isso `/api/v1` **só pode mudar por acrescento**. O caminho de «esta versão é demasiado antiga» custa pouco agora e é impossível de acrescentar quando já houver versões antigas no terreno — que é quando faz falta. **Por fazer.**
+⚠️ **A app impõe uma restrição bloqueante ao backend:** com uma app nas lojas não se controla quem actualiza, por isso `/api/v1` **só pode mudar por acrescento**. ✅ **O caminho de «esta versão é demasiado antiga» está feito no servidor** *(2026-08-08)*: cabeçalho `X-App-Versao`, `APP_VERSAO_MINIMA`, e `426 versao_demasiado_antiga`. Feito antes de haver app publicada, que era a única altura em que fazê-lo servia para alguma coisa. ⏳ **Falta o lado da app** — mandar o cabeçalho e ter ecrã para o 426.
 
 ---
 
