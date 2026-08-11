@@ -101,7 +101,7 @@ Era verdade enquanto os preços vinham da série varrida: ela era feita com um t
 
 ✅ **E foi essa regra que fechou a `KAN-30`** (2026-08-11): um pânico nosso a simular saía como `banco_indisponivel` — dos quatro códigos era o único onde encaixava. O efeito prático é de contabilidade e não de ecrã: o banco ganha fama de instável, a pessoa lê «o CGD está em baixo» com o CGD bem, e o nosso defeito não aparece em métrica nenhuma **porque está contado na coluna errada**.
 
-⚠️ **A `mensagem` de um `erro_interno` não leva o interior do programa** — nem valor do pânico, nem ficheiro, nem linha. Não se perde rasto por isso: rasto não havia. O diário regista método, caminho e estatuto, e o texto do pânico ia só para o telemóvel de quem o apanhou. Pô-lo onde se procura é a `KAN-22`.
+⚠️ **A `mensagem` de um `erro_interno` não leva o interior do programa** — nem valor do pânico, nem ficheiro, nem linha. Não se perde rasto por isso: rasto não havia. O diário regista método, caminho e estatuto, e o texto do pânico ia só para o telemóvel de quem o apanhou. Pô-lo onde se procura é a `KAN-61`.
 
 ⚠️ **O mesmo `erro_interno` já existia no envelope `RespostaErro`** (um `500`, §3), e a repetição é deliberada: as duas dizem «quem está avariado somos nós», em envelopes diferentes. A diferença é o alcance — no `OfertaErro` falhou **este banco** e a lista continua a encher-se; no `RespostaErro` falhou o pedido inteiro.
 

@@ -26,7 +26,7 @@ Estado actual e próximos passos. ⚠️ **Sem changelog** — o relato de sess�
 
 ✅ **Um pânico nosso deixou de sair como falha do banco** (2026-08-11, `KAN-30`). Entra o quinto `CodigoErro`, `erro_interno`, e o cartão da app ganha o rótulo «Falha nossa» ao lado de «Sem oferta». ⚠️ **O defeito era de atribuição e não de comportamento** — o `recover` sempre isolou, e a resposta ao cliente nunca caiu; o que faltava era onde arrumar a culpa. Com ela na coluna errada, o banco ganhava fama de instável e o nosso defeito **não aparecia em métrica nenhuma**.
 
-⚠️ **E a `Mensagem` deixou de levar o valor do pânico.** Não se perde rasto: rasto não havia — o diário regista método, caminho e estatuto, e o texto ia só para o telemóvel de quem o apanhou. Pô-lo onde se procura é a `KAN-22`.
+⚠️ **E a `Mensagem` deixou de levar o valor do pânico.** Não se perde rasto: rasto não havia — o diário regista método, caminho e estatuto, e o texto ia só para o telemóvel de quem o apanhou. Pô-lo onde se procura é a `KAN-61` — ⚠️ **e não a `KAN-22`, que é onde a `KAN-30` mandava procurar**: ao fechar a `KAN-22` foi-se ler o corpo dela e não estava lá nada disto. Uma remissão que ninguém verifica tira trabalho do backlog sem ninguém decidir.
 
 **O que falta:** a **`KAN-59`** — escolher o domínio, provisionar a máquina e correr o `docs/DEPLOY.md` pela primeira vez; o **parecer jurídico** (`KAN-24`); e em código o **prazo por banco**, que espera mais amostras de latência.
 

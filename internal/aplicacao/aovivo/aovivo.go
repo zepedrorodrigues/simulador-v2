@@ -136,7 +136,10 @@ func traduzir(err error, bancoNome string) *dominio.ErroOferta {
 		// que rebentou cá dentro. E não se perde rasto por sair daqui: rasto não
 		// havia — o diário regista método, caminho e estatuto, e o texto do pânico
 		// ia só para o telemóvel de quem o apanhou. Pô-lo onde se procura é a
-		// KAN-22.
+		// KAN-61. ⚠️ Isto dizia KAN-22, e a KAN-22 não tinha nada disto no corpo:
+		// ao fechá-la foi-se ler, e a única linha de observabilidade dela eram os
+		// logs por pedido, feitos há dias. Uma remissão que ninguém verifica é
+		// trabalho a sair do backlog sem ninguém decidir.
 		return &dominio.ErroOferta{
 			Codigo: dominio.ErroInterno,
 			Mensagem: fmt.Sprintf(
