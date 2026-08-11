@@ -64,7 +64,7 @@ Feito: `Dockerfile` não-root sem Chromium, logs com `X-Request-ID` (`KAN-43`), 
 
 ⚠️ **Dizia-se aqui, na mesma frase, que o valor «fica vazio até estar medido».** Ficou a contradizer o que está acima quando a medição deixou de existir, e sai. A assimetria que a justificava **mantém-se e vale para quem lhe mexer**: larga de mais deixa contornar o tecto de vez; vazia, o tecto do site inteiro passa a ser o de um utilizador. Um tecto apertado de mais é visível; um contornável não é.
 
-⏳ **`KAN-59`** — falta a máquina a sério: escolher o domínio, provisionar o VPS e correr o `docs/DEPLOY.md` pela primeira vez. ⚠️ **Subir a máquina não é publicar o serviço** — a `KAN-24` bloqueia isso, e a ordem é de pé, medido e fechado antes de divulgado.
+⏳ **`KAN-59`** — falta a máquina a sério: escolher o domínio, provisionar o VPS e correr o `docs/DEPLOY.md` pela primeira vez. ⚠️ **Subir a máquina não é publicar o serviço**, e a ordem é de pé, medido e fechado antes de divulgado.
 
 ## Fase 5 — Ecrã de mercado ⛔ *cancelada a 2026-08-06*
 
@@ -124,7 +124,7 @@ Depois disso, e por esta ordem:
 
    ⚠️ **A D1 desbloqueou-se por verificação, não por decisão.** Bloqueava por se afirmar, em cinco documentos, que o `viabilidade-imobiliaria` consumia o nosso `/api/rate-catalog` **em produção**. As duas metades eram falsas: ele consome o do **v1** (o `chmonitor`, que mantém os seus scrapers), e **não há produção** — nem o v2 nem o v1 estão alojados (a issue #13 do v1, «Verificar o deployment no ambiente real», continua aberta). A rota daqui nunca teve consumidor, e retirá-la não partiu nada.
 
-   ⚠️ **O `POST /api/v1/comparacoes` foi uma mudança que PARTE o `/api/v1`**, que este plano diz só poder mudar por acrescento. A regra existe por causa de apps nas lojas e a A8 está bloqueada pela `KAN-24` — era esta a única janela em que sair custava zero, e ela fecha no dia em que houver uma versão no terreno.
+   ⚠️ **O `POST /api/v1/comparacoes` foi uma mudança que PARTE o `/api/v1`**, que este plano diz só poder mudar por acrescento. A regra existe por causa de apps nas lojas, e **não havia nenhuma publicada** — era esta a única janela em que sair custava zero, e ela fecha no dia em que houver uma versão no terreno. ⚠️ **E desde 2026-08-11 nada a segura**: a A8 deixou de estar bloqueada, portanto a janela fecha na primeira submissão que for feita.
 
    ⚠️ **Um dia o v2 responde às perguntas do `viabilidade`, e não será por aquela rota:** ela publica uma série temporal, e sem varrimento não há como a produzir. O caminho é o ao vivo — perguntar um cenário de referência quando alguém precisar dele —, e é decisão nova.
 
@@ -143,7 +143,7 @@ Repositório separado, `simulador-v2-app`. Arrancou a 2026-07-28 com as fases 0-
 | A5 ofertas e detalhe, com fases e notas | ✅ |
 | A6 os estados que não são o caminho feliz | ✅ *(2026-08-11)* |
 | A7 acessibilidade e **publicação web** — primeiro alvo a publicar | ⏳ |
-| A8 EAS Build e submissão | ⛔ bloqueado pelo `KAN-24` |
+| A8 EAS Build e submissão | ⏳ *(desbloqueada a 2026-08-11)* |
 
 ⚠️ **A A4 VOLTOU (2026-08-06) e está feita (2026-08-07).** Tinha sido apagada com a nota «não há espera nenhuma», e passou a haver: cada banco é um pedido e a lista enche-se à medida que respondem. Não é o ecrã de espera do v1 — não há trabalho assíncrono nosso a que se pergunte «já está?» —, é a lista a preencher-se. O fan-out vive na app, com tecto de **3 em voo**.
 

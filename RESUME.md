@@ -14,7 +14,7 @@ Estado actual e próximos passos. ⚠️ **Sem changelog** — o relato de sess�
 
 **E a cache está no `development`**: `internal/infra/cache`, tabela `respostas_em_cache`, chave = `SHA-256` de (versão, banco, pedido), validade de **5 min**. Guarda o **servido** e não o objecto de domínio; lê-se **antes** do tecto, para um acerto não gastar vaga; uma falha nunca se guarda.
 
-**A forma de produção está escrita e corrida em local** (`compose.producao.yml`, `Caddyfile`, `docs/DEPLOY.md`): VPS com IPv4 dedicado, Caddy à frente, Postgres na mesma máquina e sem portas publicadas. ⚠️ **Nada está exposto, e é decisão** — a `KAN-24` bloqueia publicar, e subir a máquina não é publicar o serviço.
+**A forma de produção está escrita e corrida em local** (`compose.producao.yml`, `Caddyfile`, `docs/DEPLOY.md`): VPS com IPv4 dedicado, Caddy à frente, Postgres na mesma máquina e sem portas publicadas. ⚠️ **Nada está exposto porque não há máquina** — é a `KAN-59`, e a ordem mantém-se: de pé, medido e fechado antes de divulgado.
 
 ✅ **A TAEG e o MTIC deixaram de ser nossos** (2026-08-07). Ao vivo é o simulador do banco que os devolve: o `pressupostos` e o `fiabilidade` saíram do contrato, e o `~` saiu da app. ⚠️ **Isto ia partir todos os cartões:** a app marcava «É uma falha do nosso servidor» sempre que houvesse TAEG sem pressupostos, e ao vivo o servidor nunca os preenche.
 
@@ -32,7 +32,9 @@ Estado actual e próximos passos. ⚠️ **Sem changelog** — o relato de sess�
 
 ⚠️ **E o `429` era o defeito do `426` um estatuto abaixo:** o tecto por IP acontece uma vez e vale para os cinco bancos, e o fan-out dava-lhe cinco cartões, um por banco. A regra ficou escrita no `ECRAS.md` §3 — **a única espécie que sobrevive por banco é o `bancoOcupado`**, que conta pedidos nossos em voo contra ele.
 
-**O que falta:** a **`KAN-59`** — escolher o domínio, provisionar a máquina e correr o `docs/DEPLOY.md` pela primeira vez; o **parecer jurídico** (`KAN-24`); a **A7** (acessibilidade e alvo web, o primeiro alvo a publicar); e em código o **prazo por banco**, que espera mais amostras de latência.
+**O que falta:** a **`KAN-59`** — escolher o domínio, provisionar a máquina e correr o `docs/DEPLOY.md` pela primeira vez; a **A7** (acessibilidade e alvo web, o primeiro alvo a publicar); e em código o **prazo por banco**, que espera mais amostras de latência.
+
+⛔ **O parecer jurídico saiu do projecto a 2026-08-11**, por decisão do dono. A issue foi **apagada** — não cancelada — e as referências a ela saíram dos documentos. ⚠️ **A A8 deixou de estar bloqueada**, e o que isso muda é que publicar nas lojas passa a ser uma questão de trabalho e não de espera. ⚠️ **O que não muda com isto:** a app recolhe data de nascimento e rendimento, e o que a lei exige daí não depende de haver ou não uma issue a dizê-lo.
 
 ⚠️ **O `KAN` foi reconciliado a 2026-08-11 e ficou com 14 issues abertas, todas reais.** A `KAN-22` estava em `Tarefas pendentes` com as cinco caixas por marcar e o trabalho todo feito; a `KAN-23` estava aberta com a Fase 5 cancelada desde 2026-08-06; a `KAN-52` tinha «⛔ CANCELADA» no sumário e estava em `Em análise`. **Novas:** `KAN-60` (dois `resposta_ilegivel` mal atribuídos) e `KAN-61` (um pânico nosso não deixa rasto em log nenhum).
 
@@ -70,7 +72,7 @@ Num só dia, quatro assunções do modelo de preço caíram contra dados varrido
 
 ## O que está por resolver
 
-- ⚠️ **A D1 e a D4.** A primeira é dívida com outro repositório; a segunda é o parecer jurídico (`KAN-24`), que passou de «bloqueia as lojas» a **bloqueia o produto** — a fatia ao vivo é o produto inteiro, não uma funcionalidade dele.
+- ⚠️ **A D1**, que é dívida com outro repositório. ⚠️ **A D4 saiu** (2026-08-11): era o parecer jurídico, e o assunto deixou de estar no projecto.
 - ⚠️ **O fan-out na app é o ponto mais discutível do desenho novo.** Foi escolha contra SSE (o `fetch` do React Native não o suporta nativamente), e põe na app a responsabilidade de não disparar dez pedidos de uma vez.
 - ⚠️ **Somos um amplificador:** um pedido nosso vira ~10 aos bancos, com origem aparente nossa. Cruza a carga do varrimento às **~190 comparações/dia** — abaixo carregamos menos, acima cresce sem tecto.
 - ⚠️ **A latência está medida, e a cauda é o número que conta:** 25 simulações frias a 2026-08-06 às 17h13 — Novo Banco 460 ms de mediana, Montepio 2,01 s com **máximo de 8,4 s** (4,2× a própria mediana). Noutra medição do mesmo dia o Montepio passou dos **10 s**, logo o 8,4 s é um limite inferior do pior caso.

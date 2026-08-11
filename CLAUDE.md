@@ -71,7 +71,7 @@ Um comentário ganha o seu lugar quando diz o que o código não pode dizer: um 
 
 ## Onde está o resto
 
-`docs/DOSSIE-BANCOS.md` (o que o v1 apurou sobre cada banco), `docs/API.md`, `docs/DEPLOY.md` (a forma de produção: VPS, Caddy, Postgres na mesma máquina), `docs/ECRAS.md`, `docs/CONTRATO-BANCO.md`, `docs/APP.md` — este último separa o que já está decidido tecnicamente do que exige parecer jurídico antes de publicar nas lojas.
+`docs/DOSSIE-BANCOS.md` (o que o v1 apurou sobre cada banco), `docs/API.md`, `docs/DEPLOY.md` (a forma de produção: VPS, Caddy, Postgres na mesma máquina), `docs/ECRAS.md`, `docs/CONTRATO-BANCO.md`, `docs/APP.md` — este último traz as fases da app e a restrição que ela impõe ao contrato.
 
 **O backlog é o projecto** `KAN` **do JIRA** (`jpnmsr.atlassian.net`), não as issues do GitHub — essas ficam como arquivo e não se abrem mais.
 
