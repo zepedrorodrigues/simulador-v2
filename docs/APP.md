@@ -47,7 +47,11 @@ Esta é a decisão da app que entra para trás no servidor, e é a mais importan
 
 - `/api/v1` só muda por acrescento. Campos novos são opcionais; nunca se remove um campo nem se muda o tipo de um. Está em `API.md` §4 e passa a ter esta razão concreta por trás.
 - **A app tolera campos que não conhece** e não rebenta com eles.
-- ✅ **Um caminho de «esta versão é demasiado antiga»**, que o servidor possa accionar — **feito a 2026-08-08**, do lado do servidor. A app manda `X-App-Versao`, o servidor compara com o `APP_VERSAO_MINIMA` e responde `426` com o código `versao_demasiado_antiga` (ver `API.md` §4). ⚠️ **Falta a app mandar o cabeçalho e saber ler o 426** — hoje ele é opcional e a ausência serve-se, portanto nada está partido; o que não existe ainda é o ecrã que diz à pessoa para actualizar.
+- ✅ **Um caminho de «esta versão é demasiado antiga»**, que o servidor possa accionar — **fechado dos dois lados**: servidor a 2026-08-08, app a 2026-08-11. A app manda `X-App-Versao` (do `expo.version`, e o que não forem três números não se manda), o servidor compara com o `APP_VERSAO_MINIMA` e responde `426` com o código `versao_demasiado_antiga` (ver `API.md` §4). Na app o 426 **substitui o ecrã inteiro** e não leva botão de repetir: a acção é actualizar, e está na loja.
+
+  ⚠️ **O 426 não é sobre um banco, e por isso não vive na lista.** Servido como falha de cada consulta, o ecrã das ofertas dava cinco cartões «não chegou», um por banco, a atribuir a cada um uma coisa que é nossa — e é a confusão que o `estado/lista.ts` existe para evitar.
+
+  ⚠️ **E o caminho só funcionou depois de dois defeitos do servidor**, encontrados a correr a app a sério contra ele: o `X-App-Versao` faltava no `Access-Control-Allow-Headers` (não sendo simples, o browser bloqueia o **pedido inteiro**), e o `exigirVersao` estava montado acima do CORS, portanto o 426 saía sem `Access-Control-Allow-Origin`. As duas suites passavam.
 - **Actualizações OTA (**`expo-updates`) para correcções de JavaScript sem passar pela loja. ⚠️ Não substituem o ponto anterior: uma actualização OTA só chega a quem abre a app.
 
 ## 4. Estrutura

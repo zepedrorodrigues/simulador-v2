@@ -159,3 +159,10 @@ Como funciona:
 ⚠️ **A comparação é numérica e nunca textual.** Em texto, `1.10.0` vem **antes** de `1.9.0` — e o efeito seria mandar parar exactamente as apps mais recentes no dia em que a versão menor passasse de 9 para 10. Há teste a afirmá-lo, e visto a falhar.
 
 ⚠️ **Isto não substitui a regra de só mudar por acrescento.** É o travão de emergência para o dia em que ela não chegue: servir uma app velha que interpreta mal o que se lhe manda é pior do que dizer-lhe que pare.
+
+⚠️ **Duas coisas que um browser impõe a este caminho, e que custaram um dia a encontrar** (2026-08-11):
+
+- o `X-App-Versao` **tem** de estar no `Access-Control-Allow-Headers` do preflight. Não é um cabeçalho simples, portanto o que o browser bloqueia sem essa permissão não é o cabeçalho — é o **pedido inteiro**, e do lado do servidor não fica rasto nenhum;
+- o `426` **tem** de sair com `Access-Control-Allow-Origin`, e isso decide onde o middleware se monta: por baixo do CORS e não por cima. Escrito acima, a resposta é recusada pelo browser e a app lê-a como falha de rede — ou seja, a única resposta que este caminho existe para entregar é a única que não chega.
+
+**É a regra geral da §3 aplicada aqui:** uma resposta de erro leva os cabeçalhos como as outras.

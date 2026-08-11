@@ -108,7 +108,14 @@ func (s *Servidor) permitirOrigens(seguinte http.Handler) http.Handler {
 		if ehPreflight(r) {
 			w.Header().Add("Vary", "Access-Control-Request-Method")
 			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-			w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+			// ⚠️ **O `X-App-Versao` TEM de estar aqui**, e não é acrescento de
+			// conforto: é um cabeçalho que o browser não considera simples,
+			// portanto sem esta linha ele bloqueia o pedido inteiro — não o
+			// cabeçalho. Medido a 2026-08-11 contra o alvo web a sério: com
+			// `Access-Control-Allow-Headers: Content-Type`, o preflight
+			// respondia 204 e o `GET /api/v1/bancos` **nunca saía**, e o
+			// servidor não registava nada porque não havia o que registar.
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, "+CabecalhoDaVersao)
 			w.Header().Set("Access-Control-Max-Age", "600")
 		}
 		seguinte.ServeHTTP(w, r)
