@@ -151,7 +151,9 @@ Repositório separado, `simulador-v2-app`. Arrancou a 2026-07-28 com as fases 0-
 
 ⚠️ **E apanhou-se, por leitura, um defeito que ia aparecer em TODOS os cartões:** a app marcava «É uma falha do nosso servidor» sempre que houvesse TAEG sem `pressupostos`, e ao vivo o servidor nunca os preenche. Cada oferta com preço ia trazer uma caixa vermelha a acusar-nos de um defeito que não existia.
 
-⚠️ **A app impõe uma restrição bloqueante ao backend:** com uma app nas lojas não se controla quem actualiza, por isso `/api/v1` **só pode mudar por acrescento**. ✅ **O caminho de «esta versão é demasiado antiga» está feito no servidor** *(2026-08-08)*: cabeçalho `X-App-Versao`, `APP_VERSAO_MINIMA`, e `426 versao_demasiado_antiga`. Feito antes de haver app publicada, que era a única altura em que fazê-lo servia para alguma coisa. ⏳ **Falta o lado da app** — mandar o cabeçalho e ter ecrã para o 426.
+⚠️ **A app impõe uma restrição bloqueante ao backend:** com uma app nas lojas não se controla quem actualiza, por isso `/api/v1` **só pode mudar por acrescento**. ✅ **O caminho de «esta versão é demasiado antiga» está feito dos dois lados** — servidor a 2026-08-08 (cabeçalho `X-App-Versao`, `APP_VERSAO_MINIMA`, `426 versao_demasiado_antiga`), app a 2026-08-11 (manda o cabeçalho a partir do `expo.version`, e o 426 substitui o ecrã inteiro, sem botão de repetir). Feito antes de haver app publicada, que era a única altura em que fazê-lo servia para alguma coisa.
+
+⚠️ **E só a correr as duas metades juntas se viu que a resposta não chegava.** O `X-App-Versao` não é um cabeçalho simples e faltava no `Access-Control-Allow-Headers` — o browser bloqueava o pedido inteiro; e o `exigirVersao` estava montado acima do grupo do CORS, portanto o 426 saía sem `Access-Control-Allow-Origin` e a app lia-o como falha de rede. **As duas suites passavam**, e os dois repositórios têm portões separados.
 
 ---
 

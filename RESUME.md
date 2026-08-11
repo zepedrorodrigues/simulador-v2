@@ -2,7 +2,7 @@
 
 Estado actual e próximos passos. ⚠️ **Sem changelog** — o relato de sessões não vive aqui. O `RESUME.md` do v1 chegou a 1317 linhas antes de ser esvaziado à força.
 
-**Actualizado:** 2026-08-07
+**Actualizado:** 2026-08-11
 
 ⚠️ **A §1 foi revertida: o pedido do cliente volta a ir ao banco.** Decidido a 2026-08-06, depois de um dia a confrontar o servido com dados reais. O porquê, com os números, está em `docs/DECISAO-AO-VIVO.md`.
 
@@ -20,9 +20,11 @@ Estado actual e próximos passos. ⚠️ **Sem changelog** — o relato de sess�
 
 ✅ **As 1 892 linhas do modelo de preço saíram** (2026-08-08): `dominio/encargos.go` (424 l.), `taeg.go` (207 l.), `escala_ltv.go` (190 l.), `mercado.go` (78 l.) e 971 l. de testes. A tabela «morreu» da §4 do `ARQUITETURA.md` e o pacote `dominio` deixaram de discordar. ⚠️ **A prova de que não tinham chamador foi o compilador** — apagados de uma vez, o `go build ./...` passou à primeira. Não se voltam a ligar: cada um era uma hipótese sobre como um banco preça, e quatro caíram num dia.
 
-**O que falta:** a **`KAN-59`** — escolher o domínio, provisionar a máquina e correr o `docs/DEPLOY.md` pela primeira vez; o **parecer jurídico** (`KAN-24`); e em código o **prazo por banco**, que espera mais amostras de latência.
+✅ **O caminho de «esta versão é demasiado antiga» está fechado dos dois lados** (2026-08-11). O servidor já o tinha; a app passou a mandar o `X-App-Versao` (do `expo.version`, fonte única), a traduzir o `426` numa espécie própria e a **substituir o ecrã inteiro** pelo aviso de actualizar — sem botão de repetir, porque a acção está na loja. ⚠️ **A app não é onde a coisa se vê:** o 426 responde a todos os pedidos, e dentro da lista dava cinco cartões, um por banco, a atribuir a cada banco uma coisa que é nossa.
 
-⚠️ **Dívida nova, e é de documento: o `docs/ECRAS.md` ficou para trás.** Quatro parágrafos dele descrevem o mundo antigo — a TAEG «leva marca de derivada» com o `~` e os pressupostos, o código `sem_serie`, o `capturado_em` «do varrimento», e o aviso de `fiabilidade: em_duvida`. Nada disso existe desde 2026-08-07. É exactamente a distância entre documento e código que a Fase 6 fechou noutros ficheiros.
+⚠️ **E o ensaio no browser encontrou dois defeitos no servidor que nenhuma das duas suites via** (ver `fix/o-426-tem-de-chegar-ao-browser`): o `X-App-Versao` não estava no `Access-Control-Allow-Headers` — e não sendo um cabeçalho simples, o que o browser bloqueia é o **pedido inteiro** —, e o `exigirVersao` estava montado **acima** do grupo do CORS, portanto o 426 saía sem `Access-Control-Allow-Origin` e a app via-o como falha de rede. A resposta que este caminho existe para entregar era precisamente a que não chegava.
+
+**O que falta:** a **`KAN-59`** — escolher o domínio, provisionar a máquina e correr o `docs/DEPLOY.md` pela primeira vez; o **parecer jurídico** (`KAN-24`); e em código o **prazo por banco**, que espera mais amostras de latência.
 
 ## Onde estamos
 
@@ -101,6 +103,10 @@ Num só dia, quatro assunções do modelo de preço caíram contra dados varrido
 **Um teste cujos dois lados se constroem do mesmo sítio não vê a diferença entre eles.** O primeiro critério da `KAN-55` comparava fases da oferta com fases da observação: passava nos testes (a fixture constrói-as) e **nunca disparava em produção** (o `leitura.go` não as reconstrói). Só se viu ao correr contra o varrimento real.
 
 **Correr a forma de produção é um teste, e encontra o que nenhuma suite encontra.** Continua verdadeiro, e foi assim que este dia aconteceu.
+
+⚠️ **E repetiu-se a 2026-08-11, com o browser no papel da forma de produção.** Os dois defeitos do 426 — o cabeçalho fora do `Access-Control-Allow-Headers` e o `exigirVersao` acima do CORS — passavam nas duas suites, que são separadas. O que os mostrou foi um ecrã parado em «A carregar os bancos…» e um diário do servidor com `OPTIONS 204` e mais nada. **Um pedido que o browser bloqueia não deixa rasto do lado de lá**, e é isso que torna esta classe invisível a quem só lê logs.
+
+**Um middleware novo herda a ordem de quem o montou, e não a regra que já estava escrita.** O `defesa_test.go` diz desde a `KAN-46` que uma resposta de erro leva os cabeçalhos como as outras, e que por isso o middleware se monta no topo. O `exigirVersao` foi montado por cima do CORS na mesma — e o efeito foi a resposta 426 sair sem `Access-Control-Allow-Origin`. ⚠️ A regra estava escrita e não travava nada: agora há teste.
 
 **Um portão que verifica rotas não verifica schemas, e a assimetria custou oito definições.** O `spec_test.go` afirmava desde a `KAN-44` que toda a rota declarada tem handler. Ao apagar duas rotas, ficaram no contrato `Comparacao`, `ComparacaoPedido`, `SerieIndisponivel`, `RateCatalog`, `Scenario`, `Point`, `SnapshotsResposta` e `Snapshot` — cada uma a gerar um tipo Go exportado e uma entrada no `.d.ts` que a app consome, com o portão verde. ⚠️ **A app estava mesmo a compilar contra a `Comparacao` enquanto chamava uma rota que dava 404**: o contrato oferecia-lhe a forma de uma resposta que ninguém servia. Passou a haver `TestTodoOSchemaDoSpecEAlcancavel`, e a regra é **quando uma rota sai, sai o que só ela usava**.
 
