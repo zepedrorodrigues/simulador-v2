@@ -28,7 +28,13 @@ Estado actual e próximos passos. ⚠️ **Sem changelog** — o relato de sess�
 
 ⚠️ **E a `Mensagem` deixou de levar o valor do pânico.** Não se perde rasto: rasto não havia — o diário regista método, caminho e estatuto, e o texto ia só para o telemóvel de quem o apanhou. Pô-lo onde se procura é a `KAN-61` — ⚠️ **e não a `KAN-22`, que é onde a `KAN-30` mandava procurar**: ao fechar a `KAN-22` foi-se ler o corpo dela e não estava lá nada disto. Uma remissão que ninguém verifica tira trabalho do backlog sem ninguém decidir.
 
-**O que falta:** a **`KAN-59`** — escolher o domínio, provisionar a máquina e correr o `docs/DEPLOY.md` pela primeira vez; o **parecer jurídico** (`KAN-24`); e em código o **prazo por banco**, que espera mais amostras de latência.
+✅ **A A6 da app está feita** (2026-08-11): os estados que não são o caminho feliz. ⚠️ **E o que faltava não eram ecrãs — era a espécie da falha a sobreviver até eles.** O `cliente.ts` já traduzia cada estatuto numa espécie e cada espécie já tinha frase escrita; o `useSelecao` reduzia tudo a um `falhou: boolean`, e três ecrãs mostravam à mão «O serviço não está a responder / Isto é do nosso lado». Sem rede isso é falso nas duas metades.
+
+⚠️ **E o `429` era o defeito do `426` um estatuto abaixo:** o tecto por IP acontece uma vez e vale para os cinco bancos, e o fan-out dava-lhe cinco cartões, um por banco. A regra ficou escrita no `ECRAS.md` §3 — **a única espécie que sobrevive por banco é o `bancoOcupado`**, que conta pedidos nossos em voo contra ele.
+
+**O que falta:** a **`KAN-59`** — escolher o domínio, provisionar a máquina e correr o `docs/DEPLOY.md` pela primeira vez; o **parecer jurídico** (`KAN-24`); a **A7** (acessibilidade e alvo web, o primeiro alvo a publicar); e em código o **prazo por banco**, que espera mais amostras de latência.
+
+⚠️ **O `KAN` foi reconciliado a 2026-08-11 e ficou com 14 issues abertas, todas reais.** A `KAN-22` estava em `Tarefas pendentes` com as cinco caixas por marcar e o trabalho todo feito; a `KAN-23` estava aberta com a Fase 5 cancelada desde 2026-08-06; a `KAN-52` tinha «⛔ CANCELADA» no sumário e estava em `Em análise`. **Novas:** `KAN-60` (dois `resposta_ilegivel` mal atribuídos) e `KAN-61` (um pânico nosso não deixa rasto em log nenhum).
 
 ## Onde estamos
 
@@ -109,6 +115,10 @@ Num só dia, quatro assunções do modelo de preço caíram contra dados varrido
 **Correr a forma de produção é um teste, e encontra o que nenhuma suite encontra.** Continua verdadeiro, e foi assim que este dia aconteceu.
 
 ⚠️ **E repetiu-se a 2026-08-11, com o browser no papel da forma de produção.** Os dois defeitos do 426 — o cabeçalho fora do `Access-Control-Allow-Headers` e o `exigirVersao` acima do CORS — passavam nas duas suites, que são separadas. O que os mostrou foi um ecrã parado em «A carregar os bancos…» e um diário do servidor com `OPTIONS 204` e mais nada. **Um pedido que o browser bloqueia não deixa rasto do lado de lá**, e é isso que torna esta classe invisível a quem só lê logs.
+
+**Uma remissão para outra issue é uma afirmação, e ninguém a verifica.** A `KAN-30` dizia «o log dos pânicos é a `KAN-22`», e quatro sítios do código e dos documentos repetiram-no. Ao fechar a `KAN-22` foi-se ler o corpo dela: as cinco linhas do trabalho previsto estavam feitas e **nenhuma era essa**. ⚠️ **Fechá-la levava consigo trabalho que ninguém tinha decidido abandonar** — e a remissão era o que fazia esse trabalho parecer arrumado.
+
+**Um estado que se reduz a um booleano perde exactamente a parte que a pessoa lê.** O `useSelecao` da app respondia `falhou: true`, e a espécie da falha — que já estava calculada e já tinha frase escrita — não chegava a ecrã nenhum. ⚠️ **O ecrã genérico que a A6 existia para evitar estava lá**, escrito à mão em três sítios, o que o fazia parecer uma escolha em vez de uma perda.
 
 **Isolar uma falha e atribuí-la são duas coisas, e a segunda não vem de graça com a primeira.** O `recover` do `aovivo` estava certo desde o princípio: um pânico nosso nunca derrubou a resposta ao cliente. O que ele não tinha era onde arrumar a culpa — dos quatro códigos, o único onde um pânico encaixava era `banco_indisponivel`. ⚠️ **Um defeito de atribuição não se vê a correr o programa**, porque tudo funciona: vê-se na conta que alguém tira dele depois. Aqui, um banco com fama de instável e um defeito nosso invisível na única coluna onde o iríamos procurar.
 
