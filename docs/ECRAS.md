@@ -88,7 +88,17 @@ Havia um — «A comparar», com barra de progresso, cada banco a aparecer assim
 
 ⚠️ **O código `sem_serie` que a corrigia saiu do contrato a 2026-08-07**, com a série. **A regra que ele servia é que fica**, e passou a ser mais forte: agora é a **app** que monta a lista com os cinco desde o primeiro instante (D2), portanto não há como um banco pedido não aparecer. Uma linha tem três estados — **à espera**, **servida**, ou **não chegou** — e nenhum deles é a ausência.
 
-⚠️ **E «não chegou» não se disfarça de oferta em falha.** Uma oferta com `sucesso: false` traz a razão **do banco**, escrita pelo servidor em português; um pedido que nem chegou ao servidor não tem essa frase, e fabricar-lhe uma era a app a afirmar o que o banco disse. O que ela sabe di-lo com as palavras dela: não houve rede, o serviço não respondeu, o tecto foi atingido.
+⚠️ **E «não chegou» não se disfarça de oferta em falha.** Uma oferta com `sucesso: false` traz a razão escrita pelo servidor, em português; um pedido que nem chegou ao servidor não tem essa frase, e fabricar-lhe uma era a app a afirmar o que o banco disse. O que ela sabe di-lo com as palavras dela: não houve rede, o serviço não respondeu, o tecto foi atingido.
+
+⚠️ **Uma oferta em falha tem agora dois donos, e o cartão tem de os separar** (`KAN-30`, 2026-08-11). Até aqui a razão era sempre **do banco**; com o `erro_interno` ela é **nossa** — rebentou uma coisa cá dentro e o banco pode nem ter sido interrogado. **A frase continua a vir do servidor e é essa que se mostra**, mas o rótulo do cartão não pode dizer «Sem oferta»: isso afirma sobre o banco uma coisa que não se apurou. São **três** rótulos, e o código decide qual:
+
+| o que aconteceu | rótulo | de onde vem a frase |
+|---|---|---|
+| o banco respondeu que não | «Sem oferta» | do servidor, e é a razão **do banco** |
+| rebentou do nosso lado (`erro_interno`) | «Falha nossa» | do servidor, e a razão é **nossa** |
+| o pedido não chegou ao servidor | «Não foi possível perguntar a este banco» | da **app**, com as palavras dela |
+
+⚠️ **Não é uma quarta linha na lista nem um ecrã à parte:** o defeito é de **um** banco, e os outros quatro continuam a encher-se. É a mesma razão por que o servidor serve isto num `200` e não num `500`.
 
 ⚠️ **Os produtos aplicados são visíveis em cada cartão.** Sem isso, um banco com descontos por omissão parece simplesmente mais barato. Foi a lição que o v1 demorou a aprender na sua própria série de mercado.
 

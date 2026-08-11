@@ -131,20 +131,57 @@ func TestUmBancoQueNaoRespondeADesistenciaNaoSeguraOPedido(t *testing.T) {
 func TestUmPanicoNossoNaoDerrubaARespostaAoCliente(t *testing.T) {
 	t.Parallel()
 
-	b := &bancoFalso{
-		id: "prova", nome: "Banco de Prova",
-		responder: func(context.Context, dominio.Pedido) (dominio.Oferta, error) {
-			panic("índice fora dos limites")
-		},
-	}
-
-	o := aovivo.Pedir(context.Background(), b, pedido(t), agora, time.Second)
+	o := aovivo.Pedir(context.Background(), bancoQuePanica(), pedido(t), agora, time.Second)
 
 	if o.Sucesso() {
 		t.Fatal("houve um pânico e a oferta saiu como boa")
 	}
-	if !strings.Contains(o.Erro.Mensagem, "Erro nosso") {
+	if !strings.Contains(o.Erro.Mensagem, "nossa") {
 		t.Errorf("a mensagem não assume o erro como nosso: %q", o.Erro.Mensagem)
+	}
+}
+
+// TestUmPanicoNossoNaoSeVesteDeFalhaDoBanco é a KAN-30, e o defeito era de
+// atribuição e não de comportamento.
+//
+// ⚠️ **Um pânico nosso saía como `banco_indisponivel`** — dos quatro códigos era
+// o único onde encaixava. O efeito prático: o banco ganha fama de instável, a
+// pessoa lê «o CGD está em baixo» com o CGD bem, e o nosso defeito não aparece em
+// métrica nenhuma porque está contado na coluna errada. É a mesma regra que já
+// tirou o `503 banco_ocupado` de ser oferta em falha: **uma falta nossa não se
+// serve como falha do banco.**
+func TestUmPanicoNossoNaoSeVesteDeFalhaDoBanco(t *testing.T) {
+	t.Parallel()
+
+	o := aovivo.Pedir(context.Background(), bancoQuePanica(), pedido(t), agora, time.Second)
+
+	if o.Erro.Codigo != dominio.ErroInterno {
+		t.Errorf("código %q, esperava %q — um defeito nosso está a ser contado como falha do banco",
+			o.Erro.Codigo, dominio.ErroInterno)
+	}
+	// Nomeia o banco: o cartão põe esta frase debaixo do nome dele, e sem a
+	// negação explícita a linha lê-se na mesma como sendo sobre o banco.
+	if !strings.Contains(o.Erro.Mensagem, "Banco de Prova") {
+		t.Errorf("a mensagem não diz de que linha da lista se trata: %q", o.Erro.Mensagem)
+	}
+}
+
+// TestAMensagemDeUmPanicoNaoDespejaOInterior: a `Mensagem` é para uma pessoa ler
+// num ecrã de crédito à habitação, e o valor de um pânico é o interior do
+// programa.
+//
+// ⚠️ **E o detalhe não se perde por sair daqui: ele não estava em log nenhum.**
+// O diário do servidor regista método, caminho e estatuto — o texto do pânico ia
+// só para o telemóvel de quem o apanhou. Pô-lo onde se procura é a KAN-22.
+func TestAMensagemDeUmPanicoNaoDespejaOInterior(t *testing.T) {
+	t.Parallel()
+
+	o := aovivo.Pedir(context.Background(), bancoQuePanica(), pedido(t), agora, time.Second)
+
+	for _, interior := range []string{marcaDoPanico, ".go:", "panic", "pânico"} {
+		if strings.Contains(o.Erro.Mensagem, interior) {
+			t.Errorf("a mensagem despeja %q: %q", interior, o.Erro.Mensagem)
+		}
 	}
 }
 
@@ -209,6 +246,19 @@ func (b *bancoFalso) Nome() string                   { return b.nome }
 func (b *bancoFalso) Requisitos() dominio.Requisitos { return dominio.Requisitos{BancoID: b.id} }
 func (b *bancoFalso) Simular(ctx context.Context, p dominio.Pedido) (dominio.Oferta, error) {
 	return b.responder(ctx, p)
+}
+
+// marcaDoPanico é texto que só existe dentro do pânico. Se aparecer na mensagem
+// servida, foi o interior do programa que atravessou a fronteira.
+const marcaDoPanico = "índice fora dos limites"
+
+func bancoQuePanica() *bancoFalso {
+	return &bancoFalso{
+		id: "prova", nome: "Banco de Prova",
+		responder: func(context.Context, dominio.Pedido) (dominio.Oferta, error) {
+			panic(marcaDoPanico)
+		},
+	}
 }
 
 // agora é o relógio destes testes, e está **parado**. Com o `time.Now` o

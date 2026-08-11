@@ -109,6 +109,44 @@ func TestUmBancoEmBaixoSaiComo200ENaoComoErroDoPedido(t *testing.T) {
 	}
 }
 
+// TestUmPanicoNossoAtravessaAFronteiraSemCulparOBanco (KAN-30).
+//
+// ⚠️ **É aqui que a atribuição se vê**, e não no caso de uso: o que chega à app é
+// este JSON, e é o `codigo` que ela usa para decidir se a linha fala de um banco
+// em baixo ou de um defeito nosso. O caso de uso podia estar certo e a fronteira
+// engolir o código na tradução — foi assim que o `CapturadoEm` se perdeu.
+//
+// ⚠️ **E continua a ser 200 com oferta em falha.** Um 500 aqui derrubava a linha
+// deste banco *e* dizia à app que a comparação inteira falhou; o defeito é nosso
+// e é de um banco só.
+func TestUmPanicoNossoAtravessaAFronteiraSemCulparOBanco(t *testing.T) {
+	s := servidorAoVivo(t, &bancoFalso{
+		id: "cgd", nome: "CGD",
+		responder: func(context.Context, dominio.Pedido) (dominio.Oferta, error) {
+			panic("índice fora dos limites")
+		},
+	})
+
+	resposta := pedirOferta(t, s, "cgd", corpoDeOferta(nil))
+	if resposta.Code != http.StatusOK {
+		t.Fatalf("estado %d: um defeito nosso num banco não é a falha do pedido: %s",
+			resposta.Code, resposta.Body.String())
+	}
+
+	var o api.Oferta
+	lerJSON(t, resposta, &o)
+	if o.Sucesso {
+		t.Fatal("houve um pânico e a oferta saiu como boa")
+	}
+	if o.Erro == nil || o.Erro.Codigo != string(dominio.ErroInterno) {
+		t.Errorf("código %+v, esperava %q — a app conta isto como banco em baixo",
+			o.Erro, dominio.ErroInterno)
+	}
+	if strings.Contains(o.Erro.Mensagem, "índice fora dos limites") {
+		t.Errorf("o interior do programa saiu no corpo servido: %q", o.Erro.Mensagem)
+	}
+}
+
 // TestUmIdQueNaoEBancoNenhumNoCaminhoEUm404: no `/comparacoes` um id inventado é
 // 400 com `campo: bancos`, porque vai no corpo; aqui vai no **caminho**, e um
 // caminho que não existe é 404.

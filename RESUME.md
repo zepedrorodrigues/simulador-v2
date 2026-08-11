@@ -24,6 +24,10 @@ Estado actual e próximos passos. ⚠️ **Sem changelog** — o relato de sess�
 
 ⚠️ **E o ensaio no browser encontrou dois defeitos no servidor que nenhuma das duas suites via** (ver `fix/o-426-tem-de-chegar-ao-browser`): o `X-App-Versao` não estava no `Access-Control-Allow-Headers` — e não sendo um cabeçalho simples, o que o browser bloqueia é o **pedido inteiro** —, e o `exigirVersao` estava montado **acima** do grupo do CORS, portanto o 426 saía sem `Access-Control-Allow-Origin` e a app via-o como falha de rede. A resposta que este caminho existe para entregar era precisamente a que não chegava.
 
+✅ **Um pânico nosso deixou de sair como falha do banco** (2026-08-11, `KAN-30`). Entra o quinto `CodigoErro`, `erro_interno`, e o cartão da app ganha o rótulo «Falha nossa» ao lado de «Sem oferta». ⚠️ **O defeito era de atribuição e não de comportamento** — o `recover` sempre isolou, e a resposta ao cliente nunca caiu; o que faltava era onde arrumar a culpa. Com ela na coluna errada, o banco ganhava fama de instável e o nosso defeito **não aparecia em métrica nenhuma**.
+
+⚠️ **E a `Mensagem` deixou de levar o valor do pânico.** Não se perde rasto: rasto não havia — o diário regista método, caminho e estatuto, e o texto ia só para o telemóvel de quem o apanhou. Pô-lo onde se procura é a `KAN-22`.
+
 **O que falta:** a **`KAN-59`** — escolher o domínio, provisionar a máquina e correr o `docs/DEPLOY.md` pela primeira vez; o **parecer jurídico** (`KAN-24`); e em código o **prazo por banco**, que espera mais amostras de latência.
 
 ## Onde estamos
@@ -106,6 +110,8 @@ Num só dia, quatro assunções do modelo de preço caíram contra dados varrido
 
 ⚠️ **E repetiu-se a 2026-08-11, com o browser no papel da forma de produção.** Os dois defeitos do 426 — o cabeçalho fora do `Access-Control-Allow-Headers` e o `exigirVersao` acima do CORS — passavam nas duas suites, que são separadas. O que os mostrou foi um ecrã parado em «A carregar os bancos…» e um diário do servidor com `OPTIONS 204` e mais nada. **Um pedido que o browser bloqueia não deixa rasto do lado de lá**, e é isso que torna esta classe invisível a quem só lê logs.
 
+**Isolar uma falha e atribuí-la são duas coisas, e a segunda não vem de graça com a primeira.** O `recover` do `aovivo` estava certo desde o princípio: um pânico nosso nunca derrubou a resposta ao cliente. O que ele não tinha era onde arrumar a culpa — dos quatro códigos, o único onde um pânico encaixava era `banco_indisponivel`. ⚠️ **Um defeito de atribuição não se vê a correr o programa**, porque tudo funciona: vê-se na conta que alguém tira dele depois. Aqui, um banco com fama de instável e um defeito nosso invisível na única coluna onde o iríamos procurar.
+
 **Um middleware novo herda a ordem de quem o montou, e não a regra que já estava escrita.** O `defesa_test.go` diz desde a `KAN-46` que uma resposta de erro leva os cabeçalhos como as outras, e que por isso o middleware se monta no topo. O `exigirVersao` foi montado por cima do CORS na mesma — e o efeito foi a resposta 426 sair sem `Access-Control-Allow-Origin`. ⚠️ A regra estava escrita e não travava nada: agora há teste.
 
 **Um portão que verifica rotas não verifica schemas, e a assimetria custou oito definições.** O `spec_test.go` afirmava desde a `KAN-44` que toda a rota declarada tem handler. Ao apagar duas rotas, ficaram no contrato `Comparacao`, `ComparacaoPedido`, `SerieIndisponivel`, `RateCatalog`, `Scenario`, `Point`, `SnapshotsResposta` e `Snapshot` — cada uma a gerar um tipo Go exportado e uma entrada no `.d.ts` que a app consome, com o portão verde. ⚠️ **A app estava mesmo a compilar contra a `Comparacao` enquanto chamava uma rota que dava 404**: o contrato oferecia-lhe a forma de uma resposta que ninguém servia. Passou a haver `TestTodoOSchemaDoSpecEAlcancavel`, e a regra é **quando uma rota sai, sai o que só ela usava**.
@@ -122,6 +128,7 @@ Num só dia, quatro assunções do modelo de preço caíram contra dados varrido
 - ⚠️ O `postgres:18` recusa o mount do v1: nas imagens 18+ é `/var/lib/postgresql`. E `pg_isready` sem `-h 127.0.0.1` dá pronto cedo demais.
 - ⚠️ **Na app:** o `openapi-typescript` 7 rebenta com o TypeScript 7 — fica no `~5.9`. **O `expo start` reescreve o `tsconfig.json` sozinho** e tira-lhe o `.expo/types` do `include` — confirmar o `git diff` antes de commitar.
 - ⚠️ **No `jest-expo` o `fetch` global não é o do Node** e devolve `undefined`. Um teste que queira falar com o servidor lê o JSON de ficheiro.
+- ⚠️ **O `render` do `@testing-library/react-native` 14 é assíncrono.** Sem `await` devolve uma `Promise`: o resultado não tem consultas (`getByText` é `undefined`) e o `screen` responde «`render` function has not been called». **Nenhuma das duas mensagens diz «faltou o `await`»**, e o teste que as apanha parece um erro de importação.
 
 ## Onde vive o quê
 

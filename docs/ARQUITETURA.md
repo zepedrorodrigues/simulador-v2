@@ -223,6 +223,8 @@ No v1 cada scraper reimplementava a sua variante de «abrir browser / fixar cook
 
 ⚠️ **Um banco avariado nunca derruba a resposta.** No v1 isso obrigava a um `except Exception` dentro de cada scraper. Em Go a política é a mesma mas fica **num sítio só**: quem chama um banco corre-o com `recover` e converte pânico ou erro numa oferta de falha nomeada. Dentro de um banco, os erros devolvem-se; não se engolem.
 
+⚠️ **E o pânico recuperado sai com código próprio — `erro_interno`** (KAN-30, 2026-08-11), e não como `banco_indisponivel`. Recuperar o pânico é isolamento; atribuí-lo ao banco é contabilidade errada, e a segunda não vem de graça com a primeira: enquanto vinha, um defeito nosso dava ao banco fama de instável e não aparecia em métrica nenhuma nossa.
+
 ⚠️ **Reescrito a 2026-08-06, e o sentido inverteu-se.** Dizia aqui que um banco em falha «já não estraga a resposta — atrasa-a», porque se servia o varrimento anterior. Com a reversão da §1 **não há varrimento anterior**: um banco que não responde sai como `banco_indisponivel`, nomeado (D3). O que era um número mais velho declarado volta a ser uma falha visível — e é a troca que esta reversão faz de propósito: prefere-se um buraco honesto a um número de outro momento no meio de quatro frescos.
 
 ## 6. Fronteiras HTTP
