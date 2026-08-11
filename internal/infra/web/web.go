@@ -189,12 +189,6 @@ func (s *Servidor) Rotas() http.Handler {
 	// identificador como qualquer outra resposta, e um pânico dentro do tecto não
 	// pode fechar a ligação sem uma palavra.
 	r.Use(s.limitar)
-	// ⚠️ A versão entra DEPOIS do tecto, e a ordem é a decisão. Montada antes,
-	// um cliente que mandasse uma versão velha era recusado sem ser contado — e
-	// passava a haver um caminho barato para pedir sem entrar na conta do tecto.
-	// Recusar custa uma comparação de três inteiros; ser contado custa uma
-	// consulta, e é essa consulta que protege os bancos de nós.
-	r.Use(s.exigirVersao)
 
 	// ⚠️ **Havia aqui duas superfícies com políticas de acesso diferentes**, e o
 	// grupo separava-as: dentro respondia-se a browsers, fora ficava o
@@ -208,6 +202,22 @@ func (s *Servidor) Rotas() http.Handler {
 	// indentação e transformava a política numa coincidência.
 	r.Group(func(g chi.Router) {
 		g.Use(s.permitirOrigens)
+		// ⚠️ A versão entra DEPOIS do tecto — que está no router acima —, e a
+		// ordem é a decisão. Montada antes dele, um cliente que mandasse uma
+		// versão velha era recusado sem ser contado, e passava a haver um caminho
+		// barato para pedir sem entrar na conta do tecto. Recusar custa uma
+		// comparação de três inteiros; ser contado custa uma consulta, e é essa
+		// consulta que protege os bancos de nós.
+		//
+		// ⚠️ **E entra DEPOIS do `permitirOrigens`, senão o 426 sai sem CORS** —
+		// medido no browser a 2026-08-11, e é um modo de falhar que nenhum teste
+		// via. Montado acima do grupo, o `exigirVersao` escrevia a resposta antes
+		// de o CORS pôr o `Access-Control-Allow-Origin`: o browser recusava-a, o
+		// `fetch` da app atirava como se não houvesse rede, e o que a pessoa via
+		// era «A carregar os bancos…» para sempre — nunca o aviso de actualizar.
+		// A regra é a mesma do `defesa`: **uma resposta de erro leva os cabeçalhos
+		// como as outras**, e quem a escreve tem de estar por baixo de quem os põe.
+		g.Use(s.exigirVersao)
 
 		g.Get("/healthz", s.saude)
 		g.Get("/api/v1/bancos", s.listarBancos)

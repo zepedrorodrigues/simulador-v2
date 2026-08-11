@@ -160,6 +160,62 @@ func TestOPreflightDaComparacaoResponde(t *testing.T) {
 	}
 }
 
+// TestPreflightPermiteOCabecalhoDaVersao fecha o buraco que o teste acima não
+// via, e que só apareceu no browser.
+//
+// ⚠️ **O `X-App-Versao` não é um cabeçalho simples**, portanto sem ele nesta
+// lista o browser não bloqueia o cabeçalho — bloqueia o **pedido inteiro**. E o
+// modo de falhar é o pior possível de diagnosticar: o preflight responde 204, e
+// do GET que se segue não fica registo nenhum no servidor, porque ele nunca sai.
+//
+// ⚠️ **Medido a 2026-08-11 contra o alvo web a sério**, e não deduzido: a app
+// ficava em «A carregar os bancos…» para sempre, e o diário do servidor tinha só
+// `OPTIONS /api/v1/bancos 204`. A suite inteira passava.
+func TestPreflightPermiteOCabecalhoDaVersao(t *testing.T) {
+	servidor := servidorComOrigens(t, origemDaApp)
+
+	req := httptest.NewRequest(http.MethodOptions, "/api/v1/bancos", nil)
+	req.Header.Set("Origin", origemDaApp)
+	req.Header.Set("Access-Control-Request-Method", http.MethodGet)
+	req.Header.Set("Access-Control-Request-Headers", strings.ToLower(web.CabecalhoDaVersao))
+	resp := httptest.NewRecorder()
+	servidor.Rotas().ServeHTTP(resp, req)
+
+	got := strings.ToLower(resp.Header().Get("Access-Control-Allow-Headers"))
+	if !strings.Contains(got, strings.ToLower(web.CabecalhoDaVersao)) {
+		t.Errorf("o preflight não permite o %s, e com ele por permitir o browser não faz "+
+			"pedido nenhum: %q", web.CabecalhoDaVersao, got)
+	}
+}
+
+// TestO426LevaOsCabecalhosDeCORS é o critério que decide onde o `exigirVersao`
+// se monta, e a razão é a mesma do `defesa_test.go`: **uma resposta de erro leva
+// os cabeçalhos como as outras**.
+//
+// ⚠️ **Medido no browser a 2026-08-11, e a suite inteira passava.** Com o
+// `exigirVersao` montado acima do grupo do CORS, o 426 era escrito antes de
+// haver `Access-Control-Allow-Origin`: o browser recusava a resposta, o `fetch`
+// da app atirava como se não houvesse rede, e o ecrã ficava em «A carregar os
+// bancos…» para sempre. A app nunca chegava a saber que era o 426 — que é
+// exactamente a informação que este caminho existe para lhe dar.
+func TestO426LevaOsCabecalhosDeCORS(t *testing.T) {
+	servidor := servidorComOrigens(t, origemDaApp).ComVersaoMinima(&web.Versao{Maior: 9, Menor: 9})
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/bancos", nil)
+	req.Header.Set("Origin", origemDaApp)
+	req.Header.Set(web.CabecalhoDaVersao, "0.1.0")
+	resp := httptest.NewRecorder()
+	servidor.Rotas().ServeHTTP(resp, req)
+
+	if resp.Code != http.StatusUpgradeRequired {
+		t.Fatalf("esperava 426 e veio %d — sem isso este teste não afirma nada", resp.Code)
+	}
+	if got := resp.Header().Get("Access-Control-Allow-Origin"); got != origemDaApp {
+		t.Errorf("o 426 saiu sem Allow-Origin (%q): o browser recusa-o, e a app vê uma falha "+
+			"de rede em vez do aviso para actualizar", got)
+	}
+}
+
 // TestTodoOPostDaAppTemPreflight fecha a classe que o teste acima só cobria num
 // caso.
 //
