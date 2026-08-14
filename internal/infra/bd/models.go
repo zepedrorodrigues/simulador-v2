@@ -8,6 +8,14 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type CatalogosDeBanco struct {
+	BancoID  string
+	Nome     string
+	Valor    []byte
+	LidoEm   pgtype.Timestamptz
+	ExpiraEm pgtype.Timestamptz
+}
+
 type Limite struct {
 	Chave        string
 	JanelaInicio pgtype.Timestamptz

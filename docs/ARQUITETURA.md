@@ -110,10 +110,57 @@ formato que ele exige, e a resposta sai para o cliente.
 |---|---|
 | `limites` | tecto de pedidos por IP (§7.5). ⚠️ Passou de higiene a estrutural |
 | `respostas_em_cache` | a cache do §7.6, com chave = pedido exacto e validade curta |
+| `catalogos_de_banco` | o que um banco **publica** e nós temos de saber para lhe montar o pedido |
 
 **E mais nenhuma.** ⚠️ Uma tabela que não caiba nesta lista não entra sem esta
 secção mudar primeiro — foi por acrescento não decidido que o v1 ganhou
 autenticação e a teve de apagar em três migrações.
+
+### `catalogos_de_banco` — porque é que entrou (2026-08-14, KAN-36)
+
+**É a regra desta secção aplicada à letra: guarda-se o parâmetro, não o
+resultado.** Um catálogo é um parâmetro — a lista de opções que o banco publica e
+que é preciso conhecer **antes** de lhe montar o pedido. Não é a resposta a
+pedido nenhum, e não é de ninguém.
+
+⚠️ **O que a obrigou a existir, medido a 2026-08-14:** a CGD publica os períodos
+de taxa fixa dentro do HTML da página inicial, e o `internal/bancos/cgd` lia-os
+**dentro do `Simular`**. Por pedido de cliente com fase fixa ou mista: **3
+pedidos à CGD e 82 333 bytes, dos quais 75 291 (91,4 %) são a página** — para
+extrair catorze pares `ano → código`. Em taxa variável a página não é pedida, e o
+custo são 2 pedidos e 7 042 bytes.
+
+⚠️ **Foi a inversão da §1 que mudou o tamanho disto.** Enquanto havia varrimento,
+a página lia-se uma vez por corrida e diluía-se por dezenas de pontos; a `KAN-36`
+está escrita nesse mundo e chama-lhe «um parâmetro da corrida». **Corrida já não
+há.** Ao vivo o custo é por pessoa que pergunta, e o `CLAUDE.md` diz que
+reaproveitar catálogo dentro de um pedido «deixou de ser optimização e passou a
+ser defesa».
+
+**Porque não em nenhum dos sítios mais baratos:**
+
+- **em memória do processo** — a §7.5 proíbe, e com razão: com mais de um worker
+  cada um teria o seu, e o que se está a limitar é carga contra um terceiro;
+- **na `respostas_em_cache`** — o contrato dela está escrito e é outro: chave =
+  pedido exacto, valor = a resposta do banco. Um catálogo não é nem uma coisa nem
+  outra, e enfiá-lo lá era o acrescento não decidido que esta secção existe para
+  travar;
+- **no construtor do banco** — o `CONTRATO-BANCO.md` §2 evita I/O em
+  construtores, e não resolvia nada: o processo reconstrói bancos.
+
+⚠️ **Não tem dados pessoais, e é o que a separa da outra tabela.** O que lá vive é
+o que o banco publica a quem visitar o site — catorze inteiros, no caso da CGD.
+Nenhuma das guardas de privacidade do §7.6 se aplica, e por isso **a chave é
+legível**: `(banco_id, nome)`, sem resumo criptográfico. Um resumo aqui não
+protegia nada e tirava a capacidade de olhar para a tabela e perceber o que está
+lá.
+
+⚠️ **A validade é de partida e não está medida.** Ficam **24 h**, pela mesma
+honestidade com que o §7.6 declara os 5 min: ninguém mediu de quanto em quanto
+tempo a CGD mexe nos períodos que pratica. O que a mede é uma vigia, e é trabalho
+próprio. **O que não se faz é servir um catálogo velho em silêncio** — quando não
+há entrada válida, vai-se à página; quando a ida falha, cai-se na lista conhecida
+**e a oferta di-lo**, que é o comportamento que já existia.
 
 ### ⚠️ O que a cache guarda, e o que nunca guarda
 

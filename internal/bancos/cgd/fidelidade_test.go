@@ -76,7 +76,7 @@ func TestFidelidadeDoQueGuardamosFaceAoQueOBancoRespondeu(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			grav := &gravador{real: transporte.NovoCliente(nil)}
-			banco := cgd.Novo(grav)
+			banco := cgd.Novo(grav, nil)
 
 			for c := range entrada {
 				// ⚠️ Reiniciar por caso, e não deixar isto ao transporte. Um

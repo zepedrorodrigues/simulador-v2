@@ -78,6 +78,15 @@ type Servidor struct {
 	cache        Cache
 	chaveDeCache ChaveDeCache
 
+	// catalogos guarda o que os bancos PUBLICAM (§4, KAN-36). Nulo desliga, e o
+	// banco vai à fonte de cada vez.
+	//
+	// ⚠️ **Não é a `cache` acima.** Aquela guarda a resposta a um pedido — o preço
+	// de alguém, com as guardas de privacidade do §7.6. Esta guarda a lista de
+	// opções que o banco mostra a quem visite o site, e não tem nada de ninguém.
+	// É a razão de serem duas tabelas e não uma.
+	catalogos bancos.Catalogos
+
 	// diario escreve uma linha por pedido. Nulo desliga-o.
 	//
 	// ⚠️ Chama-se `diario` e não `registo` porque `registo` já é o registo de
@@ -346,6 +355,12 @@ func (s *Servidor) construirAoVivo(id string) (bancos.Banco, error) {
 	return s.registo.Construir(id, bancos.Transportes{
 		HTTP:      transporte.NovoCliente(nil),
 		ComSessao: comSessao,
+
+		// ⚠️ **Ao contrário dos transportes, os catálogos NÃO são deste pedido.**
+		// É o ponto todo: o que lá está é o que o banco publica, e é partilhado
+		// por toda a gente que pergunte. Um por pedido não pouparia pedido nenhum
+		// (KAN-36).
+		Catalogos: s.catalogos,
 	})
 }
 

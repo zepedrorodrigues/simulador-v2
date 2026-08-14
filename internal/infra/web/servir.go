@@ -15,6 +15,7 @@ import (
 
 	"github.com/zepedrorodrigues/simulador-v2/internal/bancos"
 	"github.com/zepedrorodrigues/simulador-v2/internal/infra/cache"
+	"github.com/zepedrorodrigues/simulador-v2/internal/infra/catalogos"
 	"github.com/zepedrorodrigues/simulador-v2/internal/infra/limites"
 	"github.com/zepedrorodrigues/simulador-v2/internal/infra/lotacao"
 )
@@ -182,8 +183,13 @@ func Servir(ctx context.Context, url, endereco string, saida io.Writer) error {
 	// ⚠️ O tecto liga-se sempre. Sem proxies declarados ele conta pelo endereço
 	// da ligação, que é o comportamento seguro: é atrás de um proxy que ele
 	// precisa de ajuda para saber quem é quem, e é aí que o v1 se enganou.
+	// ⚠️ O diário sai para uma variável porque tem mais do que um leitor: além do
+	// registo por pedido, é ele que torna visível uma avaria ao ler os catálogos
+	// (KAN-36) — sem ele, uma base em baixo mandava todos os pedidos à página da
+	// CGD e ninguém sabia porquê.
+	diario := DiarioDeOmissao(saida)
 	servidor = servidor.
-		ComDiario(DiarioDeOmissao(saida)).
+		ComDiario(diario).
 		ComOrigens(origens).
 		ComVersaoMinima(versaoMinima)
 	// ⚠️ Diz-se sempre, ligada ou desligada, pela mesma razão que os proxies: o
@@ -241,6 +247,21 @@ func Servir(ctx context.Context, url, endereco string, saida io.Writer) error {
 		_, _ = fmt.Fprintln(saida,
 			"⚠️ cache das respostas ao vivo DESLIGADA (CACHE_VALIDADE=0): cada pedido vai ao banco")
 	}
+
+	// ⚠️ Os catálogos ligam-se sempre, e não há definição que os desliguem — como
+	// a lotação. O que guardam é o que o banco publica, e sem eles a CGD volta a
+	// custar 3 pedidos e 82 333 bytes por simulação com fase fixa em vez de 2 e
+	// 7 042 (KAN-36). O que se pode configurar é a validade, não a existência.
+	//
+	// ⚠️ A validade **não tem variável de ambiente**, ao contrário da cache, e é
+	// deliberado: a `CACHE_VALIDADE` existe para se poder pôr a zero e medir a
+	// validade a sério, e essa medição é uma vigia que ainda não existe para os
+	// catálogos. Uma manete que ninguém sabe para onde rodar é configuração a
+	// fingir de decisão — acrescenta-se quando houver o que medir.
+	guarda := catalogos.NovoPostgres(pool, 0, time.Now, diario)
+	servidor = servidor.ComCatalogos(guarda)
+	_, _ = fmt.Fprintf(saida,
+		"catálogos dos bancos com validade de %s\n", guarda.Validade())
 
 	servidorHTTP := &http.Server{
 		Addr:              endereco,

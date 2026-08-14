@@ -12,6 +12,7 @@ package cgd
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -43,12 +44,33 @@ const (
 	limiteDeCorpo = 4 << 20
 )
 
+// Catalogos guarda o que a CGD publica e nós temos de saber antes de lhe montar
+// o pedido — aqui, os períodos de taxa fixa (KAN-36).
+//
+// ⚠️ **Declarada outra vez aqui, e não importada do `bancos`.** É a mesma razão
+// que faz o `Novo` receber o transporte em vez do `bancos.Transportes`: se este
+// pacote importasse o `bancos`, o registo — que vive lá — não podia importar
+// este. As interfaces em Go são estruturais, portanto a `bancos.Catalogos`
+// satisfaz esta sem que nenhum dos dois pacotes conheça o outro.
+//
+// ⚠️ **Nula desliga**, e é o que os testes usam: vai-se à página de cada vez, que
+// é o que este banco fazia antes de a tabela existir.
+type Catalogos interface {
+	Ler(ctx context.Context, bancoID, nome string) (valor []byte, achou bool)
+	Guardar(ctx context.Context, bancoID, nome string, valor []byte)
+}
+
+// catalogoPeriodos é o nome desta entrada dentro do banco. Um banco pode vir a
+// ter mais do que um catálogo, e a chave é (banco_id, nome).
+const catalogoPeriodos = "periodos"
+
 // Banco é a CGD.
 //
 // O transporte é injectado e nunca instanciado aqui — é o que permite correr
 // este banco inteiro contra um transporte.Falso, sem rede.
 type Banco struct {
-	http transporte.HTTPSimples
+	http      transporte.HTTPSimples
+	catalogos Catalogos
 }
 
 // Novo constrói a CGD sobre o transporte que a infra montou.
@@ -57,8 +79,11 @@ type Banco struct {
 // bancos.Banco, para este pacote não importar o `bancos`. Se o importasse, o
 // registo — que vive lá — não podia importar este, e o ciclo fechava-se. Quem
 // faz a ponte entre as duas formas é o registo.Predefinido, numa linha.
-func Novo(http transporte.HTTPSimples) *Banco {
-	return &Banco{http: http}
+//
+// ⚠️ `catalogos` nulo é válido: a página é pedida a cada simulação com fase fixa,
+// que era o comportamento até 2026-08-14.
+func Novo(http transporte.HTTPSimples, catalogos Catalogos) *Banco {
+	return &Banco{http: http, catalogos: catalogos}
 }
 
 func (b *Banco) ID() string   { return BancoID }
@@ -198,9 +223,20 @@ func (b *Banco) Simular(ctx context.Context, p dominio.Pedido) (dominio.Oferta, 
 //
 // Só se pede a página quando o pedido tem fase fixa. Numa taxa variável não há
 // código nenhum a escolher, e são 77 KB que não se pedem ao banco por nada.
+//
+// ⚠️ **E com fase fixa também já não se pedem a cada simulação** (KAN-36,
+// 2026-08-14). Medido: a página são 75 291 dos 82 333 bytes de um pedido com
+// fase fixa — **91,4 %** — para extrair catorze pares `ano → código`. Enquanto
+// houve varrimento isto diluía-se por dezenas de pontos da grelha; ao vivo é por
+// pessoa que pergunta. O catálogo passa pelos `Catalogos`, que é um parâmetro
+// guardado e não uma resposta em cache (`ARQUITETURA.md` §4).
 func (b *Banco) periodos(ctx context.Context, p dominio.Pedido) (catalogo, string, error) {
 	if !p.TipoTaxa.TemPeriodoFixo() {
 		return catalogo{}, "", nil
+	}
+
+	if cat, ok := b.periodosGuardados(ctx); ok {
+		return cat, "", nil
 	}
 
 	recurso := catalogo{
@@ -217,7 +253,55 @@ func (b *Banco) periodos(ctx context.Context, p dominio.Pedido) (catalogo, strin
 	if err != nil {
 		return recurso, avisoDeRecurso(err), nil
 	}
-	return catalogo{fixa: fixa, mista: mista}, "", nil
+
+	cat := catalogo{fixa: fixa, mista: mista}
+	b.guardarPeriodos(ctx, cat)
+	return cat, "", nil
+}
+
+// periodosGuardados lê o catálogo guardado, se houver um válido.
+//
+// ⚠️ **Um catálogo de recurso nunca se guarda nem se lê daqui.** O que se guarda
+// é o que se leu da CGD; guardar a lista conhecida transformava um soluço da
+// página em «os períodos do ano passado» durante a validade inteira, e calava o
+// aviso que existe precisamente para o dizer.
+func (b *Banco) periodosGuardados(ctx context.Context) (catalogo, bool) {
+	if b.catalogos == nil {
+		return catalogo{}, false
+	}
+	bruto, achou := b.catalogos.Ler(ctx, BancoID, catalogoPeriodos)
+	if !achou {
+		return catalogo{}, false
+	}
+	var guardado periodosEmJSON
+	if err := json.Unmarshal(bruto, &guardado); err != nil {
+		return catalogo{}, false // ilegível é o mesmo que não haver: vai-se à página
+	}
+	if len(guardado.Fixa) == 0 || len(guardado.Mista) == 0 {
+		return catalogo{}, false
+	}
+	return catalogo{fixa: guardado.Fixa, mista: guardado.Mista}, true
+}
+
+func (b *Banco) guardarPeriodos(ctx context.Context, cat catalogo) {
+	if b.catalogos == nil {
+		return
+	}
+	bruto, err := json.Marshal(periodosEmJSON{Fixa: cat.fixa, Mista: cat.mista})
+	if err != nil {
+		return
+	}
+	b.catalogos.Guardar(ctx, BancoID, catalogoPeriodos, bruto)
+}
+
+// periodosEmJSON é a forma com que este catálogo vai para a tabela.
+//
+// ⚠️ A forma é **do banco** e a tabela guarda-a opaca: a coluna é `jsonb` e quem
+// a lê e escreve é só este pacote. Pôr aqui um tipo partilhado obrigaria a
+// camada que guarda a conhecer os catálogos de todos os bancos.
+type periodosEmJSON struct {
+	Fixa  codigos `json:"fixa"`
+	Mista codigos `json:"mista"`
 }
 
 func avisoDeRecurso(err error) string {
