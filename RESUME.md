@@ -2,7 +2,7 @@
 
 Estado actual e próximos passos. ⚠️ **Sem changelog** — o relato de sessões não vive aqui. O `RESUME.md` do v1 chegou a 1317 linhas antes de ser esvaziado à força.
 
-**Actualizado:** 2026-08-11
+**Actualizado:** 2026-08-14
 
 ⚠️ **A §1 foi revertida: o pedido do cliente volta a ir ao banco.** Decidido a 2026-08-06, depois de um dia a confrontar o servido com dados reais. O porquê, com os números, está em `docs/DECISAO-AO-VIVO.md`.
 
@@ -14,7 +14,7 @@ Estado actual e próximos passos. ⚠️ **Sem changelog** — o relato de sess�
 
 **E a cache está no `development`**: `internal/infra/cache`, tabela `respostas_em_cache`, chave = `SHA-256` de (versão, banco, pedido), validade de **5 min**. Guarda o **servido** e não o objecto de domínio; lê-se **antes** do tecto, para um acerto não gastar vaga; uma falha nunca se guarda.
 
-**A forma de produção está escrita e corrida em local** (`compose.producao.yml`, `Caddyfile`, `docs/DEPLOY.md`): VPS com IPv4 dedicado, Caddy à frente, Postgres na mesma máquina e sem portas publicadas. ⚠️ **Nada está exposto, e é decisão** — a `KAN-24` bloqueia publicar, e subir a máquina não é publicar o serviço.
+**A forma de produção está escrita e corrida em local** (`compose.producao.yml`, `Caddyfile`, `docs/DEPLOY.md`): VPS com IPv4 dedicado, Caddy à frente, Postgres na mesma máquina e sem portas publicadas. ⚠️ **Nada está exposto porque não há máquina** — é a `KAN-59`, e a ordem mantém-se: de pé, medido e fechado antes de divulgado.
 
 ✅ **A TAEG e o MTIC deixaram de ser nossos** (2026-08-07). Ao vivo é o simulador do banco que os devolve: o `pressupostos` e o `fiabilidade` saíram do contrato, e o `~` saiu da app. ⚠️ **Isto ia partir todos os cartões:** a app marcava «É uma falha do nosso servidor» sempre que houvesse TAEG sem pressupostos, e ao vivo o servidor nunca os preenche.
 
@@ -26,9 +26,19 @@ Estado actual e próximos passos. ⚠️ **Sem changelog** — o relato de sess�
 
 ✅ **Um pânico nosso deixou de sair como falha do banco** (2026-08-11, `KAN-30`). Entra o quinto `CodigoErro`, `erro_interno`, e o cartão da app ganha o rótulo «Falha nossa» ao lado de «Sem oferta». ⚠️ **O defeito era de atribuição e não de comportamento** — o `recover` sempre isolou, e a resposta ao cliente nunca caiu; o que faltava era onde arrumar a culpa. Com ela na coluna errada, o banco ganhava fama de instável e o nosso defeito **não aparecia em métrica nenhuma**.
 
-⚠️ **E a `Mensagem` deixou de levar o valor do pânico.** Não se perde rasto: rasto não havia — o diário regista método, caminho e estatuto, e o texto ia só para o telemóvel de quem o apanhou. Pô-lo onde se procura é a `KAN-22`.
+⚠️ **E a `Mensagem` deixou de levar o valor do pânico.** Não se perde rasto: rasto não havia — o diário regista método, caminho e estatuto, e o texto ia só para o telemóvel de quem o apanhou. Pô-lo onde se procura é a `KAN-61` — ⚠️ **e não a `KAN-22`, que é onde a `KAN-30` mandava procurar**: ao fechar a `KAN-22` foi-se ler o corpo dela e não estava lá nada disto. Uma remissão que ninguém verifica tira trabalho do backlog sem ninguém decidir.
 
-**O que falta:** a **`KAN-59`** — escolher o domínio, provisionar a máquina e correr o `docs/DEPLOY.md` pela primeira vez; o **parecer jurídico** (`KAN-24`); e em código o **prazo por banco**, que espera mais amostras de latência.
+✅ **A A6 da app está feita** (2026-08-11): os estados que não são o caminho feliz. ⚠️ **E o que faltava não eram ecrãs — era a espécie da falha a sobreviver até eles.** O `cliente.ts` já traduzia cada estatuto numa espécie e cada espécie já tinha frase escrita; o `useSelecao` reduzia tudo a um `falhou: boolean`, e três ecrãs mostravam à mão «O serviço não está a responder / Isto é do nosso lado». Sem rede isso é falso nas duas metades.
+
+⚠️ **E o `429` era o defeito do `426` um estatuto abaixo:** o tecto por IP acontece uma vez e vale para os cinco bancos, e o fan-out dava-lhe cinco cartões, um por banco. A regra ficou escrita no `ECRAS.md` §3 — **a única espécie que sobrevive por banco é o `bancoOcupado`**, que conta pedidos nossos em voo contra ele.
+
+**O que falta:** a **`KAN-59`** — escolher o domínio, provisionar a máquina e correr o `docs/DEPLOY.md` pela primeira vez; a **A7** (acessibilidade e alvo web, o primeiro alvo a publicar); e em código o **prazo por banco**, que espera mais amostras de latência.
+
+⛔ **O parecer jurídico saiu do projecto a 2026-08-11**, por decisão do dono. ⚠️ **A A8 deixou de estar bloqueada**, e o que isso muda é que publicar nas lojas passa a ser uma questão de trabalho e não de espera. ⚠️ **O que não muda com isto:** a app recolhe data de nascimento e rendimento, e o que a lei exige daí não depende de haver ou não uma issue a dizê-lo.
+
+⚠️ **E dizia-se aqui que a issue tinha sido apagada e que as referências a ela tinham saído dos documentos. Era falso nas duas metades**, verificado a 2026-08-14: a `KAN-24` estava viva em `Tarefas pendentes`, a contar entre as 14 abertas, e a `KAN-59` remetia para ela em dois sítios — um deles a declarar que ela **bloqueia a publicação do serviço**. Ficou **cancelada** no sumário e com a razão em comentário, que é a forma da casa; e a `KAN-59` deixou de a citar. ⚠️ **A verificação de marca do domínio ficou sem morada** — estava parqueada nesta conversa jurídica, e está escrita como decisão por tomar na `KAN-59`.
+
+⚠️ **O `KAN` foi reconciliado a 2026-08-11 e ficou com 14 issues abertas — e uma delas não devia lá estar.** A `KAN-22` estava em `Tarefas pendentes` com as cinco caixas por marcar e o trabalho todo feito; a `KAN-23` estava aberta com a Fase 5 cancelada desde 2026-08-06; a `KAN-52` tinha «⛔ CANCELADA» no sumário e estava em `Em análise`. **Novas:** `KAN-60` (dois `resposta_ilegivel` mal atribuídos) e `KAN-61` (um pânico nosso não deixa rasto em log nenhum). ⚠️ **A que escapou foi a `KAN-24`** — cancelada a 2026-08-14, três dias depois de os documentos a darem por apagada. **Ficam 13.**
 
 ## Onde estamos
 
@@ -64,7 +74,7 @@ Num só dia, quatro assunções do modelo de preço caíram contra dados varrido
 
 ## O que está por resolver
 
-- ⚠️ **A D1 e a D4.** A primeira é dívida com outro repositório; a segunda é o parecer jurídico (`KAN-24`), que passou de «bloqueia as lojas» a **bloqueia o produto** — a fatia ao vivo é o produto inteiro, não uma funcionalidade dele.
+- ⚠️ **A D1**, que é dívida com outro repositório. ⚠️ **A D4 saiu** (2026-08-11): era o parecer jurídico, e o assunto deixou de estar no projecto.
 - ⚠️ **O fan-out na app é o ponto mais discutível do desenho novo.** Foi escolha contra SSE (o `fetch` do React Native não o suporta nativamente), e põe na app a responsabilidade de não disparar dez pedidos de uma vez.
 - ⚠️ **Somos um amplificador:** um pedido nosso vira ~10 aos bancos, com origem aparente nossa. Cruza a carga do varrimento às **~190 comparações/dia** — abaixo carregamos menos, acima cresce sem tecto.
 - ⚠️ **A latência está medida, e a cauda é o número que conta:** 25 simulações frias a 2026-08-06 às 17h13 — Novo Banco 460 ms de mediana, Montepio 2,01 s com **máximo de 8,4 s** (4,2× a própria mediana). Noutra medição do mesmo dia o Montepio passou dos **10 s**, logo o 8,4 s é um limite inferior do pior caso.
@@ -109,6 +119,12 @@ Num só dia, quatro assunções do modelo de preço caíram contra dados varrido
 **Correr a forma de produção é um teste, e encontra o que nenhuma suite encontra.** Continua verdadeiro, e foi assim que este dia aconteceu.
 
 ⚠️ **E repetiu-se a 2026-08-11, com o browser no papel da forma de produção.** Os dois defeitos do 426 — o cabeçalho fora do `Access-Control-Allow-Headers` e o `exigirVersao` acima do CORS — passavam nas duas suites, que são separadas. O que os mostrou foi um ecrã parado em «A carregar os bancos…» e um diário do servidor com `OPTIONS 204` e mais nada. **Um pedido que o browser bloqueia não deixa rasto do lado de lá**, e é isso que torna esta classe invisível a quem só lê logs.
+
+**Uma remissão para outra issue é uma afirmação, e ninguém a verifica.** A `KAN-30` dizia «o log dos pânicos é a `KAN-22`», e quatro sítios do código e dos documentos repetiram-no. Ao fechar a `KAN-22` foi-se ler o corpo dela: as cinco linhas do trabalho previsto estavam feitas e **nenhuma era essa**. ⚠️ **Fechá-la levava consigo trabalho que ninguém tinha decidido abandonar** — e a remissão era o que fazia esse trabalho parecer arrumado.
+
+⚠️ **E repetiu-se três dias depois, sobre o próprio tracker.** O `RESUME.md` afirmava que a `KAN-24` tinha sido apagada e que as referências a ela tinham saído dos documentos; a issue estava aberta e a `KAN-59` remetia para ela em dois sítios. **A diferença desta classe é que a verificação custa uma consulta** — o `KAN` estava a um pedido de distância e ninguém o fez, porque uma frase escrita em documento lê-se como facto apurado. Escreveu-se «apagada» no dia em que se decidiu apagar, e a decisão passou a valer por acto.
+
+**Um estado que se reduz a um booleano perde exactamente a parte que a pessoa lê.** O `useSelecao` da app respondia `falhou: true`, e a espécie da falha — que já estava calculada e já tinha frase escrita — não chegava a ecrã nenhum. ⚠️ **O ecrã genérico que a A6 existia para evitar estava lá**, escrito à mão em três sítios, o que o fazia parecer uma escolha em vez de uma perda.
 
 **Isolar uma falha e atribuí-la são duas coisas, e a segunda não vem de graça com a primeira.** O `recover` do `aovivo` estava certo desde o princípio: um pânico nosso nunca derrubou a resposta ao cliente. O que ele não tinha era onde arrumar a culpa — dos quatro códigos, o único onde um pânico encaixava era `banco_indisponivel`. ⚠️ **Um defeito de atribuição não se vê a correr o programa**, porque tudo funciona: vê-se na conta que alguém tira dele depois. Aqui, um banco com fama de instável e um defeito nosso invisível na única coluna onde o iríamos procurar.
 

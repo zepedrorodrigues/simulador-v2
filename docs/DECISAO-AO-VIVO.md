@@ -209,14 +209,16 @@ preço velho ao lado de quatro frescos, na mesma lista, é o modo de falha que e
 projecto passou o dia a corrigir. ⚠️ E com a D1 nem sequer haveria preço velho
 que servisse.
 
-### D4 — Legal, por decidir
+### ⛔ D4 — retirada a 2026-08-11
 
-Um pedido por cliente, com os dados que ele introduziu, é uma relação diferente
-com os simuladores dos bancos do que uma recolha periódica. **Não é decisão
-minha**, e liga-se ao `KAN-24`, que já bloqueia a publicação nas lojas.
+Era «Legal, por decidir»: um pedido por cliente, com os dados que ele
+introduziu, é uma relação diferente com os simuladores dos bancos do que uma
+recolha periódica. **Saiu por decisão do dono do projecto**, com a issue que a
+acompanhava apagada e as referências retiradas dos documentos.
 
-⚠️ Passa de «bloqueia as lojas» a **bloqueia o produto**: a fatia ao vivo é o
-produto inteiro, e não uma funcionalidade dele.
+⚠️ **Fica escrita como retirada e não apagada**, que é a regra deste ficheiro
+para o resto: uma decisão que desaparece sem rasto é uma decisão que alguém
+volta a propor daqui a um mês sem saber que já foi tomada.
 
 ---
 

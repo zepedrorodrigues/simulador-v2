@@ -64,7 +64,7 @@ Feito: `Dockerfile` não-root sem Chromium, logs com `X-Request-ID` (`KAN-43`), 
 
 ⚠️ **Dizia-se aqui, na mesma frase, que o valor «fica vazio até estar medido».** Ficou a contradizer o que está acima quando a medição deixou de existir, e sai. A assimetria que a justificava **mantém-se e vale para quem lhe mexer**: larga de mais deixa contornar o tecto de vez; vazia, o tecto do site inteiro passa a ser o de um utilizador. Um tecto apertado de mais é visível; um contornável não é.
 
-⏳ **`KAN-59`** — falta a máquina a sério: escolher o domínio, provisionar o VPS e correr o `docs/DEPLOY.md` pela primeira vez. ⚠️ **Subir a máquina não é publicar o serviço** — a `KAN-24` bloqueia isso, e a ordem é de pé, medido e fechado antes de divulgado.
+⏳ **`KAN-59`** — falta a máquina a sério: escolher o domínio, provisionar o VPS e correr o `docs/DEPLOY.md` pela primeira vez. ⚠️ **Subir a máquina não é publicar o serviço**, e a ordem é de pé, medido e fechado antes de divulgado.
 
 ## Fase 5 — Ecrã de mercado ⛔ *cancelada a 2026-08-06*
 
@@ -124,7 +124,7 @@ Depois disso, e por esta ordem:
 
    ⚠️ **A D1 desbloqueou-se por verificação, não por decisão.** Bloqueava por se afirmar, em cinco documentos, que o `viabilidade-imobiliaria` consumia o nosso `/api/rate-catalog` **em produção**. As duas metades eram falsas: ele consome o do **v1** (o `chmonitor`, que mantém os seus scrapers), e **não há produção** — nem o v2 nem o v1 estão alojados (a issue #13 do v1, «Verificar o deployment no ambiente real», continua aberta). A rota daqui nunca teve consumidor, e retirá-la não partiu nada.
 
-   ⚠️ **O `POST /api/v1/comparacoes` foi uma mudança que PARTE o `/api/v1`**, que este plano diz só poder mudar por acrescento. A regra existe por causa de apps nas lojas e a A8 está bloqueada pela `KAN-24` — era esta a única janela em que sair custava zero, e ela fecha no dia em que houver uma versão no terreno.
+   ⚠️ **O `POST /api/v1/comparacoes` foi uma mudança que PARTE o `/api/v1`**, que este plano diz só poder mudar por acrescento. A regra existe por causa de apps nas lojas, e **não havia nenhuma publicada** — era esta a única janela em que sair custava zero, e ela fecha no dia em que houver uma versão no terreno. ⚠️ **E desde 2026-08-11 nada a segura**: a A8 deixou de estar bloqueada, portanto a janela fecha na primeira submissão que for feita.
 
    ⚠️ **Um dia o v2 responde às perguntas do `viabilidade`, e não será por aquela rota:** ela publica uma série temporal, e sem varrimento não há como a produzir. O caminho é o ao vivo — perguntar um cenário de referência quando alguém precisar dele —, e é decisão nova.
 
@@ -141,11 +141,17 @@ Repositório separado, `simulador-v2-app`. Arrancou a 2026-07-28 com as fases 0-
 | A3 os três passos do pedido | ✅ |
 | A4 resultados progressivos, com o fan-out do lado da app | ✅ *(2026-08-07)* |
 | A5 ofertas e detalhe, com fases e notas | ✅ |
-| A6 os estados que não são o caminho feliz | 🔶 |
+| A6 os estados que não são o caminho feliz | ✅ *(2026-08-11)* |
 | A7 acessibilidade e **publicação web** — primeiro alvo a publicar | ⏳ |
-| A8 EAS Build e submissão | ⛔ bloqueado pelo `KAN-24` |
+| A8 EAS Build e submissão | ⏳ *(desbloqueada a 2026-08-11)* |
 
 ⚠️ **A A4 VOLTOU (2026-08-06) e está feita (2026-08-07).** Tinha sido apagada com a nota «não há espera nenhuma», e passou a haver: cada banco é um pedido e a lista enche-se à medida que respondem. Não é o ecrã de espera do v1 — não há trabalho assíncrono nosso a que se pergunte «já está?» —, é a lista a preencher-se. O fan-out vive na app, com tecto de **3 em voo**.
+
+⚠️ **A A6 fechou a 2026-08-11, e o que ela encontrou não era falta de ecrãs — era informação a ser deitada fora a meio do caminho.** As quatro espécies que ela nomeia já tinham frase escrita e já eram calculadas pelo `cliente.ts`; o que faltava era o fio. O `useSelecao` devolvia `falhou: boolean`, e os três passos do pedido **e** as ofertas mostravam sempre «O serviço não está a responder / Isto é do nosso lado» — que sem rede é falso nas duas metades, e manda esperar por uma coisa que não passa sozinha.
+
+⚠️ **E apanhou a mesma forma do defeito do `426`, um estatuto abaixo:** um `429` é o tecto **por IP**, acontece uma vez e vale para os cinco, e o fan-out dava-lhe cinco cartões, um por banco. A regra passou a estar escrita no `ECRAS.md` §3: a única espécie que sobrevive por banco é o `bancoOcupado`, que conta pedidos nossos em voo contra ele.
+
+⚠️ **Fica de fora, e é decisão:** o `Retry-After` não chega ao ecrã. O servidor manda esperar a **janela inteira** e recusa dizer o que falta dela de propósito — dizê-lo «convida a bater à porta ao segundo» —, portanto o ecrã do tecto não leva botão em vez de levar um contador.
 
 ⚠️ **A A5 perdeu os pressupostos, e não foi na app que a decisão se tomou.** Ela mostrava-os por baixo da TAEG e do MTIC, e punha um `~` em cada um, porque eram derivados de um modelo de encargos nosso. Ao vivo são o que o simulador do banco cotou: saem do contrato, saem do ecrã, e o `~` com eles. ⚠️ **O que a app continua obrigada a dizer** é que uma simulação não é uma proposta — mas isso é a distinção entre simulação e proposta, e não entre estimado e cotado.
 
