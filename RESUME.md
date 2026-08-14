@@ -2,7 +2,7 @@
 
 Estado actual e próximos passos. ⚠️ **Sem changelog** — o relato de sessões não vive aqui. O `RESUME.md` do v1 chegou a 1317 linhas antes de ser esvaziado à força.
 
-**Actualizado:** 2026-08-11
+**Actualizado:** 2026-08-14
 
 ⚠️ **A §1 foi revertida: o pedido do cliente volta a ir ao banco.** Decidido a 2026-08-06, depois de um dia a confrontar o servido com dados reais. O porquê, com os números, está em `docs/DECISAO-AO-VIVO.md`.
 
@@ -34,9 +34,11 @@ Estado actual e próximos passos. ⚠️ **Sem changelog** — o relato de sess�
 
 **O que falta:** a **`KAN-59`** — escolher o domínio, provisionar a máquina e correr o `docs/DEPLOY.md` pela primeira vez; a **A7** (acessibilidade e alvo web, o primeiro alvo a publicar); e em código o **prazo por banco**, que espera mais amostras de latência.
 
-⛔ **O parecer jurídico saiu do projecto a 2026-08-11**, por decisão do dono. A issue foi **apagada** — não cancelada — e as referências a ela saíram dos documentos. ⚠️ **A A8 deixou de estar bloqueada**, e o que isso muda é que publicar nas lojas passa a ser uma questão de trabalho e não de espera. ⚠️ **O que não muda com isto:** a app recolhe data de nascimento e rendimento, e o que a lei exige daí não depende de haver ou não uma issue a dizê-lo.
+⛔ **O parecer jurídico saiu do projecto a 2026-08-11**, por decisão do dono. ⚠️ **A A8 deixou de estar bloqueada**, e o que isso muda é que publicar nas lojas passa a ser uma questão de trabalho e não de espera. ⚠️ **O que não muda com isto:** a app recolhe data de nascimento e rendimento, e o que a lei exige daí não depende de haver ou não uma issue a dizê-lo.
 
-⚠️ **O `KAN` foi reconciliado a 2026-08-11 e ficou com 14 issues abertas, todas reais.** A `KAN-22` estava em `Tarefas pendentes` com as cinco caixas por marcar e o trabalho todo feito; a `KAN-23` estava aberta com a Fase 5 cancelada desde 2026-08-06; a `KAN-52` tinha «⛔ CANCELADA» no sumário e estava em `Em análise`. **Novas:** `KAN-60` (dois `resposta_ilegivel` mal atribuídos) e `KAN-61` (um pânico nosso não deixa rasto em log nenhum).
+⚠️ **E dizia-se aqui que a issue tinha sido apagada e que as referências a ela tinham saído dos documentos. Era falso nas duas metades**, verificado a 2026-08-14: a `KAN-24` estava viva em `Tarefas pendentes`, a contar entre as 14 abertas, e a `KAN-59` remetia para ela em dois sítios — um deles a declarar que ela **bloqueia a publicação do serviço**. Ficou **cancelada** no sumário e com a razão em comentário, que é a forma da casa; e a `KAN-59` deixou de a citar. ⚠️ **A verificação de marca do domínio ficou sem morada** — estava parqueada nesta conversa jurídica, e está escrita como decisão por tomar na `KAN-59`.
+
+⚠️ **O `KAN` foi reconciliado a 2026-08-11 e ficou com 14 issues abertas — e uma delas não devia lá estar.** A `KAN-22` estava em `Tarefas pendentes` com as cinco caixas por marcar e o trabalho todo feito; a `KAN-23` estava aberta com a Fase 5 cancelada desde 2026-08-06; a `KAN-52` tinha «⛔ CANCELADA» no sumário e estava em `Em análise`. **Novas:** `KAN-60` (dois `resposta_ilegivel` mal atribuídos) e `KAN-61` (um pânico nosso não deixa rasto em log nenhum). ⚠️ **A que escapou foi a `KAN-24`** — cancelada a 2026-08-14, três dias depois de os documentos a darem por apagada. **Ficam 13.**
 
 ## Onde estamos
 
@@ -119,6 +121,8 @@ Num só dia, quatro assunções do modelo de preço caíram contra dados varrido
 ⚠️ **E repetiu-se a 2026-08-11, com o browser no papel da forma de produção.** Os dois defeitos do 426 — o cabeçalho fora do `Access-Control-Allow-Headers` e o `exigirVersao` acima do CORS — passavam nas duas suites, que são separadas. O que os mostrou foi um ecrã parado em «A carregar os bancos…» e um diário do servidor com `OPTIONS 204` e mais nada. **Um pedido que o browser bloqueia não deixa rasto do lado de lá**, e é isso que torna esta classe invisível a quem só lê logs.
 
 **Uma remissão para outra issue é uma afirmação, e ninguém a verifica.** A `KAN-30` dizia «o log dos pânicos é a `KAN-22`», e quatro sítios do código e dos documentos repetiram-no. Ao fechar a `KAN-22` foi-se ler o corpo dela: as cinco linhas do trabalho previsto estavam feitas e **nenhuma era essa**. ⚠️ **Fechá-la levava consigo trabalho que ninguém tinha decidido abandonar** — e a remissão era o que fazia esse trabalho parecer arrumado.
+
+⚠️ **E repetiu-se três dias depois, sobre o próprio tracker.** O `RESUME.md` afirmava que a `KAN-24` tinha sido apagada e que as referências a ela tinham saído dos documentos; a issue estava aberta e a `KAN-59` remetia para ela em dois sítios. **A diferença desta classe é que a verificação custa uma consulta** — o `KAN` estava a um pedido de distância e ninguém o fez, porque uma frase escrita em documento lê-se como facto apurado. Escreveu-se «apagada» no dia em que se decidiu apagar, e a decisão passou a valer por acto.
 
 **Um estado que se reduz a um booleano perde exactamente a parte que a pessoa lê.** O `useSelecao` da app respondia `falhou: true`, e a espécie da falha — que já estava calculada e já tinha frase escrita — não chegava a ecrã nenhum. ⚠️ **O ecrã genérico que a A6 existia para evitar estava lá**, escrito à mão em três sítios, o que o fazia parecer uma escolha em vez de uma perda.
 
