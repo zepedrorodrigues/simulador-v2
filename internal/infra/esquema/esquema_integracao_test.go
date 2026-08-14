@@ -29,13 +29,14 @@ func TestMigrarCriaTabelasEReverterDesfazAUltima(t *testing.T) {
 		t.Fatalf("Migrar: %v", err)
 	}
 
-	// ⚠️ **As duas tabelas que sobreviveram ao varrimento, e são as únicas** (§4):
-	// o tecto por IP e a cache das respostas ao vivo.
-	if !existeTabela(t, db, "limites") {
-		t.Error("Migrar devia ter criado limites")
-	}
-	if !existeTabela(t, db, "respostas_em_cache") {
-		t.Error("Migrar devia ter criado respostas_em_cache")
+	// ⚠️ **As três tabelas da §4, e são as únicas**: o tecto por IP, a cache das
+	// respostas ao vivo, e os catálogos que os bancos publicam (KAN-36). Eram duas
+	// até 2026-08-14 — a terceira entrou com a §4 alterada primeiro, que é o que
+	// ela manda.
+	for _, viva := range []string{"limites", "respostas_em_cache", "catalogos_de_banco"} {
+		if !existeTabela(t, db, viva) {
+			t.Errorf("Migrar devia ter criado %s", viva)
+		}
 	}
 
 	// ⚠️ **E as do varrimento têm de estar mesmo apagadas no fim da cadeia.** A
@@ -50,13 +51,30 @@ func TestMigrarCriaTabelasEReverterDesfazAUltima(t *testing.T) {
 		}
 	}
 
-	// Down desfaz a última migração aplicada — hoje a 00008_o_varrimento_morre.
+	// Down desfaz **uma** migração de cada vez, a última aplicada. São duas
+	// reversões porque a cadeia cresceu: a 00009 dos catálogos entrou por cima da
+	// 00008 do varrimento, e cada uma tem a sua afirmação.
 	//
-	// ⚠️ E o Down dela **recria a forma e não os dados**, que é o que uma
-	// migração de remoção pode prometer. O que se afirma aqui é que ela é
-	// reversível sem partir, não que a série volta.
+	// ⚠️ Isto apanhou a 00009 a entrar: o teste dizia «o Down da 00008» com a
+	// 00008 já não a ser a última, e passou a falhar a dizer isso mesmo. É o
+	// comportamento que se quer de um teste preso à cabeça da cadeia.
+
+	// A primeira reversão leva a 00009, e só ela.
 	if err := esquema.Reverter(ctx, db); err != nil {
-		t.Fatalf("Reverter: %v", err)
+		t.Fatalf("Reverter a 00009: %v", err)
+	}
+	if existeTabela(t, db, "catalogos_de_banco") {
+		t.Error("o Down da 00009 devia ter deixado cair a catalogos_de_banco")
+	}
+	if !existeTabela(t, db, "respostas_em_cache") || !existeTabela(t, db, "limites") {
+		t.Error("Reverter desfez mais do que a última: levou uma tabela de outra migração")
+	}
+
+	// A segunda leva a 00008. ⚠️ E o Down dela **recria a forma e não os dados**,
+	// que é o que uma migração de remoção pode prometer. O que se afirma aqui é
+	// que ela é reversível sem partir, não que a série volta.
+	if err := esquema.Reverter(ctx, db); err != nil {
+		t.Fatalf("Reverter a 00008: %v", err)
 	}
 	if !existeTabela(t, db, "catalogo_taxas") || !existeTabela(t, db, "sondagens") {
 		t.Error("o Down da 00008 devia ter recriado as tabelas vazias")
