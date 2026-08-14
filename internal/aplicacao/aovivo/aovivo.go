@@ -184,6 +184,12 @@ func traduzir(err error, bancoNome string) *dominio.ErroOferta {
 		// valor, o banco e a pilha no diário, com o `request_id` que a fronteira
 		// prendeu. Até aqui não se perdia rasto por sair desta mensagem — **rasto
 		// não havia**, e a única cópia ia para o telemóvel de quem o apanhou.
+		//
+		// ⚠️ Isto dizia KAN-22, e a KAN-22 não tinha nada disto no corpo: ao
+		// fechá-la foi-se ler, e a única linha de observabilidade dela eram os
+		// logs por pedido, feitos há dias. **Uma remissão que ninguém verifica é
+		// trabalho a sair do backlog sem ninguém decidir** — e foi por se ter ido
+		// lá que esta linha existe.
 		return &dominio.ErroOferta{
 			Codigo: dominio.ErroInterno,
 			Mensagem: fmt.Sprintf(

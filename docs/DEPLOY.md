@@ -130,11 +130,9 @@ quer poder fazer às duas da manhã.
 
 ## O que este documento NÃO resolve
 
-- ⛔ **A `KAN-24`** — o parecer jurídico. O `RESUME.md` diz que bloqueia **o
-  produto**, e não só as lojas: pôr isto público sem termos de serviço é
-  precisamente o que ela levanta. **Subir a máquina não é publicar o serviço**, e
-  a ordem certa é ter isto de pé, medido e fechado antes de apontar o DNS para
-  quem quer que seja.
+- ⏳ **A ordem, que não é uma opção deste ficheiro.** **Subir a máquina não é
+  publicar o serviço**: a ordem certa é ter isto de pé, medido e fechado antes de
+  apontar o DNS para quem quer que seja.
 - ⏳ **O prazo por banco.** Continua um só (15 s) para cinco bancos que diferem
   **7×** na cauda. Diferenciá-lo pede mais amostras (`LATENCIA_AMOSTRAS`), que
   custam pedidos aos bancos.

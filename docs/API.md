@@ -55,7 +55,7 @@ Um pedido, **um banco**. É o que a §1 revertida manda e o que a app passa a us
 
 Comparava todos os bancos numa resposta, a partir da série varrida e de cálculo local. Saiu com o varrimento (Fase 6, passo 5): ficou **sem fonte de dados**, e o que a substitui é a app a fazer fan-out sobre o `/ofertas/{banco}`.
 
-⚠️ **Foi uma mudança que PARTE o `/api/v1`**, e a §4 deste documento diz que ele só muda por acrescento. A regra existe por causa de apps nas lojas, e a A8 está bloqueada pela `KAN-24` — **não havia nada publicado**, e era esta a única janela em que sair custava zero. Depois de haver uma versão no terreno, deixa de haver.
+⚠️ **Foi uma mudança que PARTE o `/api/v1`**, e a §4 deste documento diz que ele só muda por acrescento. A regra existe por causa de apps nas lojas, e **não havia nada publicado** — era esta a única janela em que sair custava zero. Depois de haver uma versão no terreno, deixa de haver.
 
 ⚠️ **O que ela afirmava e continua a valer** está no `/ofertas/{banco}`: um pedido uma resposta, sem `202` e sem `GET /{id}` — porque sondar obrigava a **guardar o pedido**, que é o dado pessoal que este serviço se recusa a ter.
 
@@ -157,7 +157,9 @@ Logo a retirada **não partiu consumidor nenhum**, e o v1 continua a servir o qu
 
 ⚠️ **Um `codigo` de erro novo não é mudança de versão**, e é por desenho: o campo é `type: string` sem enum, e a app mostra a `mensagem` em vez de ramificar no código. Foi o que permitiu ao `sem_serie` nascer — e depois morrer — sem quebrar nada a jusante, e ao `erro_interno` entrar a 2026-08-11 sem regenerar tipo nenhum.
 
-⚠️ **A 2026-08-07 esta regra foi quebrada de propósito, uma vez.** Saíram o `POST /api/v1/comparacoes`, a `Comparacao`, o `pressupostos` e o `fiabilidade` — remoções, não acrescentos. A regra não caiu; caiu a premissa em que ela assenta: **não há app publicada**. A A8 está bloqueada pela `KAN-24`, e esta era a única janela em que partir o `/api/v1` custava zero. **Ela fecha no dia em que houver uma versão no terreno**, e a partir daí uma remoção obriga a `/api/v2` em paralelo.
+⚠️ **A 2026-08-07 esta regra foi quebrada de propósito, uma vez.** Saíram o `POST /api/v1/comparacoes`, a `Comparacao`, o `pressupostos` e o `fiabilidade` — remoções, não acrescentos. A regra não caiu; caiu a premissa em que ela assenta: **não há app publicada**, e esta era a única janela em que partir o `/api/v1` custava zero. **Ela fecha no dia em que houver uma versão no terreno**, e a partir daí uma remoção obriga a `/api/v2` em paralelo.
+
+⚠️ **E a janela deixou de ter guarda** (2026-08-11): até aqui a A8 estava travada por um parecer jurídico, e enquanto esteve, «não há app publicada» era uma consequência garantida. Deixou de o ser. **A janela fecha na primeira submissão que for feita**, e quem a fizer fecha-a para todos.
 
 ✅ **O caminho de «esta versão é demasiado antiga» está feito** (2026-08-08), e era o que faltava para essa janela poder fechar em segurança. Feito **antes** de haver uma app publicada de propósito: acrescentá-lo depois não serve de nada, porque as versões que precisavam de o entender já teriam saído sem ele.
 
