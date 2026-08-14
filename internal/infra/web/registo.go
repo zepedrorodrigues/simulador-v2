@@ -59,6 +59,25 @@ func (s *Servidor) registar(seguinte http.Handler) http.Handler {
 	})
 }
 
+// diarioDoPedido devolve o diário já preso a ESTE pedido, para quem escreve uma
+// linha fora do middleware (KAN-61).
+//
+// ⚠️ **É aqui que o `request_id` se junta, e não na camada de aplicação.** O
+// `aovivo` é quem recupera o pânico e quem tem o banco à mão, mas não conhece
+// `X-Request-ID` nem devia — é um cabeçalho HTTP, e ele não sabe que existe HTTP.
+// Entregando-lhe um diário já com o identificador dentro, a linha do pânico
+// cruza-se com a linha do pedido sem que o caso de uso saiba o que as liga.
+//
+// Nulo quando não há diário, porque `(*slog.Logger)(nil).With(...)` entra em
+// pânico — e um pânico dentro do que existe para registar pânicos seria uma
+// forma particularmente má de descobrir isto.
+func (s *Servidor) diarioDoPedido(r *http.Request) *slog.Logger {
+	if s.diario == nil {
+		return nil
+	}
+	return s.diario.With(slog.String("request_id", middleware.GetReqID(r.Context())))
+}
+
 // DiarioDeOmissao é o que o serviço usa quando ninguém escolhe: JSON para o
 // destino dado, ao nível `info`.
 func DiarioDeOmissao(destino io.Writer) *slog.Logger {

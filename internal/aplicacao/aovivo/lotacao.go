@@ -3,6 +3,7 @@ package aovivo
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"time"
 
 	"github.com/zepedrorodrigues/simulador-v2/internal/bancos"
@@ -57,10 +58,10 @@ type Lotacao interface {
 // a mesma porta do `ComTecto`. Em produção liga-se sempre (`infra/web/servir`).
 func PedirComVaga(
 	ctx context.Context, lot Lotacao, b bancos.Banco, p dominio.Pedido,
-	agora func() time.Time, prazo time.Duration,
+	agora func() time.Time, prazo time.Duration, diario *slog.Logger,
 ) (dominio.Oferta, error) {
 	if lot == nil {
-		return Pedir(ctx, b, p, agora, prazo), nil
+		return Pedir(ctx, b, p, agora, prazo, diario), nil
 	}
 
 	sair, err := lot.Entrar(ctx, b.ID())
@@ -69,5 +70,5 @@ func PedirComVaga(
 	}
 	defer sair()
 
-	return Pedir(ctx, b, p, agora, prazo), nil
+	return Pedir(ctx, b, p, agora, prazo, diario), nil
 }
