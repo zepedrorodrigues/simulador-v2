@@ -46,10 +46,19 @@ var ErrPanico = errors.New("pânico ao simular")
 func Pedir(
 	ctx context.Context, b bancos.Banco, p dominio.Pedido, agora func() time.Time, prazo time.Duration,
 ) dominio.Oferta {
+	// ⚠️ **`erro_interno` e não `resposta_ilegivel`** (KAN-60). Aquele código diz
+	// «o banco respondeu, e o que veio não se consegue ler», e aqui não houve
+	// resposta nenhuma — esta guarda existe para não se gastar um pedido a um
+	// terceiro. ⚠️ E a culpa também não é de quem pediu: a fronteira valida antes
+	// (`web.go`) e devolve `400 pedido_invalido` com o campo nomeado, portanto por
+	// HTTP não se chega aqui. Chegar significa que dois validadores nossos
+	// discordam, ou que um chamador novo se esqueceu de validar.
 	if err := p.Validar(dominio.DataDeInstante(agora())); err != nil {
 		return dominio.Falhar(b.ID(), b.Nome(), &dominio.ErroOferta{
-			Codigo:   dominio.ErroRespostaIlegivel,
-			Mensagem: fmt.Sprintf("O pedido não é válido: %v", err),
+			Codigo: dominio.ErroInterno,
+			Mensagem: fmt.Sprintf(
+				"Não se chegou a perguntar ao %s: o pedido não passou na nossa própria validação (%v). "+
+					"Não é uma falha do banco.", b.Nome(), err),
 		})
 	}
 

@@ -33,16 +33,21 @@ func ofertaDe(o dominio.Oferta) api.Oferta {
 		Sucesso:   o.Sucesso(),
 	}
 
+	// ⚠️ **`erro_interno` e não `resposta_ilegivel`** (KAN-60). O `CapturadoEm` é
+	// carimbado por NÓS — o `dominio.Oferta` di-lo por escrito e o `aovivo.Pedir`
+	// fá-lo —, portanto a falta é nossa e o banco pode ter respondido
+	// perfeitamente. Com o código antigo, o defeito de 2026-08-07 saiu a acusar
+	// cinco bancos de responderem coisa ilegível.
 	if o.Sucesso() && o.CapturadoEm.IsZero() {
 		return api.Oferta{
 			BancoId:   o.BancoID,
 			BancoNome: o.BancoNome,
 			Sucesso:   false,
 			Erro: &api.OfertaErro{
-				Codigo: string(dominio.ErroRespostaIlegivel),
+				Codigo: string(dominio.ErroInterno),
 				Mensagem: fmt.Sprintf(
 					"A oferta do %s não diz de quando é o preço, e um preço sem data apresenta-se "+
-						"como se fosse de agora. Não é servida.", o.BancoNome),
+						"como se fosse de agora. Não é servida. A falha é nossa, não do banco.", o.BancoNome),
 			},
 		}
 	}

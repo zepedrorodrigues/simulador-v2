@@ -92,7 +92,7 @@ Era verdade enquanto os preços vinham da série varrida: ela era feita com um t
 | `prazo_impossivel` | nem o prazo mínimo do banco cabe na idade | mudando o pedido |
 | `produto_indisponivel` | o banco não faz isto de todo — modalidade, período, LTV fora da banda | mudando o pedido, ou não se resolve |
 | `banco_indisponivel` | foi-se lá e não respondeu, expirou, deu 5xx | esperando |
-| `resposta_ilegivel` | respondeu, e não se consegue ler | do nosso lado |
+| `resposta_ilegivel` | respondeu, e não se consegue ler — **só isso**, e só dos parsers dos bancos | do nosso lado |
 | `erro_interno` | rebentou uma coisa **nossa**; o banco pode nem ter sido interrogado | do nosso lado, e não passa por esperar |
 
 ⚠️ **Eram seis, saíram dois e voltou um** (2026-08-07 e 2026-08-11). O `sem_serie` («não se foi lá: não há preços varridos deste banco», KAN-45) e o `serie_desactualizada` («há, e são do outro lado da viragem do dia», KAN-50) morrem com o varrimento: ao vivo vai-se sempre lá, e o que resta quando não se consegue responder é o banco não ter respondido. O `erro_interno` entra pela `KAN-30`.
@@ -100,6 +100,10 @@ Era verdade enquanto os preços vinham da série varrida: ela era feita com um t
 ⚠️ **A distinção que o `sem_serie` existia para fazer NÃO morre com ele:** uma falta **nossa** não se serve como falha do banco, porque isso manda a pessoa tirar sobre ele uma conclusão que os dados não sustentam. É a mesma razão por que o `503 banco_ocupado` é um estatuto e não uma oferta em falha.
 
 ✅ **E foi essa regra que fechou a `KAN-30`** (2026-08-11): um pânico nosso a simular saía como `banco_indisponivel` — dos quatro códigos era o único onde encaixava. O efeito prático é de contabilidade e não de ecrã: o banco ganha fama de instável, a pessoa lê «o CGD está em baixo» com o CGD bem, e o nosso defeito não aparece em métrica nenhuma **porque está contado na coluna errada**.
+
+✅ **E a `KAN-60` fechou a mesma coisa um andar acima** (2026-08-14): duas faltas nossas saíam como `resposta_ilegivel`, que afirma que **o banco respondeu**. Eram a validação do pedido no `aovivo` — onde não se chegou a falar com banco nenhum, porque a guarda existe para não gastar o pedido — e a guarda do `CapturadoEm` na fronteira, cujo carimbo é nosso. ⚠️ **A segunda já tinha disparado a sério:** a 2026-08-07, o `aovivo` a nascer sem o carimbo não deu um preço sem data, deu **nenhuma oferta servida** — e cada uma saiu a acusar o seu banco de responder coisa ilegível. As duas passam a `erro_interno`.
+
+⚠️ **Os cinco parsers de banco não mudaram, e é o ponto.** Neles o `resposta_ilegivel` está certo: receberam corpo e não o souberam interpretar. Um código que sirva para as duas coisas não distingue nenhuma.
 
 ⚠️ **A `mensagem` de um `erro_interno` não leva o interior do programa** — nem valor do pânico, nem ficheiro, nem linha. Não se perde rasto por isso: rasto não havia. O diário regista método, caminho e estatuto, e o texto do pânico ia só para o telemóvel de quem o apanhou. Pô-lo onde se procura é a `KAN-61`.
 
