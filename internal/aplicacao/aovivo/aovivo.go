@@ -14,6 +14,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
+	"runtime/debug"
 	"time"
 
 	"github.com/zepedrorodrigues/simulador-v2/internal/bancos"
@@ -43,8 +45,17 @@ var ErrPanico = errors.New("pânico ao simular")
 // que leia o relógio deixa de ser afirmável sem o falsear. É a mesma escolha do
 // `Varredor.Agora`. Serve duas coisas — a data valida o pedido (a idade decide o
 // prazo máximo) e o instante carimba a captura.
+//
+// ⚠️ **O diário entra por argumento, como o relógio** (KAN-61). Um pânico nosso
+// é recuperado aqui dentro e nunca chega ao `chi`: não há `500`, não há entrada
+// de erro, e a resposta é um `200` como as outras. Do lado de fora vê-se uma
+// oferta em falha; do lado de dentro não se via nada. ⚠️ **Quem sabe a que pedido
+// isto pertence é a fronteira**, e é ela que entrega o diário já preso ao
+// `request_id` — o caso de uso não conhece `X-Request-ID` nem devia.
+// Diário nulo cala o registo, como no `registar` da `infra/web`.
 func Pedir(
 	ctx context.Context, b bancos.Banco, p dominio.Pedido, agora func() time.Time, prazo time.Duration,
+	diario *slog.Logger,
 ) dominio.Oferta {
 	// ⚠️ **`erro_interno` e não `resposta_ilegivel`** (KAN-60). Aquele código diz
 	// «o banco respondeu, e o que veio não se consegue ler», e aqui não houve
@@ -76,7 +87,7 @@ func Pedir(
 	resp := make(chan resposta, 1)
 
 	go func() {
-		oferta, err := correr(ctx, b, p)
+		oferta, err := correr(ctx, b, p, diario)
 		resp <- resposta{oferta: oferta, err: err}
 	}()
 
@@ -115,13 +126,39 @@ func Pedir(
 // ⚠️ É aqui que fica a captura genérica, e num sítio só. No v1 ela obrigava a um
 // `except Exception` dentro de cada scraper; aqui, dentro de um banco, os erros
 // devolvem-se e não se engolem (§5).
-func correr(ctx context.Context, b bancos.Banco, p dominio.Pedido) (oferta dominio.Oferta, err error) {
+func correr(
+	ctx context.Context, b bancos.Banco, p dominio.Pedido, diario *slog.Logger,
+) (oferta dominio.Oferta, err error) {
 	defer func() {
 		if r := recover(); r != nil {
+			// ⚠️ A pilha apanha-se **aqui dentro**. Fora do `recover` o
+			// desenrolamento já aconteceu e o `debug.Stack()` mostra este `defer`
+			// em vez de onde rebentou — que é a única coisa que se queria saber.
+			registarPanico(ctx, diario, b, r, debug.Stack())
 			oferta, err = dominio.Oferta{}, fmt.Errorf("%w: %v", ErrPanico, r)
 		}
 	}()
 	return b.Simular(ctx, p)
+}
+
+// registarPanico põe o pânico onde ele se procura (KAN-61).
+//
+// ⚠️ **Nunca o pedido.** Ele leva data de nascimento e rendimento, e um diário é
+// recolhido pela plataforma, guardado nos backups dela e lido por quem lá chegue.
+// O que vai é de quem foi (`banco`), o que rebentou (`valor`) e onde (`pilha`) —
+// e o `request_id` vem preso ao diário que a fronteira entregou.
+//
+// ⚠️ **Nível `error` e não `warn`.** O que está aqui é sempre um defeito nosso:
+// se for para não valer a pena olhar, não valia a pena escrever.
+func registarPanico(ctx context.Context, diario *slog.Logger, b bancos.Banco, valor any, pilha []byte) {
+	if diario == nil {
+		return
+	}
+	diario.LogAttrs(ctx, slog.LevelError, "pânico ao simular",
+		slog.String("banco", b.ID()),
+		slog.Any("valor", valor),
+		slog.String("pilha", string(pilha)),
+	)
 }
 
 // traduzir converte o erro de um banco no erro estruturado que a oferta leva.
@@ -139,13 +176,14 @@ func traduzir(err error, bancoNome string) *dominio.ErroOferta {
 	}
 
 	if errors.Is(err, ErrPanico) {
-		// ⚠️ **O `err` não entra na mensagem, e a omissão é a metade que falta**
-		// (KAN-30). O valor de um pânico é o interior do programa; despejá-lo num
-		// ecrã de crédito à habitação não ajuda quem lê e diz a quem não devia o
-		// que rebentou cá dentro. E não se perde rasto por sair daqui: rasto não
-		// havia — o diário regista método, caminho e estatuto, e o texto do pânico
-		// ia só para o telemóvel de quem o apanhou. Pô-lo onde se procura é a
-		// KAN-22.
+		// ⚠️ **O `err` não entra na mensagem** (KAN-30). O valor de um pânico é o
+		// interior do programa; despejá-lo num ecrã de crédito à habitação não
+		// ajuda quem lê e diz a quem não devia o que rebentou cá dentro.
+		//
+		// ✅ **E agora sai por outro lado** (KAN-61): o `registarPanico` põe o
+		// valor, o banco e a pilha no diário, com o `request_id` que a fronteira
+		// prendeu. Até aqui não se perdia rasto por sair desta mensagem — **rasto
+		// não havia**, e a única cópia ia para o telemóvel de quem o apanhou.
 		return &dominio.ErroOferta{
 			Codigo: dominio.ErroInterno,
 			Mensagem: fmt.Sprintf(

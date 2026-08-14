@@ -105,7 +105,9 @@ Era verdade enquanto os preços vinham da série varrida: ela era feita com um t
 
 ⚠️ **Os cinco parsers de banco não mudaram, e é o ponto.** Neles o `resposta_ilegivel` está certo: receberam corpo e não o souberam interpretar. Um código que sirva para as duas coisas não distingue nenhuma.
 
-⚠️ **A `mensagem` de um `erro_interno` não leva o interior do programa** — nem valor do pânico, nem ficheiro, nem linha. Não se perde rasto por isso: rasto não havia. O diário regista método, caminho e estatuto, e o texto do pânico ia só para o telemóvel de quem o apanhou. Pô-lo onde se procura é a `KAN-22`.
+⚠️ **A `mensagem` de um `erro_interno` não leva o interior do programa** — nem valor do pânico, nem ficheiro, nem linha.
+
+✅ **E desde a `KAN-61` (2026-08-14) ele vai para o diário**, que é onde se procura: uma linha ao nível `error` com o **banco**, o **valor** do pânico, a **pilha** e o `request_id` do pedido — o mesmo que o cliente recebeu no cabeçalho `X-Request-ID`, para os dois lados se cruzarem. ⚠️ **Nunca o pedido**, que leva data de nascimento e rendimento. Até aqui não era o caso de o rasto se perder ao sair da mensagem: **rasto não havia**, e a única cópia do pânico ia para o telemóvel de quem o apanhou.
 
 ⚠️ **O mesmo `erro_interno` já existia no envelope `RespostaErro`** (um `500`, §3), e a repetição é deliberada: as duas dizem «quem está avariado somos nós», em envelopes diferentes. A diferença é o alcance — no `OfertaErro` falhou **este banco** e a lista continua a encher-se; no `RespostaErro` falhou o pedido inteiro.
 

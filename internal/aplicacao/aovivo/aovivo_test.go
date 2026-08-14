@@ -3,6 +3,7 @@ package aovivo_test
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"strings"
 	"testing"
 	"time"
@@ -23,7 +24,7 @@ func TestOQueOBancoRespondeEOQueSai(t *testing.T) {
 		},
 	}
 
-	o := aovivo.Pedir(context.Background(), b, pedido(t), agora, time.Second)
+	o := aovivo.Pedir(context.Background(), b, pedido(t), agora, time.Second, nil)
 
 	if !o.Sucesso() {
 		t.Fatalf("a oferta saiu em falha: %v", o.Erro)
@@ -57,7 +58,7 @@ func TestAOfertaDizQuandoSeFalouComOBanco(t *testing.T) {
 		},
 	}
 
-	o := aovivo.Pedir(context.Background(), b, pedido(t), agora, time.Second)
+	o := aovivo.Pedir(context.Background(), b, pedido(t), agora, time.Second, nil)
 
 	if o.CapturadoEm.IsZero() {
 		t.Fatal("a oferta não diz quando se falou com o banco, e sem isso a fronteira não a serve")
@@ -81,7 +82,7 @@ func TestUmBancoEmBaixoSaiComoOfertaEmFaltaENaoComoErro(t *testing.T) {
 		},
 	}
 
-	o := aovivo.Pedir(context.Background(), b, pedido(t), agora, time.Second)
+	o := aovivo.Pedir(context.Background(), b, pedido(t), agora, time.Second, nil)
 
 	if o.Sucesso() {
 		t.Fatal("o banco recusou a ligação e a oferta saiu como boa")
@@ -109,7 +110,7 @@ func TestUmBancoQueNaoRespondeADesistenciaNaoSeguraOPedido(t *testing.T) {
 	}
 
 	inicio := time.Now()
-	o := aovivo.Pedir(context.Background(), surdo, pedido(t), agora, 50*time.Millisecond)
+	o := aovivo.Pedir(context.Background(), surdo, pedido(t), agora, 50*time.Millisecond, nil)
 	demorou := time.Since(inicio)
 
 	if demorou > time.Second {
@@ -131,7 +132,7 @@ func TestUmBancoQueNaoRespondeADesistenciaNaoSeguraOPedido(t *testing.T) {
 func TestUmPanicoNossoNaoDerrubaARespostaAoCliente(t *testing.T) {
 	t.Parallel()
 
-	o := aovivo.Pedir(context.Background(), bancoQuePanica(), pedido(t), agora, time.Second)
+	o := aovivo.Pedir(context.Background(), bancoQuePanica(), pedido(t), agora, time.Second, nil)
 
 	if o.Sucesso() {
 		t.Fatal("houve um pânico e a oferta saiu como boa")
@@ -153,7 +154,7 @@ func TestUmPanicoNossoNaoDerrubaARespostaAoCliente(t *testing.T) {
 func TestUmPanicoNossoNaoSeVesteDeFalhaDoBanco(t *testing.T) {
 	t.Parallel()
 
-	o := aovivo.Pedir(context.Background(), bancoQuePanica(), pedido(t), agora, time.Second)
+	o := aovivo.Pedir(context.Background(), bancoQuePanica(), pedido(t), agora, time.Second, nil)
 
 	if o.Erro.Codigo != dominio.ErroInterno {
 		t.Errorf("código %q, esperava %q — um defeito nosso está a ser contado como falha do banco",
@@ -170,17 +171,90 @@ func TestUmPanicoNossoNaoSeVesteDeFalhaDoBanco(t *testing.T) {
 // num ecrã de crédito à habitação, e o valor de um pânico é o interior do
 // programa.
 //
-// ⚠️ **E o detalhe não se perde por sair daqui: ele não estava em log nenhum.**
-// O diário do servidor regista método, caminho e estatuto — o texto do pânico ia
-// só para o telemóvel de quem o apanhou. Pô-lo onde se procura é a KAN-22.
+// ⚠️ **E o detalhe não se perdia por sair daqui: ele não estava em log nenhum.**
+// O diário do servidor registava método, caminho e estatuto — o texto do pânico
+// ia só para o telemóvel de quem o apanhou. ✅ Desde a KAN-61 vai para o diário,
+// e é o `TestUmPanicoDeixaUmaLinhaDeDiario` que o afirma. **Os dois têm de valer
+// ao mesmo tempo:** o detalhe no diário, e nunca na `Mensagem`.
 func TestAMensagemDeUmPanicoNaoDespejaOInterior(t *testing.T) {
 	t.Parallel()
 
-	o := aovivo.Pedir(context.Background(), bancoQuePanica(), pedido(t), agora, time.Second)
+	o := aovivo.Pedir(context.Background(), bancoQuePanica(), pedido(t), agora, time.Second, nil)
 
 	for _, interior := range []string{marcaDoPanico, ".go:", "panic", "pânico"} {
 		if strings.Contains(o.Erro.Mensagem, interior) {
 			t.Errorf("a mensagem despeja %q: %q", interior, o.Erro.Mensagem)
+		}
+	}
+}
+
+// TestUmPanicoDeixaUmaLinhaDeDiario é a KAN-61, e o que ela corrige é a metade
+// que a KAN-30 deixou aberta.
+//
+// ⚠️ **Tirar o pânico da `Mensagem` não o pôs em lado nenhum.** Um pânico
+// recuperado aqui dentro nunca chega ao `chi`: não há `500`, não há entrada de
+// erro, e a resposta é um `200` como as outras. Do lado de fora vê-se uma oferta
+// em falha; do lado de dentro não se via **nada**. Não é que se tenha perdido o
+// rasto — o rasto nunca esteve onde se procura.
+func TestUmPanicoDeixaUmaLinhaDeDiario(t *testing.T) {
+	t.Parallel()
+
+	var escrito strings.Builder
+	diario := slog.New(slog.NewJSONHandler(&escrito, &slog.HandlerOptions{Level: slog.LevelInfo}))
+
+	o := aovivo.Pedir(context.Background(), bancoQuePanica(), pedido(t), agora, time.Second, diario)
+
+	if o.Sucesso() {
+		t.Fatal("houve um pânico e a oferta saiu como boa")
+	}
+
+	linha := escrito.String()
+	if linha == "" {
+		t.Fatal("o pânico não deixou linha nenhuma no diário: do lado de dentro não se vê que aconteceu")
+	}
+	// Nomeado: sem o banco, a linha diz que rebentou alguma coisa e não onde.
+	if !strings.Contains(linha, `"banco":"prova"`) {
+		t.Errorf("a linha não nomeia o banco: %s", linha)
+	}
+	// O valor do pânico é o que a `Mensagem` deixou de levar. Se não estiver aqui,
+	// não está em sítio nenhum.
+	if !strings.Contains(linha, marcaDoPanico) {
+		t.Errorf("a linha não diz o que rebentou: %s", linha)
+	}
+	// A pilha é o que distingue «rebentou» de «rebentou ali».
+	if !strings.Contains(linha, "aovivo.go") {
+		t.Errorf("a linha não traz a pilha: %s", linha)
+	}
+}
+
+// TestALinhaDoPanicoNaoLevaOPedido: um diário é recolhido pela plataforma,
+// guardado nos backups dela e lido por quem lá chegue.
+//
+// ⚠️ **O pedido leva data de nascimento e rendimento.** É a mesma regra que o
+// `registo.go` já cumpre ao escrever `r.URL.Path` e nunca a query string, e a
+// mesma que o `API.md` §3 escreve sobre o detalhe interno. Um caminho novo para o
+// detalhe é um caminho novo por onde isto pode sair.
+func TestALinhaDoPanicoNaoLevaOPedido(t *testing.T) {
+	t.Parallel()
+
+	var escrito strings.Builder
+	diario := slog.New(slog.NewJSONHandler(&escrito, &slog.HandlerOptions{Level: slog.LevelInfo}))
+
+	p := pedido(t)
+	aovivo.Pedir(context.Background(), bancoQuePanica(), p, agora, time.Second, diario)
+
+	linha := escrito.String()
+	if linha == "" {
+		t.Fatal("não se escreveu nada, e este teste não afirma nada sobre um diário vazio")
+	}
+	for nome, agulha := range map[string]string{
+		"o montante":           "320000",
+		"o valor do imóvel":    "400000",
+		"o rendimento":         "3200",
+		"a data de nascimento": p.Titulares[0].DataNascimento.String(),
+	} {
+		if strings.Contains(linha, agulha) {
+			t.Errorf("a linha do diário leva %s (%q): %s", nome, agulha, linha)
 		}
 	}
 }
@@ -200,7 +274,7 @@ func TestOErroQueOBancoEstruturouNaoSeSobrepoe(t *testing.T) {
 		},
 	}
 
-	o := aovivo.Pedir(context.Background(), b, pedido(t), agora, time.Second)
+	o := aovivo.Pedir(context.Background(), b, pedido(t), agora, time.Second, nil)
 
 	if o.Erro.Codigo != dominio.ErroPrazoImpossivel {
 		t.Errorf("código %q, esperava %q — o erro do banco foi substituído pelo nosso",
@@ -239,7 +313,7 @@ func TestUmPedidoInvalidoNaoChegaAoBanco(t *testing.T) {
 	mau := pedido(t)
 	mau.Montante = dominio.DinheiroDeInteiro(0)
 
-	o := aovivo.Pedir(context.Background(), b, mau, agora, time.Second)
+	o := aovivo.Pedir(context.Background(), b, mau, agora, time.Second, nil)
 
 	if foi {
 		t.Error("gastou-se um pedido a um banco com um pedido que não é válido")

@@ -424,7 +424,8 @@ func (s *Servidor) ofertaDeUmBanco(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	oferta, err := aovivo.PedirComVaga(r.Context(), s.lotacao, banco, pedido, s.agora, s.prazoDoBanco)
+	oferta, err := aovivo.PedirComVaga(
+		r.Context(), s.lotacao, banco, pedido, s.agora, s.prazoDoBanco, s.diarioDoPedido(r))
 	if err != nil {
 		// ⚠️ **503 e não 200 com a oferta em falha, e é a decisão inteira.** Um 200
 		// com `banco_indisponivel` dizia à pessoa que o banco está em baixo; ele

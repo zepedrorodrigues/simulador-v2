@@ -92,7 +92,7 @@ func TestMedirALatenciaDeCadaBanco(t *testing.T) {
 			}
 
 			antes := time.Now()
-			oferta := aovivo.Pedir(context.Background(), banco, pedido(t), time.Now, prazoDaMedicao)
+			oferta := aovivo.Pedir(context.Background(), banco, pedido(t), time.Now, prazoDaMedicao, nil)
 			demorou := time.Since(antes)
 
 			if !oferta.Sucesso() {

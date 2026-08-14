@@ -269,6 +269,47 @@ func (b *bancoFalso) Simular(ctx context.Context, p dominio.Pedido) (dominio.Ofe
 	return b.responder(ctx, p)
 }
 
+// TestALinhaDoPanicoCruzaSeComOPedido é a metade da KAN-61 que só a fronteira
+// pode afirmar.
+//
+// ⚠️ **O caso de uso não conhece `X-Request-ID`, e é de propósito** — é um
+// cabeçalho HTTP, e o `aovivo` não sabe que existe HTTP. Quem junta o
+// identificador é o `diarioDoPedido`, entregando-lhe um diário já preso a este
+// pedido. Sem isso, a linha do pânico existe e **não se cruza com nada**: quem
+// reclama com um identificador na mão continua sem ter com que o confrontar, que
+// era metade do problema.
+func TestALinhaDoPanicoCruzaSeComOPedido(t *testing.T) {
+	var escrito bytes.Buffer
+	s := servidorAoVivo(t, &bancoFalso{
+		id: "cgd", nome: "CGD",
+		responder: func(context.Context, dominio.Pedido) (dominio.Oferta, error) {
+			panic("índice fora dos limites")
+		},
+	}).ComDiario(web.DiarioDeOmissao(&escrito))
+
+	resposta := pedirOferta(t, s, "cgd", corpoDeOferta(nil))
+
+	id := resposta.Header().Get("X-Request-ID")
+	if id == "" {
+		t.Fatal("a resposta não trouxe X-Request-ID, e sem ele não há o que cruzar")
+	}
+
+	// ⚠️ Duas linhas saem daqui — a do pedido, do middleware, e a do pânico. É a
+	// do pânico que interessa, e procura-se pela mensagem dela.
+	var linha string
+	for _, l := range strings.Split(strings.TrimSpace(escrito.String()), "\n") {
+		if strings.Contains(l, "pânico ao simular") {
+			linha = l
+		}
+	}
+	if linha == "" {
+		t.Fatalf("o pânico não deixou linha no diário. Escrito: %s", escrito.String())
+	}
+	if !strings.Contains(linha, `"request_id":"`+id+`"`) {
+		t.Errorf("a linha do pânico não traz o request_id %q que o cliente recebeu: %s", id, linha)
+	}
+}
+
 // bancoQueResponde é o construtor que o `ComAoVivo` recebe: devolve este banco
 // para o id dele, e o erro do registo para qualquer outro — que é o que faz o
 // 404 ser afirmável sem inventar um segundo caminho para lá chegar.

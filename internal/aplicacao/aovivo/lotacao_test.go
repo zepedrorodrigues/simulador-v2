@@ -36,7 +36,7 @@ func TestUmBancoNoTectoNaoSaiComoOfertaEmFalha(t *testing.T) {
 		return nil, aovivo.ErrSemVaga
 	}}
 
-	o, err := aovivo.PedirComVaga(context.Background(), cheia, b, pedido(t), agora, time.Second)
+	o, err := aovivo.PedirComVaga(context.Background(), cheia, b, pedido(t), agora, time.Second, nil)
 
 	if !errors.Is(err, aovivo.ErrSemVaga) {
 		t.Fatalf("erro %v, esperava ErrSemVaga — um tecto nosso não é uma falha do banco", err)
@@ -73,7 +73,7 @@ func TestSemSaberSeHaVagaNaoSePerguntaAoBanco(t *testing.T) {
 		return nil, errors.New("a base não responde")
 	}}
 
-	_, err := aovivo.PedirComVaga(context.Background(), avariada, b, pedido(t), agora, time.Second)
+	_, err := aovivo.PedirComVaga(context.Background(), avariada, b, pedido(t), agora, time.Second, nil)
 
 	if err == nil {
 		t.Fatal("a lotação avariada deixou passar: serviu-se sem tecto contra o banco")
@@ -106,7 +106,7 @@ func TestAVagaVoltaMesmoQuandoOBancoRebenta(t *testing.T) {
 		return func() { saidas.Add(1) }, nil
 	}}
 
-	o, err := aovivo.PedirComVaga(context.Background(), uma, b, pedido(t), agora, time.Second)
+	o, err := aovivo.PedirComVaga(context.Background(), uma, b, pedido(t), agora, time.Second, nil)
 	if err != nil {
 		t.Fatalf("havia vaga e devolveu-se erro: %v", err)
 	}
@@ -132,7 +132,7 @@ func TestSemLotacaoOCaminhoEOMesmo(t *testing.T) {
 		},
 	}
 
-	o, err := aovivo.PedirComVaga(context.Background(), nil, b, pedido(t), agora, time.Second)
+	o, err := aovivo.PedirComVaga(context.Background(), nil, b, pedido(t), agora, time.Second, nil)
 	if err != nil {
 		t.Fatalf("sem lotação: %v", err)
 	}
