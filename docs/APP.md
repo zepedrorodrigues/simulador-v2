@@ -91,9 +91,9 @@ testes/              jest + a fábrica de bancos de teste
 | A2 | ✅ Geração e sincronização do `api.d.ts` + verificação no CI |
 | A3 | ✅ Os três passos do pedido, com a loja Zustand e o formulário adaptativo |
 | A5 | ✅ Ofertas e detalhe, com o gráfico de fases, as notas de ajuste e os pressupostos — **confirmada contra o servidor a sério** |
-| A6 | Estados que não são o caminho feliz: sem rede, servidor em baixo, tecto atingido, todos os bancos falharam |
+| A6 | ✅ Estados que não são o caminho feliz: sem rede, servidor em baixo, tecto atingido, todos os bancos falharam — **feita a 2026-08-11**, e o que faltava não eram ecrãs: era a espécie da falha a sobreviver até eles |
 | A7 | Acessibilidade e alvo web |
-| A8 | EAS Build e submissão — ⚠️ **bloqueado pelas perguntas jurídicas da** `KAN-24` (`prioridade-alta`): termos de serviço dos bancos, redistribuição da série, regulação de crédito, requisitos das lojas, RGPD e responsabilidade |
+| A8 | ⏳ EAS Build e submissão — **desbloqueada a 2026-08-11**, quando o parecer jurídico saiu do projecto. Passa a ser trabalho por fazer e não espera por terceiros |
 
 ⚠️ **A A4 VOLTA a 2026-08-06, com a §1 revertida — mas não é a A4 antiga.** Era «ecrã de espera: sondagem, resultados progressivos, cancelamento». Volta só o **meio**: resultados progressivos.
 
@@ -101,9 +101,11 @@ testes/              jest + a fábrica de bancos de teste
 
 ⚠️ **E traz trabalho novo que a A4 antiga não tinha: o fan-out passa a viver na app** (D2), e com ele a responsabilidade de não disparar dez pedidos de uma vez contra cinco bancos.
 
-⚠️ **O alvo web não é polimento — é o primeiro alvo a publicar.** É o único que se aloja sem passar por uma loja, e as lojas estão bloqueadas pela `KAN-24`. A ordem é A1, A2, A3, A5, A6, A7; a A8 fica onde está.
+⚠️ **O alvo web continua a ser o primeiro a publicar, e a razão mudou** (2026-08-11). Era «o único que se aloja sem passar por uma loja, e as lojas estão bloqueadas»; a A8 deixou de estar bloqueada, e o alvo web fica à frente por ser o mais barato de pôr no ar e o único que se corrige no mesmo dia — uma versão numa loja não se tira de lá quando se descobre um número errado. A ordem é A1, A2, A3, A5, A6, A7, A8.
 
 ⚠️ **A A6 também não é polimento.** Uma app que só se testou com bancos a responderem bem é uma app que ninguém sabe como se comporta quando não respondem — e eles não respondem com regularidade. Tem de ter ecrãs desenhados, não um alerta genérico.
+
+✅ **Feita a 2026-08-11, e o diagnóstico não era o esperado.** Os ecrãs existiam e as frases também — o `cliente.ts` traduz cada estatuto numa espécie e há teste a dizer que cada espécie tem frase escrita. O que não existia era o **fio**: o `useSelecao` reduzia tudo a um `falhou: boolean`, e os três passos do pedido e as ofertas mostravam sempre a mesma frase. ⚠️ **Um alerta genérico foi o que a A6 existia para evitar, e era o que estava lá** — só que escrito à mão em três sítios, o que o fazia parecer intencional.
 
 ## 6. O que a app não faz
 

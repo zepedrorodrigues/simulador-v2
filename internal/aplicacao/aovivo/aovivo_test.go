@@ -172,7 +172,7 @@ func TestUmPanicoNossoNaoSeVesteDeFalhaDoBanco(t *testing.T) {
 //
 // ⚠️ **E o detalhe não se perde por sair daqui: ele não estava em log nenhum.**
 // O diário do servidor regista método, caminho e estatuto — o texto do pânico ia
-// só para o telemóvel de quem o apanhou. Pô-lo onde se procura é a KAN-22.
+// só para o telemóvel de quem o apanhou. Pô-lo onde se procura é a KAN-61.
 func TestAMensagemDeUmPanicoNaoDespejaOInterior(t *testing.T) {
 	t.Parallel()
 

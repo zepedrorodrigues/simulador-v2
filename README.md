@@ -10,8 +10,7 @@ interface é uma app React Native, em repositório à parte.
 
 > **Estado: em construção.** O caminho do cliente está de pé — `POST
 > /api/v1/ofertas/{banco}` pergunta a um banco, com tecto de concorrência por
-> banco, prazo medido e cache em Postgres. Falta o alojamento e o parecer
-> jurídico (`KAN-24`).
+> banco, prazo medido e cache em Postgres. Falta o alojamento.
 
 ⚠️ **Isto foi ao contrário e voltou.** Até 2026-08-06 o desenho era o inverso:
 varrer os bancos sobre cenários fixos, guardar a série, e responder por cálculo
@@ -146,8 +145,8 @@ docker run --rm -p 8080:8080 -e DATABASE_URL=… simulador-v2 servir
 **A forma de produção** — Caddy à frente, Postgres na mesma máquina, TLS — está
 em `compose.producao.yml`, e o passo a passo em
 [`docs/DEPLOY.md`](docs/DEPLOY.md). ⚠️ **Escrita e corrida em local, nada
-exposto:** a `KAN-24` bloqueia publicar, e subir a máquina não é publicar o
-serviço.
+exposto:** não há máquina ainda, e subir a máquina não é publicar o serviço — a
+ordem é de pé, medido e fechado antes de divulgado.
 
 ⚠️ **O `migrar` não é opcional, e o binário obriga.** `servir` contra uma base
 por migrar recusa-se, com «base de dados por migrar — corre `simulador migrar`
@@ -172,10 +171,7 @@ produção: o `migrar` é passo próprio do deploy, seja qual for a plataforma.
 ## Uso responsável
 
 É aqui que a postura fica escrita, e fica pública de propósito — uma postura
-escondida não é postura. ⚠️ As **perguntas jurídicas** que faltam responder antes
-de publicar nas lojas estão na `KAN-24`, com `prioridade-alta`: termos de serviço
-dos bancos, redistribuição da série, regulação de crédito, requisitos das lojas,
-RGPD e responsabilidade.
+escondida não é postura.
 
 - **Sem dados pessoais.** As simulações de utilizador **não são guardadas**: são
   corridas e devolvidas. A única coisa persistida a longo prazo é a série de
@@ -191,6 +187,6 @@ RGPD e responsabilidade.
   Anexo I e o Anexo II da MCD mandam. **Não são propostas, não vinculam o banco e
   não são aconselhamento financeiro.** Uma proposta a sério vem do banco, por
   escrito, depois de avaliar quem a pede.
-- **Há perguntas em aberto, e estão assumidas como tal** — nomeadamente as que
-  exigem parecer jurídico antes de isto ser publicado numa loja de aplicações.
-  Não estão resolvidas por omissão.
+- **Nada disto é aconselhamento nem substitui o que o banco escreve.** O que este
+  serviço faz é perguntar aos simuladores públicos e mostrar o que eles
+  responderam, com a hora a que responderam.
