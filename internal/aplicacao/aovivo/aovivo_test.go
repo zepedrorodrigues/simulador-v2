@@ -209,6 +209,21 @@ func TestOErroQueOBancoEstruturouNaoSeSobrepoe(t *testing.T) {
 }
 
 // Um pedido inválido não chega a incomodar o banco.
+//
+// ⚠️ **E a falha não veste o nome do banco** (KAN-60). A guarda saía com
+// `resposta_ilegivel`, que tem significado exacto — «o banco respondeu, e o que
+// veio não se consegue ler» — e aqui **não houve resposta nenhuma**: a guarda
+// existe precisamente para não se gastar um pedido a um terceiro. O teste antigo
+// dizia só que a oferta não era boa, e é por isso que ninguém reparou.
+//
+// ⚠️ **Sai `erro_interno`, e a razão é a fronteira.** O `web.go` valida o pedido
+// **antes** de chamar por aqui e responde `400 pedido_invalido` com o campo
+// nomeado — logo, por HTTP este caminho é inalcançável. Se ele disparar, é porque
+// dois validadores nossos discordam ou porque um chamador novo se esqueceu de
+// validar: em qualquer dos casos, quem está avariado somos nós. Um sexto código
+// duplicaria o `pedido_invalido` que o envelope já tem, e a `ErroInterno` diz no
+// próprio comentário que dois vocabulários para o mesmo facto obrigam quem lê a
+// aprender ambos.
 func TestUmPedidoInvalidoNaoChegaAoBanco(t *testing.T) {
 	t.Parallel()
 
@@ -230,7 +245,11 @@ func TestUmPedidoInvalidoNaoChegaAoBanco(t *testing.T) {
 		t.Error("gastou-se um pedido a um banco com um pedido que não é válido")
 	}
 	if o.Sucesso() {
-		t.Error("um pedido inválido saiu como oferta boa")
+		t.Fatal("um pedido inválido saiu como oferta boa")
+	}
+	if o.Erro.Codigo != dominio.ErroInterno {
+		t.Errorf("código %q, esperava %q — não houve resposta nenhuma do %s para ser ilegível",
+			o.Erro.Codigo, dominio.ErroInterno, b.Nome())
 	}
 }
 
