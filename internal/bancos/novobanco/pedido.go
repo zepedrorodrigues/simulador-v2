@@ -8,7 +8,9 @@ import (
 )
 
 // O payload do Novo Banco é JSON, e um só pedido resolve a simulação inteira —
-// não há página a raspar nem endpoint de limites a consultar antes.
+// não há página a raspar nem lead a preencher. Os limites é que vêm antes, do
+// GET /configuracoes (KAN-37), mas isso é trabalho do novobanco.go, não deste
+// ficheiro.
 //
 // ⚠️ Este ficheiro é **puro**: dados para dados, sem rede, sem relógio. A idade
 // entra por parâmetro, nunca de um time.Now() aqui dentro.

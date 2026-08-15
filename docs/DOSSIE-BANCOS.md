@@ -180,7 +180,7 @@ Duas coisas a reter, e as duas contrariam a CGD. **O preço sobe quando o LTV so
 | `idadeMinima` / `Maxima` | 18 / **75** |
 | `montanteMaximoDeficiente` | 238 273,23 € |
 
-O `prestacaoMaxima: 7500` confirma ao euro a leitura que se tinha feito do parâmetro do `V118`, e o `idadeMaxima: 75` confirma o tecto do contrato. ⚠️ **O v2 ainda não consulta este endpoint** — não valida os mínimos, e um montante de 1 000 € vai à rede para levar um erro que se podia ter explicado antes. Está em **KAN-37**.
+O `prestacaoMaxima: 7500` confirma ao euro a leitura que se tinha feito do parâmetro do `V118`, e o `idadeMaxima: 75` confirma o tecto do contrato. ⚠️ **O v2 consulta este endpoint desde 2026-08-15 (KAN-37)**: pede-o antes do `/calculo`, guarda-o em catálogo (24 h, como os períodos da CGD), e recusa **em casa** — com uma mensagem que nomeia o limite e o valor — um montante ou imóvel abaixo do mínimo ou acima do máximo, e um titular mais velho acima dos 75. ⚠️ **Falha aberto**: se o endpoint não responder ou não se deixar ler, simula-se na mesma — o `/calculo` é a autoridade, e uma guarda que trava por não saber é pior do que não existir.
 
 ⚠️ **E há um `POST /simulacao/prazo-maximo`**, que devolve `{"data":{"prazo":N}}` a partir da data de nascimento — sem ser preciso provocar o `V159`. Medido a 2026-07-26, dá exactamente os mesmos números que o erro: 1996→40, 1990→35, 1980→29, 1962→11. É confirmação independente da regra dos escalões. O v2 continua a usar o `V159`, e isso é uma escolha e não um esquecimento: o `V159` só custa um pedido a mais **quando o prazo excede**, enquanto perguntar antes custaria um pedido a mais **sempre**.
 

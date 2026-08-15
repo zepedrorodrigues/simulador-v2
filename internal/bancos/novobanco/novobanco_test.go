@@ -321,12 +321,16 @@ func TestODescontoPrometidoEOQueOBancoCobraSemAsBonificacoes(t *testing.T) {
 // erro, e reaplica-se. O teste mede as duas coisas — que houve segundo pedido
 // com o prazo que o banco indicou, e que a diferença ficou anotada.
 func TestPrazoAcimaDoMaximoReaplicaOQueOBancoIndicou(t *testing.T) {
+	config := string(captura(t, "configuracoes.resposta.json"))
 	respostas := []string{
 		string(captura(t, "erro_v159_prazo_por_idade.resposta.json")),
 		string(captura(t, "variavel_12m.resposta.json")),
 	}
 	falso := &transporte.Falso{
-		Responder: func(transporte.PedidoGravado) (*http.Response, error) {
+		Responder: func(p transporte.PedidoGravado) (*http.Response, error) {
+			if strings.HasSuffix(p.URL.Path, "/configuracoes") {
+				return transporte.RespostaDeTexto(http.StatusOK, config), nil
+			}
 			corpo := respostas[0]
 			estado := http.StatusBadRequest
 			if len(respostas) == 1 {
@@ -341,16 +345,16 @@ func TestPrazoAcimaDoMaximoReaplicaOQueOBancoIndicou(t *testing.T) {
 	p := pedidoBase()
 	p.PrazoAnos = 40
 
-	oferta, err := novobanco.Novo(falso).Simular(t.Context(), p)
+	oferta, err := novobanco.Novo(falso, nil).Simular(t.Context(), p)
 	if err != nil {
 		t.Fatalf("Simular: %v", err)
 	}
 
-	if n := len(falso.Pedidos()); n != 2 {
-		t.Fatalf("esperava dois pedidos — o recusado e o reaplicado —, houve %d", n)
+	corpos := corposDoCalculo(t, falso)
+	if len(corpos) != 2 {
+		t.Fatalf("esperava dois pedidos ao /calculo — o recusado e o reaplicado —, houve %d", len(corpos))
 	}
-	segundo := corpoDoPedido(t, falso.Pedidos()[1].Corpo)
-	if segundo.Prazo != 35 {
+	if segundo := corpos[1]; segundo.Prazo != 35 {
 		t.Errorf("o banco disse que o máximo era 35 anos; repetiu-se com %d", segundo.Prazo)
 	}
 
@@ -377,6 +381,7 @@ func TestPrazoAcimaDoMaximoReaplicaOQueOBancoIndicou(t *testing.T) {
 // dizia «Pediu 35 anos» a quem pediu 40 — que é uma frase que ninguém disse. Foi
 // esta cadeia que a corrida de fidelidade da CGD apanhou lá.
 func TestOsDoisEncolhimentosDoPrazoDaoUmSoAjuste(t *testing.T) {
+	config := string(captura(t, "configuracoes.resposta.json"))
 	respostas := []string{
 		string(captura(t, "erro_v159_prazo_por_idade.resposta.json")),
 		string(captura(t, "fixa_30a.resposta.json")),
@@ -384,7 +389,10 @@ func TestOsDoisEncolhimentosDoPrazoDaoUmSoAjuste(t *testing.T) {
 	estados := []int{http.StatusBadRequest, http.StatusOK}
 	i := 0
 	falso := &transporte.Falso{
-		Responder: func(transporte.PedidoGravado) (*http.Response, error) {
+		Responder: func(p transporte.PedidoGravado) (*http.Response, error) {
+			if strings.HasSuffix(p.URL.Path, "/configuracoes") {
+				return transporte.RespostaDeTexto(http.StatusOK, config), nil
+			}
 			j := min(i, len(respostas)-1)
 			i++
 			return transporte.RespostaDeTexto(estados[j], respostas[j]), nil
@@ -395,13 +403,16 @@ func TestOsDoisEncolhimentosDoPrazoDaoUmSoAjuste(t *testing.T) {
 	p.TipoTaxa = dominio.TaxaFixa
 	p.PrazoAnos = 40
 
-	oferta, err := novobanco.Novo(falso).Simular(t.Context(), p)
+	oferta, err := novobanco.Novo(falso, nil).Simular(t.Context(), p)
 	if err != nil {
 		t.Fatalf("Simular: %v", err)
 	}
 
-	segundo := corpoDoPedido(t, falso.Pedidos()[1].Corpo)
-	if segundo.TipoTaxaIndexante != "FIXA_30_ANOS" || segundo.Prazo != 30 {
+	corpos := corposDoCalculo(t, falso)
+	if len(corpos) != 2 {
+		t.Fatalf("esperava dois pedidos ao /calculo — o recusado e o reaplicado —, houve %d", len(corpos))
+	}
+	if segundo := corpos[1]; segundo.TipoTaxaIndexante != "FIXA_30_ANOS" || segundo.Prazo != 30 {
 		t.Errorf("o banco disse 35 e a fixa só vende 30: esperava FIXA_30_ANOS com prazo 30, foi %q com %d",
 			segundo.TipoTaxaIndexante, segundo.Prazo)
 	}
@@ -444,14 +455,18 @@ func TestCadaCodigoDeErroDizAOQueVem(t *testing.T) {
 
 	for _, c := range casos {
 		t.Run(c.captura, func(t *testing.T) {
+			config := string(captura(t, "configuracoes.resposta.json"))
 			falso := &transporte.Falso{
-				Responder: func(transporte.PedidoGravado) (*http.Response, error) {
+				Responder: func(p transporte.PedidoGravado) (*http.Response, error) {
+					if strings.HasSuffix(p.URL.Path, "/configuracoes") {
+						return transporte.RespostaDeTexto(http.StatusOK, config), nil
+					}
 					return transporte.RespostaDeTexto(
 						http.StatusBadRequest, string(captura(t, c.captura+".resposta.json"))), nil
 				},
 			}
 
-			_, err := novobanco.Novo(falso).Simular(t.Context(), pedidoBase())
+			_, err := novobanco.Novo(falso, nil).Simular(t.Context(), pedidoBase())
 
 			var erroOferta *dominio.ErroOferta
 			if !errors.As(err, &erroOferta) {
@@ -495,7 +510,7 @@ func TestOPayloadBateComOCapturado(t *testing.T) {
 				t.Fatalf("Simular: %v", err)
 			}
 
-			gerado := corpoDoPedido(t, falso.Pedidos()[0].Corpo)
+			gerado := corpoEnviado(t, falso)
 			esperado := corpoDoPedido(t, captura(t, c.nome+".pedido.json"))
 
 			// Compara-se campo a campo e não o texto: a ordem das chaves de um
@@ -511,7 +526,7 @@ func TestOPayloadBateComOCapturado(t *testing.T) {
 // pressuposto que ninguém vê não existe. Este teste é a guarda do que a §5
 // manda: o que se preenche por nós tem de estar declarado nos Requisitos.
 func TestOsCamposNeutrosEstaoDeclaradosComNota(t *testing.T) {
-	r := novobanco.Novo(nil).Requisitos()
+	r := novobanco.Novo(nil, nil).Requisitos()
 	if err := r.Validar(); err != nil {
 		t.Fatalf("requisitos inválidos: %v", err)
 	}
@@ -544,7 +559,7 @@ func TestOsCamposNeutrosEstaoDeclaradosComNota(t *testing.T) {
 // vazio ali não é "não sei", é "o banco impõe o seu", e dizê-lo aqui seria
 // falso.
 func TestDeclaraQueDeixaEscolherOIndexante(t *testing.T) {
-	r := novobanco.Novo(nil).Requisitos()
+	r := novobanco.Novo(nil, nil).Requisitos()
 
 	if len(r.EuriborOpcoes) != 3 {
 		t.Errorf("o Novo Banco deixa escolher os três tenores, declarou %v", r.EuriborOpcoes)
@@ -566,7 +581,7 @@ func TestRespeitaOPrazoDoCtx(t *testing.T) {
 			return transporte.RespostaDeTexto(http.StatusOK, string(captura(t, "variavel_12m.resposta.json"))), nil
 		},
 	}
-	prova.RespeitaPrazo(t, novobanco.Novo(falso), pedidoBase(), 300*time.Millisecond)
+	prova.RespeitaPrazo(t, novobanco.Novo(falso, nil), pedidoBase(), 300*time.Millisecond)
 }
 
 // --- andaimes --------------------------------------------------------------------
@@ -574,9 +589,16 @@ func TestRespeitaOPrazoDoCtx(t *testing.T) {
 func montar(t *testing.T, nomeDaCaptura string) (bancos.Banco, *transporte.Falso) {
 	t.Helper()
 
+	config := string(captura(t, "configuracoes.resposta.json"))
 	corpo := string(captura(t, nomeDaCaptura+".resposta.json"))
 	falso := &transporte.Falso{
 		Responder: func(p transporte.PedidoGravado) (*http.Response, error) {
+			if strings.HasSuffix(p.URL.Path, "/configuracoes") {
+				if canal := p.Cabecalhos.Get("x-nb-oc-channel"); canal == "" {
+					t.Error("o pedido ao /configuracoes foi sem o x-nb-oc-channel, e sem ele o banco não responde")
+				}
+				return transporte.RespostaDeTexto(http.StatusOK, config), nil
+			}
 			if !strings.Contains(p.URL.Path, "/simulacao/calculo") {
 				t.Errorf("pedido a um caminho que o Novo Banco não tem: %q", p.URL.Path)
 			}
@@ -586,7 +608,7 @@ func montar(t *testing.T, nomeDaCaptura string) (bancos.Banco, *transporte.Falso
 			return transporte.RespostaDeTexto(http.StatusOK, corpo), nil
 		},
 	}
-	return novobanco.Novo(falso), falso
+	return novobanco.Novo(falso, nil), falso
 }
 
 func captura(t *testing.T, nome string) []byte {
@@ -641,13 +663,30 @@ func corpoDoPedido(t *testing.T, bruto []byte) corpoLido {
 	return c
 }
 
+// corpoEnviado devolve o corpo do pedido que calcula. Desde o KAN-37 o primeiro
+// pedido de cada simulação é o GET /configuracoes, que não tem corpo — procurar
+// o /simulacao/calculo é o que diz o que se enviou de facto.
 func corpoEnviado(t *testing.T, f *transporte.Falso) corpoLido {
 	t.Helper()
-	pedidos := f.Pedidos()
-	if len(pedidos) == 0 {
-		t.Fatal("não houve pedido nenhum ao banco")
+	corpos := corposDoCalculo(t, f)
+	if len(corpos) == 0 {
+		t.Fatal("não houve pedido ao /simulacao/calculo")
 	}
-	return corpoDoPedido(t, pedidos[0].Corpo)
+	return corpos[0]
+}
+
+// corposDoCalculo devolve os corpos dos pedidos ao /simulacao/calculo, pela
+// ordem em que foram enviados — é o que sobra depois de o GET /configuracoes
+// não ter corpo nem interesse.
+func corposDoCalculo(t *testing.T, f *transporte.Falso) []corpoLido {
+	t.Helper()
+	var corpos []corpoLido
+	for _, p := range f.Pedidos() {
+		if strings.HasSuffix(p.URL.Path, "/simulacao/calculo") {
+			corpos = append(corpos, corpoDoPedido(t, p.Corpo))
+		}
+	}
+	return corpos
 }
 
 // compararPayloads devolve as diferenças que interessam, em português.

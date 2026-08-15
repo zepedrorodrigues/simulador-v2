@@ -1,8 +1,10 @@
 // Package novobanco é o simulador de crédito à habitação do Novo Banco.
 //
-// Um só pedido, um só cabeçalho obrigatório (`x-nb-oc-channel`), e a resposta
-// mais rica dos dez: taxas, prestação, MTIC, seguros, comissões, despesas e o
-// rácio DSTI — tudo em duas variantes, com e sem bonificações.
+// Uma simulação custa dois pedidos: o GET /configuracoes, que publica os
+// limites com que o banco simula e que fica guardado em catálogo (KAN-37), e o
+// POST /simulacao/calculo. Um só cabeçalho obrigatório (`x-nb-oc-channel`), e a
+// resposta mais rica dos dez: taxas, prestação, MTIC, seguros, comissões,
+// despesas e o rácio DSTI — tudo em duas variantes, com e sem bonificações.
 //
 // É o banco que prova três coisas que a CGD não provava: **produtos ligados por
 // omissão**, **erros estruturados como sinal** (o prazo máximo vem dentro do
@@ -22,6 +24,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/zepedrorodrigues/simulador-v2/internal/bancos/transporte"
 	"github.com/zepedrorodrigues/simulador-v2/internal/dominio"
@@ -35,6 +38,11 @@ const (
 	// recalcula — e não há aqui endpoint de lead nenhum: nenhum contacto é
 	// registado no CRM do banco por este pacote.
 	URL = "https://srv.novobanco.pt/web/ocb/simhb/site/simulacao/calculo?step=SIM_AVANCADO"
+
+	// URLConfiguracoes é o endpoint que publica os limites do banco (KAN-37),
+	// sem parâmetros nenhuns. ⚠️ Não confundir com o `/simulacao/configuracoes`
+	// do site, que é a página do SPA e não o JSON.
+	URLConfiguracoes = "https://srv.novobanco.pt/web/ocb/simhb/site/configuracoes"
 
 	// canal é o único cabeçalho obrigatório. Sem ele o banco não responde.
 	canal = "5.2"
@@ -57,9 +65,29 @@ const (
 	PrazoMinimo = 1
 )
 
+// Catalogos guarda o que o Novo Banco publica e que é preciso saber antes de
+// lhe montar o pedido — aqui, os limites do /configuracoes (KAN-37).
+//
+// ⚠️ **Declarada outra vez aqui, e não importada do `bancos`.** É a mesma razão
+// que faz o `Novo` receber o transporte em vez do `bancos.Transportes`: se este
+// pacote importasse o `bancos`, o registo — que vive lá — não podia importar
+// este. As interfaces em Go são estruturais, portanto a `bancos.Catalogos`
+// satisfaz esta sem que nenhum dos dois pacotes conheça o outro.
+//
+// ⚠️ **Nula desliga**, e é o que os testes usam: o /configuracoes é pedido a
+// cada simulação, que é o que este banco fazia antes de a tabela existir.
+type Catalogos interface {
+	Ler(ctx context.Context, bancoID, nome string) (valor []byte, achou bool)
+	Guardar(ctx context.Context, bancoID, nome string, valor []byte)
+}
+
+// catalogoConfiguracoes é o nome desta entrada dentro do banco.
+const catalogoConfiguracoes = "configuracoes"
+
 // Banco é o Novo Banco. O transporte é injectado e nunca instanciado aqui.
 type Banco struct {
-	http transporte.HTTPSimples
+	http      transporte.HTTPSimples
+	catalogos Catalogos
 }
 
 // Novo constrói o Novo Banco sobre o transporte que a infra montou.
@@ -67,8 +95,11 @@ type Banco struct {
 // ⚠️ Recebe o transporte e devolve *Banco, e não bancos.Banco, para este pacote
 // não importar o `bancos` — se o importasse, o registo não podia importar este,
 // e o ciclo fechava-se. Ver a nota em cgd.Novo.
-func Novo(http transporte.HTTPSimples) *Banco {
-	return &Banco{http: http}
+//
+// ⚠️ `catalogos` nulo é válido: o /configuracoes é pedido a cada simulação, que
+// era o comportamento até 2026-08-15.
+func Novo(http transporte.HTTPSimples, catalogos Catalogos) *Banco {
+	return &Banco{http: http, catalogos: catalogos}
 }
 
 func (b *Banco) ID() string   { return BancoID }
@@ -170,9 +201,18 @@ func (b *Banco) Requisitos() dominio.Requisitos {
 
 // Simular interroga o Novo Banco.
 //
-// É um pedido só — e, quando o banco recusa o prazo por causa da idade, um
-// segundo com o prazo que ele próprio indicou.
+// A ordem é a que o KAN-37 pôs: primeiro os limites do /configuracoes, que
+// recusam em casa o que o banco recusaria na rede; depois o cálculo — um
+// pedido, e um segundo quando o banco recusa o prazo por causa da idade.
 func (b *Banco) Simular(ctx context.Context, p dominio.Pedido) (dominio.Oferta, error) {
+	// ⚠️ Falha aberto de propósito: se o /configuracoes não responder ou não se
+	// deixar ler, simula-se na mesma. O /calculo é a autoridade, e uma guarda
+	// que trava por não saber é pior do que não existir.
+	cfg, _ := b.configuracoes(ctx)
+	if erro := verificarConfiguracoes(cfg, p, b.idadeMaisVelho(p)); erro != nil {
+		return dominio.Oferta{}, erro
+	}
+
 	oferta, err := b.simularComPrazo(ctx, p, p.PrazoAnos, "")
 	if err != nil {
 		return dominio.Oferta{}, err
@@ -269,7 +309,109 @@ func anotarPrazoAplicado(o *dominio.Oferta, p dominio.Pedido, enviado int) {
 		"O Novo Banco simulou %d anos de prazo, e não os %d que lhe foram pedidos.", aplicado, p.PrazoAnos))
 }
 
+// --- catálogo e limites -------------------------------------------------------
+
+// configuracoes devolve os limites que o banco publica.
+//
+// Primeiro o catálogo guardado (KAN-37); sem ele, pede-se o /configuracoes e
+// guarda-se. Um catálogo ilegível ou vazio conta como não haver, e vai-se à
+// rede.
+//
+// ⚠️ Os erros saem daqui e são para ignorar em quem chama: falha aberto.
+// Guarda-se o corpo que se leu do banco, nunca uma falha.
+func (b *Banco) configuracoes(ctx context.Context) (configuracoes, error) {
+	if cfg, ok := b.configuracoesGuardadas(ctx); ok {
+		return cfg, nil
+	}
+
+	corpo, err := b.obterConfiguracoes(ctx)
+	if err != nil {
+		return configuracoes{}, err
+	}
+	cfg, err := lerConfiguracoes(corpo)
+	if err != nil {
+		return configuracoes{}, err
+	}
+	if cfg.temLimites() {
+		b.guardarConfiguracoes(ctx, corpo)
+	}
+	return cfg, nil
+}
+
+// configuracoesGuardadas lê o catálogo guardado, se houver um válido. Um
+// catálogo ilegível ou sem limites nenhuns é o mesmo que não haver: vai-se à
+// rede, que é o que evita servir uma tabela de ontem por um soluço de hoje.
+func (b *Banco) configuracoesGuardadas(ctx context.Context) (configuracoes, bool) {
+	if b.catalogos == nil {
+		return configuracoes{}, false
+	}
+	bruto, achou := b.catalogos.Ler(ctx, BancoID, catalogoConfiguracoes)
+	if !achou {
+		return configuracoes{}, false
+	}
+	cfg, err := lerConfiguracoes(bruto)
+	if err != nil || !cfg.temLimites() {
+		return configuracoes{}, false
+	}
+	return cfg, true
+}
+
+// guardarConfiguracoes grava o corpo do /configuracoes tal como veio. A forma é
+// do banco e a tabela guarda-a opaca — a coluna é jsonb, e quem a lê e escreve
+// é só este pacote (mesma regra do periodosEmJSON da CGD).
+func (b *Banco) guardarConfiguracoes(ctx context.Context, corpo []byte) {
+	if b.catalogos == nil {
+		return
+	}
+	b.catalogos.Guardar(ctx, BancoID, catalogoConfiguracoes, corpo)
+}
+
+// idadeMaisVelho devolve a idade que manda no prazo e nos limites de idade. Sem
+// titulares devolve zero, que é o que desliga a verificação por idade.
+//
+// ⚠️ É o único sítio deste pacote onde entra um relógio, e entra aqui e não no
+// pedido.go porque esse é puro — a mesma regra que a CGD segue.
+func (*Banco) idadeMaisVelho(p dominio.Pedido) int {
+	hoje := dominio.DataDeInstante(time.Now())
+	idade, err := dominio.IdadeMaisVelho(p.Titulares, hoje)
+	if err != nil {
+		return 0
+	}
+	return idade
+}
+
 // --- transporte ---------------------------------------------------------------
+
+// obterConfiguracoes pede ao banco a lista de limites que ele publica. É um GET
+// sem corpo nem parâmetros, com os mesmos cabeçalhos do cálculo.
+func (b *Banco) obterConfiguracoes(ctx context.Context) ([]byte, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, URLConfiguracoes, nil)
+	if err != nil {
+		return nil, indisponivel(err)
+	}
+	req.Header.Set("x-nb-oc-channel", canal)
+	req.Header.Set("Accept", "application/json, text/plain, */*")
+	req.Header.Set("Accept-Language", "pt-PT")
+	req.Header.Set("Origin", "https://www.novobanco.pt")
+	req.Header.Set("Referer", "https://www.novobanco.pt/")
+	req.Header.Set("User-Agent", agente)
+
+	resp, err := b.http.Fazer(ctx, req)
+	if err != nil {
+		return nil, indisponivel(err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, indisponivel(fmt.Errorf("o /configuracoes devolveu %s", resp.Status))
+	}
+
+	lido, err := io.ReadAll(io.LimitReader(resp.Body, limiteDeCorpo))
+	if err != nil {
+		return nil, indisponivel(fmt.Errorf("ler o corpo do /configuracoes: %w", err))
+	}
+	return lido, nil
+}
 
 func (b *Banco) publicar(ctx context.Context, corpo payload) ([]byte, error) {
 	dados, err := json.Marshal(corpo)
