@@ -149,11 +149,21 @@ ser defesa».
   construtores, e não resolvia nada: o processo reconstrói bancos.
 
 ⚠️ **Não tem dados pessoais, e é o que a separa da outra tabela.** O que lá vive é
-o que o banco publica a quem visitar o site — catorze inteiros, no caso da CGD.
+o que o banco publica a quem visitar o site — catorze inteiros, no caso da CGD,
+o corpo do `/configuracoes` do Novo Banco, no caso dele.
 Nenhuma das guardas de privacidade do §7.6 se aplica, e por isso **a chave é
 legível**: `(banco_id, nome)`, sem resumo criptográfico. Um resumo aqui não
 protegia nada e tirava a capacidade de olhar para a tabela e perceber o que está
 lá.
+
+⚠️ **Deixou de ser só da CGD a 2026-08-15 (`KAN-37`).** O Novo Banco publica os
+limites da simulação no `GET /configuracoes`, e o `internal/bancos/novobanco`
+pede-o **antes** do `/calculo` e guarda o corpo na mesma tabela (`banco_id`
+`novobanco`, nome `configuracoes`, 24 h). A diferença é de tratamento e não de
+tabela: na CGD não há entrada é ir à página; no Novo Banco **falha aberto** — sem
+entrada válida pede-se o endpoint, e se a ida falhar **simula-se na mesma**, com o
+`/calculo` a ser a autoridade. Uma guarda que trava por não saber é pior do que
+não existir.
 
 ⚠️ **A validade é de partida e não está medida.** Ficam **24 h**, pela mesma
 honestidade com que o §7.6 declara os 5 min: ninguém mediu de quanto em quanto
