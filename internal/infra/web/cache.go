@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/zepedrorodrigues/simulador-v2/api"
+	"github.com/zepedrorodrigues/simulador-v2/internal/bancos"
 	"github.com/zepedrorodrigues/simulador-v2/internal/dominio"
 )
 
@@ -47,5 +48,18 @@ func (s *Servidor) ComCache(cache Cache, chave ChaveDeCache) *Servidor {
 		return s
 	}
 	s.cache, s.chaveDeCache = cache, chave
+	return s
+}
+
+// ComCatalogos liga a loja dos catálogos que os bancos publicam (KAN-36).
+//
+// ⚠️ **Método à parte do `ComCache`, e as duas não se juntam.** Guardam coisas
+// com naturezas diferentes — uma resposta é de alguém, um catálogo é público — e
+// a §4 dá-lhes tabelas diferentes por isso. Um `ComPostgres` que ligasse as duas
+// de uma vez apagava a distinção no sítio onde ela se lê.
+//
+// Nula desliga: o banco vai à fonte de cada vez, que é o que fazia antes.
+func (s *Servidor) ComCatalogos(c bancos.Catalogos) *Servidor {
+	s.catalogos = c
 	return s
 }

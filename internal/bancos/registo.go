@@ -23,6 +23,13 @@ import (
 type Transportes struct {
 	HTTP      transporte.HTTPSimples
 	ComSessao transporte.HTTPComSessao
+
+	// Catalogos é onde ficam os parâmetros que os bancos publicam (KAN-36).
+	//
+	// ⚠️ **Nulo é válido e desliga**, como a `Lotacao` nula: o banco vai à fonte
+	// de cada vez, que é o que fazia antes de isto existir. É o que deixa os
+	// testes de cada banco correr sem base de dados.
+	Catalogos Catalogos
 }
 
 // Construtor monta um banco a partir dos transportes injectados.
@@ -132,7 +139,11 @@ func (r *Registo) Todos(ts Transportes) ([]Banco, error) {
 func Predefinido() *Registo {
 	r := NovoRegisto()
 	registarOuExplodir(r, bancoctt.IDBanco, func(ts Transportes) Banco { return bancoctt.Novo(ts.HTTP) })
-	registarOuExplodir(r, cgd.BancoID, func(ts Transportes) Banco { return cgd.Novo(ts.HTTP) })
+	// ⚠️ A CGD é o único que recebe os catálogos, e é por ela publicar os
+	// períodos de taxa fixa dentro de uma página de 73,5 KiB (KAN-36).
+	registarOuExplodir(r, cgd.BancoID, func(ts Transportes) Banco {
+		return cgd.Novo(ts.HTTP, ts.Catalogos)
+	})
 	registarOuExplodir(r, montepio.BancoID, func(ts Transportes) Banco { return montepio.Novo(ts.ComSessao) })
 	registarOuExplodir(r, novobanco.BancoID, func(ts Transportes) Banco { return novobanco.Novo(ts.HTTP) })
 	registarOuExplodir(r, santander.IDBanco, func(ts Transportes) Banco { return santander.Novo(ts.HTTP) })

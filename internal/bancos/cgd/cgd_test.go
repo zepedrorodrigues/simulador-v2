@@ -415,7 +415,7 @@ func TestRespeitaOPrazoDoCtx(t *testing.T) {
 		Atraso: 5 * time.Second,
 		Corpo:  string(captura(t, "variavel_ltv80.resposta.json")),
 	}
-	banco := cgd.Novo(lento)
+	banco := cgd.Novo(lento, nil)
 
 	prova.RespeitaPrazo(t, banco, pedidoBase(), 300*time.Millisecond)
 }
@@ -461,7 +461,7 @@ func montar(t *testing.T, c cenario) (bancos.Banco, *transporte.Falso) {
 			}
 		},
 	}
-	return cgd.Novo(falso), falso
+	return cgd.Novo(falso, nil), falso
 }
 
 func captura(t *testing.T, nome string) []byte {

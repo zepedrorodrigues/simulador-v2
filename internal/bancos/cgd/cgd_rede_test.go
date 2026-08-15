@@ -42,7 +42,7 @@ func TestAoVivoACGDResponde(t *testing.T) {
 
 	// Sem Timeout no cliente, de propósito: o prazo é o do ctx, e dois prazos a
 	// competir tornam difícil explicar quem desistiu primeiro.
-	banco := cgd.Novo(transporte.NovoCliente(nil))
+	banco := cgd.Novo(transporte.NovoCliente(nil), nil)
 
 	for _, c := range casos {
 		t.Run(c.nome, func(t *testing.T) {

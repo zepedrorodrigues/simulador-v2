@@ -34,6 +34,14 @@ type Querier interface {
 	// contagem 1. Uma janela deslizante exigiria guardar cada pedido — e isto é uma
 	// tabela de contadores, não um registo de quem nos visitou.
 	ContarPedido(ctx context.Context, arg ContarPedidoParams) (ContarPedidoRow, error)
+	// GravarCatalogo guarda o catálogo e estende a validade.
+	//
+	// ⚠️ `ON CONFLICT DO UPDATE`, como na cache: duas leituras para o mesmo catálogo
+	// são normais — expirou, ou dois clientes chegaram juntos e ambos foram à página.
+	// A última é a mais fresca e é ela que fica. Com `DO NOTHING`, uma entrada a
+	// expirar nunca se renovava e voltava-se a pedir a página a cada pedido, que é o
+	// defeito que esta tabela existe para corrigir.
+	GravarCatalogo(ctx context.Context, arg GravarCatalogoParams) error
 	// GravarRespostaEmCache guarda a resposta e estende a validade.
 	//
 	// ⚠️ `ON CONFLICT DO UPDATE` e não `DO NOTHING`: duas respostas para a mesma
@@ -42,6 +50,16 @@ type Querier interface {
 	// Com `DO NOTHING`, uma entrada a expirar nunca se renovava e a cache deixava de
 	// acertar sem nada a dizer porquê.
 	GravarRespostaEmCache(ctx context.Context, arg GravarRespostaEmCacheParams) error
+	// Queries dos catálogos que os bancos publicam (ARQUITETURA.md §4, tabela
+	// `catalogos_de_banco`, KAN-36).
+	// LerCatalogo devolve o catálogo guardado, se ainda for válido.
+	//
+	// ⚠️ **A validade filtra-se na leitura, e não só na limpeza** — a mesma razão do
+	// `LerRespostaEmCache`: a limpeza corre por manutenção e pode não ter corrido, e
+	// servir um catálogo expirado é precisamente o erro que ele pode causar. Aqui
+	// esse erro tem forma própria: um período que o banco deixou de praticar seria
+	// proposto a alguém como se fosse de hoje.
+	LerCatalogo(ctx context.Context, arg LerCatalogoParams) (LerCatalogoRow, error)
 	// Queries da cache do pedido ao vivo (ARQUITETURA.md §4, tabela
 	// `respostas_em_cache`).
 	//
@@ -55,6 +73,10 @@ type Querier interface {
 	// é precisamente o erro que a cache pode causar. O `expira_em > @agora` é o que
 	// garante que uma entrada velha não se serve, tenha a limpeza corrido ou não.
 	LerRespostaEmCache(ctx context.Context, arg LerRespostaEmCacheParams) (LerRespostaEmCacheRow, error)
+	// LimparCatalogosExpirados apaga o que já não se pode usar.
+	//
+	// ⚠️ Por manutenção e não no caminho de um cliente, como as outras duas limpezas.
+	LimparCatalogosExpirados(ctx context.Context, agora pgtype.Timestamptz) (int64, error)
 	// LimparLimitesAntigos apaga as janelas que já não contam para nada.
 	//
 	// ⚠️ Existe para a tabela não crescer com um contador por IP que nunca mais
