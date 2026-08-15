@@ -2,7 +2,7 @@
 
 Estado actual e próximos passos. ⚠️ **Sem changelog** — o relato de sessões não vive aqui. O `RESUME.md` do v1 chegou a 1317 linhas antes de ser esvaziado à força.
 
-**Actualizado:** 2026-08-14
+**Actualizado:** 2026-08-15
 
 ⚠️ **A §1 foi revertida: o pedido do cliente volta a ir ao banco.** Decidido a 2026-08-06, depois de um dia a confrontar o servido com dados reais. O porquê, com os números, está em `docs/DECISAO-AO-VIVO.md`.
 
@@ -39,6 +39,8 @@ Estado actual e próximos passos. ⚠️ **Sem changelog** — o relato de sess�
 ⚠️ **E dizia-se aqui que a issue tinha sido apagada e que as referências a ela tinham saído dos documentos. Era falso nas duas metades**, verificado a 2026-08-14: a `KAN-24` estava viva em `Tarefas pendentes`, a contar entre as 14 abertas, e a `KAN-59` remetia para ela em dois sítios — um deles a declarar que ela **bloqueia a publicação do serviço**. Ficou **cancelada** no sumário e com a razão em comentário, que é a forma da casa; e a `KAN-59` deixou de a citar. ⚠️ **A verificação de marca do domínio ficou sem morada** — estava parqueada nesta conversa jurídica, e está escrita como decisão por tomar na `KAN-59`.
 
 ⚠️ **O `KAN` foi reconciliado a 2026-08-11 e ficou com 14 issues abertas — e uma delas não devia lá estar.** A `KAN-22` estava em `Tarefas pendentes` com as cinco caixas por marcar e o trabalho todo feito; a `KAN-23` estava aberta com a Fase 5 cancelada desde 2026-08-06; a `KAN-52` tinha «⛔ CANCELADA» no sumário e estava em `Em análise`. **Novas:** `KAN-60` (dois `resposta_ilegivel` mal atribuídos) e `KAN-61` (um pânico nosso não deixa rasto em log nenhum). ⚠️ **A que escapou foi a `KAN-24`** — cancelada a 2026-08-14, três dias depois de os documentos a darem por apagada. **Ficam 13.**
+
+✅ **O Novo Banco passou a validar os limites em casa** (2026-08-15, `KAN-37`): o v2 pede o `GET /configuracoes` antes do `/calculo`, guarda o corpo em `catalogos_de_banco` (24 h) e recusa em casa — mensagem a nomear o limite e o valor — montante ou imóvel fora dos mínimos/máximos e titular acima dos 75. **Falha aberto**: endpoint em baixo ou ilegível, simula-se na mesma; o `/calculo` é a autoridade. Fica fora de âmbito a pré-validação de prestação (`V118`) e do `montanteMaximoDeficiente`. Prova: `DOSSIE-BANCOS.md` (secção do Novo Banco) e os testes do `novobanco`.
 
 ## Onde estamos
 
