@@ -49,7 +49,7 @@ func TestAoVivoONovoBancoResponde(t *testing.T) {
 
 	// Sem Timeout no cliente, de propósito: o prazo é o do ctx, e dois prazos a
 	// competir tornam difícil explicar quem desistiu primeiro.
-	banco := novobanco.Novo(transporte.NovoCliente(nil))
+	banco := novobanco.Novo(transporte.NovoCliente(nil), nil)
 
 	for _, c := range casos {
 		t.Run(c.nome, func(t *testing.T) {
@@ -85,7 +85,7 @@ func TestAoVivoOPrazoMaximoVemDentroDoErro(t *testing.T) {
 	p := pedidoBase()
 	p.PrazoAnos = 40 // o titular de 1990 não chega lá: o contrato acabaria depois dos 75
 
-	oferta, err := novobanco.Novo(transporte.NovoCliente(nil)).Simular(ctx, p)
+	oferta, err := novobanco.Novo(transporte.NovoCliente(nil), nil).Simular(ctx, p)
 	if err != nil {
 		t.Fatalf("Simular ao vivo: %v", err)
 	}

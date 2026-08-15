@@ -338,3 +338,166 @@ func ilegivel(oQue string, err error) error {
 		Mensagem: fmt.Sprintf("Não se conseguiu ler %s da resposta do Novo Banco: %v", oQue, err),
 	}
 }
+
+// --- os limites do /configuracoes (KAN-37) ------------------------------------
+
+// configuracoes é o que o GET /configuracoes publica: a lista dos limites com
+// que o banco simula.
+//
+// ⚠️ Os limites vêm DO BANCO e não de constantes nossas — é o mesmo padrão do
+// /credit_limit do Santander e do /limits da CGD: uma tabela nossa envelhecia
+// em silêncio. Zero é "o banco não o deu", e cada verificação salta o limite
+// que vier a zero: falha aberto por limite.
+type configuracoes struct {
+	Limites limites
+}
+
+type limites struct {
+	MontanteMinimo dominio.Dinheiro
+	MontanteMaximo dominio.Dinheiro
+	ImovelMinimo   dominio.Dinheiro
+	ImovelMaximo   dominio.Dinheiro
+	IdadeMinima    int
+	IdadeMaxima    int
+}
+
+// configuracoesResposta é a forma bruta do /configuracoes, só para o
+// json.Unmarshal. Os números vêm como json.Number e convertem-se por dinheiro e
+// inteiro — nunca por float64, que é a regra de dominio/dinheiro.go.
+type configuracoesResposta struct {
+	Data *struct {
+		Limites *struct {
+			MontanteFinanciarMinimo json.Number `json:"montanteFinanciarMinimo"`
+			MontanteFinanciarMaximo json.Number `json:"montanteFinanciarMaximo"`
+			ValorImovelMinimo       json.Number `json:"valorImovelMinimo"`
+			ValorImovelMaximo       json.Number `json:"valorImovelMaximo"`
+			IdadeMinima             json.Number `json:"idadeMinima"`
+			IdadeMaxima             json.Number `json:"idadeMaxima"`
+		} `json:"limites"`
+	} `json:"data"`
+}
+
+// lerConfiguracoes traduz o corpo do /configuracoes nos limites com que o banco
+// simula. É pura: dados para dados, sem rede, sem relógio.
+//
+// ⚠️ Um limite que não se leia não derruba os outros — fica a zero, que é o
+// mesmo que o banco não o ter publicado, e a verificação correspondente
+// simplesmente não se faz.
+func lerConfiguracoes(corpo []byte) (configuracoes, error) {
+	var r configuracoesResposta
+	if err := json.Unmarshal(corpo, &r); err != nil {
+		return configuracoes{}, ilegivel("os limites", err)
+	}
+	if r.Data == nil || r.Data.Limites == nil {
+		return configuracoes{}, &dominio.ErroOferta{
+			Codigo:   dominio.ErroRespostaIlegivel,
+			Mensagem: "O Novo Banco respondeu sem limites nenhuns.",
+		}
+	}
+
+	l := r.Data.Limites
+	var cfg configuracoes
+	if d, err := dinheiro(l.MontanteFinanciarMinimo); err == nil && d != nil {
+		cfg.Limites.MontanteMinimo = *d
+	}
+	if d, err := dinheiro(l.MontanteFinanciarMaximo); err == nil && d != nil {
+		cfg.Limites.MontanteMaximo = *d
+	}
+	if d, err := dinheiro(l.ValorImovelMinimo); err == nil && d != nil {
+		cfg.Limites.ImovelMinimo = *d
+	}
+	if d, err := dinheiro(l.ValorImovelMaximo); err == nil && d != nil {
+		cfg.Limites.ImovelMaximo = *d
+	}
+	if i, ok := inteiro(l.IdadeMinima); ok {
+		cfg.Limites.IdadeMinima = i
+	}
+	if i, ok := inteiro(l.IdadeMaxima); ok {
+		cfg.Limites.IdadeMaxima = i
+	}
+	return cfg, nil
+}
+
+// temLimites diz se o corpo tinha ao menos um limite para verificar. Separa um
+// /configuracoes útil de uma resposta vazia, e é o que impede que se guarde em
+// catálogo — e sirva durante a validade — uma tabela sem nada dentro.
+func (c configuracoes) temLimites() bool {
+	l := c.Limites
+	return l.MontanteMinimo.Positivo() || l.MontanteMaximo.Positivo() ||
+		l.ImovelMinimo.Positivo() || l.ImovelMaximo.Positivo() ||
+		l.IdadeMinima > 0 || l.IdadeMaxima > 0
+}
+
+// inteiro lê um número de JSON que é de facto um inteiro. Um campo ausente vem
+// como json.Number vazia, e isso é "o banco não o deu".
+func inteiro(n json.Number) (int, bool) {
+	if n.String() == "" {
+		return 0, false
+	}
+	i, err := strconv.Atoi(n.String())
+	if err != nil {
+		return 0, false
+	}
+	return i, true
+}
+
+// verificarConfiguracoes recusa antes de ir à rede o que os limites do banco já
+// dizem que não passa — é o critério de pronto do KAN-37: um pedido abaixo do
+// mínimo recusado **sem ida ao /calculo**, com uma mensagem que nomeia o limite
+// e o valor.
+//
+// ⚠️ Manda o titular mais velho, a mesma idade que aperta o prazo; sem
+// titulares (idade zero) a verificação por idade desliga-se.
+func verificarConfiguracoes(cfg configuracoes, p dominio.Pedido, idade int) *dominio.ErroOferta {
+	l := cfg.Limites
+
+	if l.MontanteMinimo.Positivo() && p.Montante.Cmp(l.MontanteMinimo) < 0 {
+		return &dominio.ErroOferta{
+			Codigo: dominio.ErroProdutoIndisponivel,
+			Mensagem: fmt.Sprintf(
+				"O Novo Banco não financia menos de %s € (pedido: %s €).",
+				l.MontanteMinimo.ParaPessoa(), p.Montante.ParaPessoa()),
+		}
+	}
+	if l.MontanteMaximo.Positivo() && p.Montante.Cmp(l.MontanteMaximo) > 0 {
+		return &dominio.ErroOferta{
+			Codigo: dominio.ErroProdutoIndisponivel,
+			Mensagem: fmt.Sprintf(
+				"O Novo Banco não financia mais de %s € (pedido: %s €).",
+				l.MontanteMaximo.ParaPessoa(), p.Montante.ParaPessoa()),
+		}
+	}
+	if l.ImovelMinimo.Positivo() && p.ValorImovel.Cmp(l.ImovelMinimo) < 0 {
+		return &dominio.ErroOferta{
+			Codigo: dominio.ErroProdutoIndisponivel,
+			Mensagem: fmt.Sprintf(
+				"O Novo Banco não simula imóveis abaixo de %s € (o imóvel do pedido vale %s €).",
+				l.ImovelMinimo.ParaPessoa(), p.ValorImovel.ParaPessoa()),
+		}
+	}
+	if l.ImovelMaximo.Positivo() && p.ValorImovel.Cmp(l.ImovelMaximo) > 0 {
+		return &dominio.ErroOferta{
+			Codigo: dominio.ErroProdutoIndisponivel,
+			Mensagem: fmt.Sprintf(
+				"O Novo Banco não simula imóveis acima de %s € (o imóvel do pedido vale %s €).",
+				l.ImovelMaximo.ParaPessoa(), p.ValorImovel.ParaPessoa()),
+		}
+	}
+	if l.IdadeMinima > 0 && idade > 0 && idade < l.IdadeMinima {
+		return &dominio.ErroOferta{
+			Codigo: dominio.ErroProdutoIndisponivel,
+			Mensagem: fmt.Sprintf(
+				"O Novo Banco exige pelo menos %d anos de idade (o titular mais velho tem %d).",
+				l.IdadeMinima, idade),
+		}
+	}
+	if l.IdadeMaxima > 0 && idade > l.IdadeMaxima {
+		return &dominio.ErroOferta{
+			Codigo: dominio.ErroProdutoIndisponivel,
+			Mensagem: fmt.Sprintf(
+				"O Novo Banco não simula acima dos %d anos de idade (o titular mais velho tem %d).",
+				l.IdadeMaxima, idade),
+		}
+	}
+	return nil
+}

@@ -139,13 +139,18 @@ func (r *Registo) Todos(ts Transportes) ([]Banco, error) {
 func Predefinido() *Registo {
 	r := NovoRegisto()
 	registarOuExplodir(r, bancoctt.IDBanco, func(ts Transportes) Banco { return bancoctt.Novo(ts.HTTP) })
-	// ⚠️ A CGD é o único que recebe os catálogos, e é por ela publicar os
-	// períodos de taxa fixa dentro de uma página de 73,5 KiB (KAN-36).
+	// ⚠️ A CGD e o Novo Banco recebem os catálogos: a CGD publica os períodos
+	// de taxa fixa dentro de uma página de 73,5 KiB (KAN-36), e o Novo Banco os
+	// limites do /configuracoes (KAN-37).
 	registarOuExplodir(r, cgd.BancoID, func(ts Transportes) Banco {
 		return cgd.Novo(ts.HTTP, ts.Catalogos)
 	})
 	registarOuExplodir(r, montepio.BancoID, func(ts Transportes) Banco { return montepio.Novo(ts.ComSessao) })
-	registarOuExplodir(r, novobanco.BancoID, func(ts Transportes) Banco { return novobanco.Novo(ts.HTTP) })
+	// ⚠️ O Novo Banco também recebe os catálogos: o /configuracoes publica os
+	// limites que se verificam antes do /calculo (KAN-37).
+	registarOuExplodir(r, novobanco.BancoID, func(ts Transportes) Banco {
+		return novobanco.Novo(ts.HTTP, ts.Catalogos)
+	})
 	registarOuExplodir(r, santander.IDBanco, func(ts Transportes) Banco { return santander.Novo(ts.HTTP) })
 	return r
 }

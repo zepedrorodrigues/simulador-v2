@@ -72,7 +72,7 @@ func TestFidelidadeDoQueGuardamosFaceAoQueOBancoRespondeu(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			grav := &gravadorNB{real: transporte.NovoCliente(nil)}
-			banco := novobanco.Novo(grav)
+			banco := novobanco.Novo(grav, nil)
 
 			for c := range entrada {
 				grav.reiniciar()
