@@ -2,8 +2,9 @@
 //
 // O mais simples dos dez: HTTP puro, same-origin, **sem autenticação nenhuma** —
 // sem chave, sem cookies, sem CSRF, sem reCAPTCHA — e sem pedir um único dado
-// pessoal. Três pedidos: o HTML da página (de onde saem os períodos de taxa
-// fixa), o /limits (elegibilidade) e o /calculate (a simulação).
+// pessoal. Dois pedidos: o /limits (elegibilidade) e o /calculate (a simulação);
+// o HTML da página (de onde saem os períodos de taxa fixa) só volta a ser pedido
+// quando não há catálogo guardado (KAN-36).
 //
 // O que este pacote sabe sobre a CGD foi medido a 2026-07-26 contra o simulador
 // a sério, e está gravado em `capturas/`. Onde um comentário diz "medido", há
