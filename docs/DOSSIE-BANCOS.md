@@ -430,7 +430,15 @@ A regra que daqui saiu: **publica-se o spread da última fase indexada**. A mesm
 
 **Produtos:** `bpi:vendas_associadas`, **desligado**.
 
-⚠️ **Antes de escrever este banco, gastar meio dia a procurar a API por baixo.** O OutSystems expõe *screen services*; o Banco CTT e o Crédito Agrícola acabaram ambos em HTTP puro abaixo de 2,5 s por essa via. Se existir, os 52 s colapsam para \~2 s **e** a instabilidade desaparece com eles. Se não existir, usar selectores estruturados e esperas por elemento — nunca esperas por tempo nem recorte de texto.
+⚠️ **Investigação concluída (KAN-21, 2026-08-16): não há API JSON.** Captura de tráfego de rede confirmou que toda a comunicação com o BPI é via postbacks OutSystems AJAX (`__OSVSTATE` + `application/x-www-form-urlencoded`), retornando fragmentos HTML via `OsJSONUpdate()`. Não há nenhum endpoint `/rest/` para lógica de simulação — o único pedido XHR não-postback é `/PerformanceProbe/rest/BeaconInternal/WebScreenClientExecutedEvent`, que é telemetria OutSystems.
+
+Fluxo da simulação:
+1. `Simulacao.aspx` — formulário com campos: modalidade (1-7), valor pedido, prazo, valor escritura, valor imóvel, data nascimento (×2), tipo propriedade, distrito
+2. Postback AJAX → `ResultadoSimulacao.aspx?IdSimulacao=N`
+3. Resultados vêm em HTML: Prestação (1.161,63 EUR com vendas / 1.300,29 EUR base), TAEG (4,4% / 5,1%), spread 0,850% / 1,600%, TAN 3,497% / 4,247%, Euribor 6M 2,647%
+4. 7 "vendas associadas facultativas", cada uma reduz 0,25% (máx 0,75%)
+
+**Conclusão:** o scraper do BPI terá de ser browser-based (Playwright/Puppeteer) com selectores CSS estruturados — nunca `innerText` + regex como o v1. A optimização passa por: (a) esperas por elemento, (b) extrair valores de spans com classes específicas, (c) capturar os postbacks necessários e reenviar com `__OSVSTATE` actualizado.
 
 ---
 

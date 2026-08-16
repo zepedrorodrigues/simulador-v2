@@ -69,22 +69,42 @@ O OutSystems pode expor "screen services" que são a mesma lógica da tela acess
 
 ## Conclusão
 
-**Inconclusivo.** Não há evidência de que o BPI tem uma API JSON, mas também não há evidência de que não tem.
+**Não há API JSON.** Captura de tráfego de 2026-08-16 confirma:
 
-**Para confirmar, é necessário:**
-1. Abrir o site do BPI no browser
-2. Abrir DevTools → Network
-3. Fazer uma simulação completa
-4. Procurar por chamadas XHR/fetch que retornem JSON (em vez de HTML/postback)
+### Os 3 tipos de pedido observados
 
-Se existirem essas chamadas, o scraper pode ser reescrito em HTTP puro (~2 s). Se não existirem, o caminho é browser com selectores estruturados (nunca esperas por tempo nem recorte de texto).
+1. **`/PerformanceProbe/rest/BeaconInternal/WebScreenClientExecutedEvent`** — telemetria OutSystems (rastreio de eventos client-side). Não é simulação.
 
-## Próximos passos
+2. **`Simulacao.aspx` AJAX postbacks** — form submissions com `__OSVSTATE` (viewstate criptografado). Resposta: JavaScript com `OsJSONUpdate()` que contém **fragmentos HTML**, não JSON. Content-Type: `text/html`.
 
-1. **Captura manual de tráfego** — alguém precisa de fazer uma simulação no browser e gravar o que a rede envia/recebe
-2. **Se JSON encontrado:** identificar endpoints, parâmetros e respostas; seguir CONTRATO-BANCO.md §3
-3. **Se apenas postbacks:** documentar a conclusão e avançar com browser + selectores estruturados
+3. **`ResultadoSimulacao.aspx` AJAX postbacks** — mesma mecânica: `__OSVSTATE` in, fragmento HTML out. Content-Type: `text/html`.
+
+### O que o BPI retorna
+
+O "JSON" nas respostas é na verdade código JavaScript que chama `OsJSONUpdate({outers: {...}, hidden: {...}, js: [...]})`. Isto é o mecanismo AJAX do OutSystems a actualizar o DOM com **novos fragmentos HTML** — não é uma API REST a retornar dados estruturados.
+
+Exemplo real da resposta:
+```javascript
+OsJSONUpdate({
+    "outers": {
+        "BPIWeb_Theme_..._wtctnResultado": {
+            "inner": "<div class=\"credito-habitacao\">...HTML com valores...</div>",
+            "attributes": { "id": "..." }
+        }
+    },
+    "hidden": { "__OSVSTATE": "..." }
+})
+```
+
+Os valores (prestação, TAEG, MTIC) vêm **embebidos no HTML**, não como campos JSON separados.
+
+### Caminho para o v2
+
+O scraper do BPI terá de ser **browser-based** (Playwright/Puppeteer), como o v1. A optimização passa por:
+- Selectores CSS estruturados (nunca `innerText` + regex)
+- Esperas por elemento (nunca `sleep` fixo)
+- Extrair valores dos spans com classes específicas (ex: `.value-container-value`, `.account-name`)
 
 ---
 
-*Este documento é uma investigação, não uma conclusão. A conclusão depende de dados que só um browser pode fornecer.*
+*Conclusão baseada em captura de tráfego de rede de 2026-08-16.*

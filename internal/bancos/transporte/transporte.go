@@ -150,3 +150,34 @@ var (
 	_ HTTPSimples   = (*Cliente)(nil)
 	_ HTTPComSessao = (*ClienteComSessao)(nil)
 )
+
+// BrowserComoCliente é o Bankinter (Cloudflare) e o BPI (formulário OutSystems).
+// O browser abre a página, executa o callback que conduz o formulário, e devolve
+// o HTML da página como resultado.
+//
+// ⚠️ Este é o transporte mais caro e lento: cada simulação arranca um browser
+// headless. A optimização passa por reaproveitar o browser entre simulações
+// quando possível — mas isso é detalhe da infra, não do banco.
+type BrowserComoCliente interface {
+	// Executar abre o browser, navega para url, executa o callback, e devolve
+	// o HTML da página no fim.
+	//
+	// O callback recebe um context.Context e uma referência opaca à página.
+	// O banco usa essa referência para interagir com a página (preencher
+	// formulários, clicar, esperar por elementos).
+	//
+	// ⚠️ O callback é chamado dentro do prazo de ctx. Um banco que ignore o
+	// cancelamento segura o varrimento inteiro.
+	Executar(ctx context.Context, url, userAgent string, callback func(ctx context.Context, page interface{}) error) (string, error)
+}
+
+// BrowserParaCredencial é o ActivoBank e o Millennium BCP: o browser abre
+// a página apenas para cunhar um token OAuth, e a simulação é HTTP.
+type BrowserParaCredencial interface {
+	// CunharToken abre o browser, navega para url, e devolve os headers
+	// de autenticação que o browser extraiu da página.
+	//
+	// ⚠️ O token é válido por um tempo limitado. A infra decide quando
+	// revalidar.
+	CunharToken(ctx context.Context, url, userAgent string) (http.Header, error)
+}

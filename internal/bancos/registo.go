@@ -6,6 +6,7 @@ import (
 	"slices"
 
 	"github.com/zepedrorodrigues/simulador-v2/internal/bancos/bancoctt"
+	"github.com/zepedrorodrigues/simulador-v2/internal/bancos/bpi"
 	"github.com/zepedrorodrigues/simulador-v2/internal/bancos/cgd"
 	"github.com/zepedrorodrigues/simulador-v2/internal/bancos/montepio"
 	"github.com/zepedrorodrigues/simulador-v2/internal/bancos/novobanco"
@@ -23,6 +24,12 @@ import (
 type Transportes struct {
 	HTTP      transporte.HTTPSimples
 	ComSessao transporte.HTTPComSessao
+
+	// Browser é o transporte para bancos que precisam de um browser headless
+	// para conduzir formulários (BPI, Bankinter).
+	//
+	// ⚠️ Nulo desliga: bancos que precisam de browser ficam indisponíveis.
+	Browser transporte.BrowserComoCliente
 
 	// Catalogos é onde ficam os parâmetros que os bancos publicam (KAN-36).
 	//
@@ -152,6 +159,15 @@ func Predefinido() *Registo {
 		return novobanco.Novo(ts.HTTP, ts.Catalogos)
 	})
 	registarOuExplodir(r, santander.IDBanco, func(ts Transportes) Banco { return santander.Novo(ts.HTTP) })
+	// ⚠️ O BPI precisa do browser para conduzir o formulário OutSystems.
+	// Sem ele, o construtor devolve nil e o registo funciona — mas o banco
+	// fica indisponível quando se tenta simulá-lo.
+	registarOuExplodir(r, bpi.IDBanco, func(ts Transportes) Banco {
+		if ts.Browser == nil {
+			return nil
+		}
+		return bpi.Novo(ts.Browser)
+	})
 	return r
 }
 
