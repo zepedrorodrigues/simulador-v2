@@ -1,0 +1,72 @@
+Simulador Crédito Habitação
+	Voltar
+Escolha a melhor solução para si
+Taxa Variável
+Valor com vendas associadas facultativas (contratado)
+Prestação
+/mês
+897
+,75
+EUR
+TAEG
+4,4%
+Valor sem vendas associadas facultativas (base)
+Prestação
+/mês
+983
+,53
+EUR
+TAEG
+5,1%
+Modalidade de Taxa
+Taxa Fixa
+Taxa Fixa Prestação Crescente
+Taxa Mista - Período Taxa Fixa 3 anos
+Taxa Mista - Período Taxa Fixa 5 anos
+Taxa Mista - Período Taxa Fixa 10 anos
+Taxa Variável
+Quero Pedir
+EUR
+200.000
+Prazo do Empréstimo
+ANOS
+30
+Valor da Escritura
+EUR
+222.223
+Valor do Imóvel
+EUR
+235.295
+Informação Adicional
+Ficha de Informação Pré-contratual Geral
+Ficha de Informação Garantia Pública Crédito Habitação Jovem
+Código de Conduta
+Documentação
+Fiscalidade
+Agente de Seguros
+Informação Legal
+Política de privacidade
+Gestão de cookies
+Taxa Fixa
+
+Em 40 anos, muda tudo menos a prestação da casa. A taxa fixa do Crédito Habitação BPI dá-lhe segurança em todas as prestações (sem surpresas ou subidas da Euribor).
+
+Conheça a taxa fixa BPI
+
+Taxa Variável 
+
+Prestações constantes, que dependem da taxa de juro. Pague o crédito até 40 anos. Garanta prestações reduzidas e amortize a qualquer altura.
+
+Conheça a taxa variável
+
+Quero o spread reduzido
+
+Para a redução do spread é necessária a aquisição (ou posse atual) de alguns produtos. O valor máximo da redução é 0,75%, obtido com a seleção de produtos de vendas associadas facultativas.
+
+Qual o valor máximo que posso pedir?
+
+Entre o valor da escritura e o da avaliação considera-se o menor. É sobre este valor que o BPI calcula o montante máximo que o Cliente pode pedir.
+
+A partir de que valor posso pedir o crédito?
+
+Se quer compar casa ou apartamento, pode pedir 30.000 € ou mais. Se quer construir ou fazer obras, pode pedir 15.000 € ou mais.
