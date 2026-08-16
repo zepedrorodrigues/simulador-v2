@@ -47,7 +47,7 @@ func (b *BrowserPlaywright) Executar(
 	if err != nil {
 		return "", fmt.Errorf("browser: %w", err)
 	}
-	defer browser.Close()
+	defer func() { _ = browser.Close() }()
 
 	page, err := browser.NewPage()
 	if err != nil {

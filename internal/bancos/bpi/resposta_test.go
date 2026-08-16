@@ -183,7 +183,7 @@ func TestLerRespostaSemVendas(t *testing.T) {
 // TestParsePT testa o parser de números em formato português.
 func TestParsePT(t *testing.T) {
 	casos := []struct {
-		entrada string
+		entrada  string
 		esperado float64
 	}{
 		{"897,75", 897.75},

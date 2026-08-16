@@ -169,12 +169,10 @@ func (b *Banco) conduzirFormulario(ctx context.Context, page interface{}, p domi
 		return fmt.Errorf("goto: %w", err)
 	}
 
-	// Esperar que a página carregue
-	if err := pg.WaitForLoadState(playwright.PageWaitForLoadStateOptions{
+	// Esperar que a página carregue — timeout é ignorado, como no v1
+	_ = pg.WaitForLoadState(playwright.PageWaitForLoadStateOptions{
 		State: playwright.LoadStateNetworkidle,
-	}); err != nil {
-		// Continuar mesmo com timeout — como no v1
-	}
+	})
 
 	// Aceitar cookies se aparecerem
 	for _, nome := range []string{"Concordar com todos", "Aceitar"} {
@@ -211,7 +209,9 @@ func (b *Banco) conduzirFormulario(ctx context.Context, page interface{}, p domi
 		if err := el.Fill(""); err != nil {
 			return fmt.Errorf("fill vazio em %s: %w", suffix, err)
 		}
-		if err := el.Type(value, playwright.LocatorTypeOptions{Delay: playwright.Float(25)}); err != nil {
+		if err := el.PressSequentially(value, playwright.LocatorPressSequentiallyOptions{
+			Delay: playwright.Float(25),
+		}); err != nil {
 			return fmt.Errorf("type em %s: %w", suffix, err)
 		}
 		if err := el.Press("Tab"); err != nil {

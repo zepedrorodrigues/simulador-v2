@@ -26,7 +26,7 @@ func TestCapturarBPI(t *testing.T) {
 	if err != nil {
 		t.Fatalf("playwright: %v", err)
 	}
-	defer pw.Stop()
+	defer func() { _ = pw.Stop() }()
 
 	browser, err := pw.Chromium.Launch(playwright.BrowserTypeLaunchOptions{
 		Headless: playwright.Bool(true),
@@ -34,7 +34,7 @@ func TestCapturarBPI(t *testing.T) {
 	if err != nil {
 		t.Fatalf("browser: %v", err)
 	}
-	defer browser.Close()
+	defer func() { _ = browser.Close() }()
 
 	page, err := browser.NewPage()
 	if err != nil {
@@ -91,7 +91,9 @@ func TestCapturarBPI(t *testing.T) {
 		if err := el.Fill(""); err != nil {
 			return fmt.Errorf("fill vazio em %s: %w", suffix, err)
 		}
-		if err := el.Type(value, playwright.LocatorTypeOptions{Delay: playwright.Float(25)}); err != nil {
+		if err := el.PressSequentially(value, playwright.LocatorPressSequentiallyOptions{
+			Delay: playwright.Float(25),
+		}); err != nil {
 			return fmt.Errorf("type em %s: %w", suffix, err)
 		}
 		if err := el.Press("Tab"); err != nil {

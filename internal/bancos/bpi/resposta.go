@@ -50,12 +50,6 @@ var PeriodosFixosMista = []int{3, 5, 10}
 
 // regexp para extrair valores do HTML do BPI.
 var (
-	// Prestação do período fixo (mista): "Período Taxa Fixa (Prestação) /mês 1.161,63 EUR"
-	regexPrestacaoFixa = regexp.MustCompile(`Período Taxa Fixa \(Prestação\)\s*/mês\s*([\d\.\s]+,\d+)\s*EUR`)
-
-	// Prestação do período variável (mista): "Período Taxa Variável (Prestação) /mês 1.300,29 EUR"
-	regexPrestacaoVariavel = regexp.MustCompile(`Período Taxa Variável \(Prestação\)\s*/mês\s*([\d\.\s]+,\d+)\s*EUR`)
-
 	// Prestação única (fixa/variável): "Prestação /mês 897 ,75 EUR"
 	// Nota: o browser parte o número em linhas diferentes, depois normalizamos
 	// mas pode ficar "897 ,75" com espaço entre inteiro e decimal.
@@ -224,7 +218,7 @@ func extrairResultado(html string) (*resultadoExtraido, error) {
 	if m := regexEuribor.FindStringSubmatch(html); m != nil {
 		v, err := parsePT(m[2])
 		if err != nil {
-			return nil, fmt.Errorf("Euribor: %w", err)
+			return nil, fmt.Errorf("euribor: %w", err)
 		}
 		r.euriborMeses = atoi(m[1])
 		r.euriborValor = &v
@@ -421,7 +415,7 @@ func parsePT(s string) (float64, error) {
 
 func atoi(s string) int {
 	var v int
-	fmt.Sscanf(s, "%d", &v)
+	_, _ = fmt.Sscanf(s, "%d", &v)
 	return v
 }
 
