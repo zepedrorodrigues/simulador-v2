@@ -2,7 +2,7 @@
 
 Estado actual e próximos passos. ⚠️ **Sem changelog** — o relato de sessões não vive aqui. O `RESUME.md` do v1 chegou a 1317 linhas antes de ser esvaziado à força.
 
-**Actualizado:** 2026-08-15
+**Actualizado:** 2026-08-16
 
 ⚠️ **A §1 foi revertida: o pedido do cliente volta a ir ao banco.** Decidido a 2026-08-06, depois de um dia a confrontar o servido com dados reais. O porquê, com os números, está em `docs/DECISAO-AO-VIVO.md`.
 
@@ -42,11 +42,13 @@ Estado actual e próximos passos. ⚠️ **Sem changelog** — o relato de sess�
 
 ✅ **O Novo Banco passou a validar os limites em casa** (2026-08-15, `KAN-37`): o v2 pede o `GET /configuracoes` antes do `/calculo`, guarda o corpo em `catalogos_de_banco` (24 h) e recusa em casa — mensagem a nomear o limite e o valor — montante ou imóvel fora dos mínimos/máximos e titular acima dos 75. **Falha aberto**: endpoint em baixo ou ilegível, simula-se na mesma; o `/calculo` é a autoridade. Fica fora de âmbito a pré-validação de prestação (`V118`) e do `montanteMaximoDeficiente`. Prova: `DOSSIE-BANCOS.md` (secção do Novo Banco) e os testes do `novobanco`.
 
+✅ **O BPI está implementado** (2026-08-16): scraper browser-based com Playwright, formulário OutSystems, parser de resultados com variantes contratado/base. O `BrowserComoCliente` ficou de pé (`transporte/browser.go`) e o `Simular()` do BPI conduz o formulário: navega, aceita cookies, preenche montante/prazo/modalidade/proponentes/data nascimento/tipo propriedade/distrito, clica em Simular e espera pelos resultados. Parser extrai prestação e TAEG para cada variante. **Custo:** ~45 s por simulação (browser novo por pedido). ⚠️ **Falta decidir:** reutilizar browser entre simulações, ou manter por-pedido (atual) — a latência é a mesma ordem do Montepio.
+
 ## Onde estamos
 
 **O ciclo antigo fecha de ponta a ponta e corre em local** — varre, grava, lê, responde por HTTP, e a app mostra-o. ⚠️ **E é esse ciclo que se vai desmontar.**
 
-**Cinco bancos:** CGD, Novo Banco, Montepio, Banco CTT, Santander. Os parsers e as capturas **sobrevivem inteiros** e passam a ser o activo principal do repositório.
+**Seis bancos:** CGD, Novo Banco, Montepio, Banco CTT, Santander, BPI. Os parsers e as capturas **sobrevivem inteiros** e passam a ser o activo principal do repositório.
 
 **Fidelidade:** 3002 ofertas conferidas em cada banco, **zero divergências** em 147 098 comparações. ⚠️ Deixa de ser curiosidade e passa a ser a **garantia central**: é ela que diz que o que servimos é o que o banco disse.
 
@@ -85,7 +87,7 @@ Num só dia, quatro assunções do modelo de preço caíram contra dados varrido
 - **Vivas e agora centrais:** `KAN-7`, `KAN-14`. **Feita:** `KAN-58` (ex-`KAN-8`). **Continua morta:** `KAN-15` (quantização) — a cache voltou, ela não, e agora está recusada em código: a chave é o pedido exacto, e há teste a dizer que um cêntimo dá outra chave.
 
 - **`KAN-19`** (Crédito Agrícola) continua a fazer sentido: é um banco a mais para perguntar.
-- ⚠️ **Bancos de browser** (`KAN-20`, `KAN-21`) ficam **mais** caros com este desenho: um browser por pedido de cliente é outra ordem de grandeza.
+- ⚠️ **Bancos de browser** (`KAN-20`, `KAN-21`): o BPI está feito (2026-08-16), o Bankinter fica para depois. A latência é a mesma ordem do Montepio (~45 s), e a decisão de reutilizar browser fica por tomar.
 
 ### O estado do tracker
 
