@@ -253,7 +253,7 @@ func TestCapturarBPI(t *testing.T) {
 	body, err := page.Evaluate("() => document.body ? document.body.innerText : ''")
 	if err == nil {
 		if bodyStr, ok := body.(string); ok {
-			if err := os.WriteFile("capturas/variavel_30a_depois.txt", []byte(bodyStr), 0644); err != nil {
+			if err := os.WriteFile("capturas/variavel_30a_depois.txt", []byte(bodyStr), 0o644); err != nil {
 				t.Logf("aviso: WriteFile TXT depois falhou: %v", err)
 			}
 		}
@@ -286,7 +286,7 @@ func TestCapturarBPI(t *testing.T) {
 		t.Fatalf("marshal: %v", err)
 	}
 
-	if err := os.WriteFile("capturas/variavel_30a.json", jsonBytes, 0644); err != nil {
+	if err := os.WriteFile("capturas/variavel_30a.json", jsonBytes, 0o644); err != nil {
 		t.Fatalf("WriteFile JSON: %v", err)
 	}
 	t.Log("JSON guardado em capturas/variavel_30a.json")
@@ -295,10 +295,10 @@ func TestCapturarBPI(t *testing.T) {
 	if strings.Contains(bodyStr, "TAEG") && strings.Contains(bodyStr, "/mês") {
 		t.Log("resultados encontrados!")
 		// Guardar HTML e texto dos resultados
-		if err := os.WriteFile("capturas/variavel_30a.html", []byte(htmlDepois.(string)), 0644); err != nil {
+		if err := os.WriteFile("capturas/variavel_30a.html", []byte(htmlDepois.(string)), 0o644); err != nil {
 			t.Fatalf("WriteFile HTML: %v", err)
 		}
-		if err := os.WriteFile("capturas/variavel_30a.txt", []byte(bodyStr), 0644); err != nil {
+		if err := os.WriteFile("capturas/variavel_30a.txt", []byte(bodyStr), 0o644); err != nil {
 			t.Fatalf("WriteFile TXT: %v", err)
 		}
 	} else {
