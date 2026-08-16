@@ -28,6 +28,20 @@ func (t TipoTaxa) Valido() bool {
 // TemPeriodoFixo diz se a modalidade tem uma fase de taxa fixa.
 func (t TipoTaxa) TemPeriodoFixo() bool { return t == TaxaFixa || t == TaxaMista }
 
+// BPI devolve o rótulo que o formulário BPI usa para esta modalidade.
+func (t TipoTaxa) BPI() string {
+	switch t {
+	case TaxaVariavel:
+		return "Taxa Variável"
+	case TaxaFixa:
+		return "Taxa Fixa"
+	case TaxaMista:
+		return "Taxa Mista"
+	default:
+		return "Taxa Variável"
+	}
+}
+
 // Finalidade é o destino do imóvel. Não é decorativa: no Novo Banco o
 // arrendamento mede-se em +0,50 p.p. de spread.
 type Finalidade string
