@@ -200,7 +200,7 @@ func TestCapturarBPI(t *testing.T) {
 	htmlAntes, err := page.Evaluate("() => document.body.innerHTML")
 	if err == nil {
 		if htmlStr, ok := htmlAntes.(string); ok {
-			if err := os.WriteFile("capturas/variavel_30a_antes.html", []byte(htmlStr), 0644); err != nil {
+			if err := os.WriteFile("capturas/variavel_30a_antes.html", []byte(htmlStr), 0o644); err != nil {
 				t.Logf("aviso: WriteFile HTML antes falhou: %v", err)
 			}
 		}
