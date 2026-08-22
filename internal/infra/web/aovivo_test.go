@@ -310,6 +310,85 @@ func TestALinhaDoPanicoCruzaSeComOPedido(t *testing.T) {
 	}
 }
 
+// TestUmaOfertaAjustadaSaiMarcadaEUmaDirectaNao (KAN-26).
+//
+// ⚠️ **A marca de que uma oferta foi simulada noutros termos é o próprio
+// `aplicado`** — presente só quando houve ajuste, com a nota ao lado a nomear os
+// números. Não há campo nenhum a mais de propósito: um `directamente_comparavel`
+// ao lado do `aplicado` era o mesmo facto com dois nomes, e um deles podia
+// divergir do outro em silêncio. O que aqui se afirma é que essa garantia cruza
+// a fronteira: o que a app recebe é este JSON, e é por ele — e não reimplementando
+// a regra do domínio — que distingue o que entra numa ordenação do que só se
+// apresenta com o desvio dito.
+//
+// ⚠️ As duas ofertas têm os mesmos números de propósito: se a única diferença
+// servida for a marca, é ela que a app usa. Reverter o preenchimento do
+// `aplicado` na tradução faz este teste falhar a nomear o banco ajustado — e não
+// «campo em falta».
+func TestUmaOfertaAjustadaSaiMarcadaEUmaDirectaNao(t *testing.T) {
+	tan := taxa(t, "3.250")
+	ajustada := servidorAoVivo(t, &bancoFalso{
+		id: "montepio", nome: "Montepio",
+		responder: func(context.Context, dominio.Pedido) (dominio.Oferta, error) {
+			o := dominio.Oferta{TAN: &tan}
+			o.Acrescentar(dominio.AjustePrazo(40, 35, "o Montepio financia até aos 80 anos"))
+			return o, nil
+		},
+	})
+	directa := servidorAoVivo(t, &bancoFalso{
+		id: "cgd", nome: "CGD",
+		responder: func(context.Context, dominio.Pedido) (dominio.Oferta, error) {
+			return dominio.Oferta{TAN: &tan}, nil
+		},
+	})
+
+	t.Run("a ajustada sai com aplicado e nota", func(t *testing.T) {
+		resposta := pedirOferta(t, ajustada, "montepio", corpoDeOferta(nil))
+		if resposta.Code != http.StatusOK {
+			t.Fatalf("estado %d: %s", resposta.Code, resposta.Body.String())
+		}
+		var o api.Oferta
+		lerJSON(t, resposta, &o)
+		if !o.Sucesso {
+			t.Fatalf("a oferta ajustada do Montepio saiu em falha: %+v", o.Erro)
+		}
+		if o.Aplicado == nil {
+			t.Fatal("o Montepio foi simulado a 35 anos quando se pediram 40 e a resposta não traz aplicado — ao lado das outras lê-se como se fosse o que foi pedido")
+		}
+		if prazo := (*o.Aplicado)["prazo_anos"]; prazo != float64(35) {
+			t.Errorf("aplicado[prazo_anos] = %v, o Montepio simulou 35", prazo)
+		}
+		if o.Notas == nil || len(*o.Notas) == 0 {
+			t.Fatal("o ajuste do Montepio saiu sem nota — sem o valor pedido, o desvio não é verificável")
+		}
+		for _, n := range *o.Notas {
+			if !strings.Contains(n, "40 anos") || !strings.Contains(n, "35 anos") {
+				t.Errorf("a nota do Montepio não nomeia o pedido nem o aplicado: %q", n)
+			}
+		}
+	})
+
+	t.Run("a directa sai sem a marca", func(t *testing.T) {
+		resposta := pedirOferta(t, directa, "cgd", corpoDeOferta(nil))
+		if resposta.Code != http.StatusOK {
+			t.Fatalf("estado %d: %s", resposta.Code, resposta.Body.String())
+		}
+		var o api.Oferta
+		lerJSON(t, resposta, &o)
+		if !o.Sucesso {
+			t.Fatalf("a oferta da CGD saiu em falha: %+v", o.Erro)
+		}
+		// Ao corpo cru e não só ao struct: `"aplicado"` no JSON é exactamente o
+		// que a app vê, e `produtos_aplicados` não pode fazer passar a procura.
+		if strings.Contains(resposta.Body.String(), "\"aplicado\"") {
+			t.Errorf("a CGD foi simulada exactamente com o pedido e a resposta trouxe aplicado: %s", resposta.Body.String())
+		}
+		if o.Aplicado != nil {
+			t.Errorf("uma oferta da CGD sem ajuste nenhum saiu com aplicado: %v", *o.Aplicado)
+		}
+	})
+}
+
 // bancoQueResponde é o construtor que o `ComAoVivo` recebe: devolve este banco
 // para o id dele, e o erro do registo para qualquer outro — que é o que faz o
 // 404 ser afirmável sem inventar um segundo caminho para lá chegar.
