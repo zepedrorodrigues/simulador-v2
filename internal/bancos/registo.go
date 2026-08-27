@@ -48,6 +48,12 @@ type Construtor func(Transportes) Banco
 // ErrBancoDesconhecido: pediu-se um id que não está registado.
 var ErrBancoDesconhecido = errors.New("banco desconhecido")
 
+// ErrBancoIndisponivel: o id está registado, mas o construtor não o monta com
+// os transportes que recebeu — é o BPI sem transporte de browser. Para quem
+// pede é indistinguível de um banco que não existe: não sai no `Todos`, logo
+// não sai no `GET /api/v1/bancos`.
+var ErrBancoIndisponivel = errors.New("banco indisponível com estes transportes")
+
 // Registo mapeia bancoID → construtor.
 //
 // É um valor e não uma variável de pacote de propósito: um registo global e
@@ -93,7 +99,7 @@ func (r *Registo) Construir(id string, ts Transportes) (Banco, error) {
 	}
 	b := c(ts)
 	if b == nil {
-		return nil, fmt.Errorf("o construtor de %q devolveu nada", id)
+		return nil, fmt.Errorf("%w: o construtor de %q devolveu nada", ErrBancoIndisponivel, id)
 	}
 	return b, nil
 }

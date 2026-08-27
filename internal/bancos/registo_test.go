@@ -123,8 +123,14 @@ func TestRegistoRecusaConstrutorQueDevolveNada(t *testing.T) {
 	r := bancos.NovoRegisto()
 	registarOuFalhar(t, r, "vazio", func(bancos.Transportes) bancos.Banco { return nil })
 
-	if _, err := r.Construir("vazio", transportesDeTeste()); err == nil {
+	_, err := r.Construir("vazio", transportesDeTeste())
+	if err == nil {
 		t.Fatal("construir passou com um construtor que devolve nada")
+	}
+	// ⚠️ Nomeado, e não um erro qualquer: a fronteira distingue-o de um id que
+	// não existe e de uma avaria nossa — é o que faz o BPI sem browser sair 404.
+	if !errors.Is(err, bancos.ErrBancoIndisponivel) {
+		t.Errorf("erro %v, esperava ErrBancoIndisponivel", err)
 	}
 }
 
