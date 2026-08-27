@@ -292,6 +292,9 @@ type VersaoDaApp = string
 // BancoOcupado defines model for BancoOcupado.
 type BancoOcupado = RespostaErro
 
+// ErroInterno defines model for ErroInterno.
+type ErroInterno = RespostaErro
+
 // PedidoInvalido defines model for PedidoInvalido.
 type PedidoInvalido = RespostaErro
 

@@ -9,11 +9,10 @@ import (
 
 // CORS: quem pode chamar esta API de dentro de um browser.
 //
-// ⚠️ Aplica-se a `/api/v1/*` e ao `/healthz`, e **não** ao `/api/rate-catalog`
-// (§6 do ARQUITETURA.md). Aquele endpoint autentica-se por `X-API-Key`, e uma
-// chave dentro de um bundle de browser é uma chave pública: qualquer pessoa a lê
-// nas ferramentas de programador. Não abrir a porta custa uma linha; confiar que
-// ninguém a atravessa custa a chave.
+// ⚠️ Aplica-se ao grupo de rotas para browsers — hoje todas (§6 do
+// ARQUITETURA.md). Uma rota autenticada por chave de máquina fica FORA do grupo:
+// uma chave dentro de um bundle de browser é uma chave pública. O
+// `/api/rate-catalog` era esse caso, e saiu a 2026-08-07.
 
 // OrigensDe lê a lista de origens permitidas da variável de ambiente.
 //

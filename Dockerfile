@@ -1,15 +1,15 @@
 # A imagem do serviço (KAN-22).
 #
 # ⚠️ **Sem Chromium, e é o maior ganho da reescrita.** O v1 precisava de 4-8 GB
-# de imagem, e quase tudo era o browser que quatro scrapers usavam. Aqui não há
-# banco de browser nenhum implementado, e o dia em que houver (KAN-20/21) é o dia
-# em que se decide se ele entra nesta imagem ou corre como serviço à parte — a
-# §5 já diz que a segunda saída está em cima da mesa. Até lá, o que não se
-# instala não se mantém, não se actualiza e não tem CVEs.
+# de imagem, e quase tudo era o browser que quatro scrapers usavam. ⚠️ **O BPI
+# (Playwright, 2026-08-16) não corre nesta imagem**: o `servir` não constrói o
+# transporte de browser, o registo devolve-o como indisponível, e ele não aparece
+# no `/api/v1/bancos`. Ligá-lo é a decisão da §5 — Chromium aqui dentro, ou um
+# serviço à parte — e até ela estar tomada o que não se instala não se mantém,
+# não se actualiza e não tem CVEs.
 #
-# ⚠️ **Uma imagem, os quatro subcomandos.** O mesmo binário serve, varre, migra e
-# reverte (`cmd/simulador`). Não há imagem do varrimento à parte: seriam duas
-# coisas para manter em dia, e o que as distingue é um argumento.
+# ⚠️ **Uma imagem, os três subcomandos.** O mesmo binário serve, migra e reverte
+# (`cmd/simulador`); o que os distingue é um argumento.
 
 # --- compilar -----------------------------------------------------------------------
 
@@ -51,8 +51,8 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 # 1024 — que é a razão de a porta ser 8080 e não 80.
 FROM gcr.io/distroless/static-debian12:nonroot
 
-# Os certificados vêm da imagem base, e são precisos: o varrimento fala HTTPS com
-# os simuladores dos bancos.
+# Os certificados vêm da imagem base, e são precisos: o caminho ao vivo fala
+# HTTPS com os simuladores dos bancos.
 COPY --from=construir /simulador /simulador
 
 # ⚠️ 0.0.0.0 aqui e só aqui. O default do binário é o loopback de propósito

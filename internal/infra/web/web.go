@@ -179,8 +179,7 @@ func (s *Servidor) Rotas() http.Handler {
 
 	// ⚠️ O RequestID vai em todas as respostas, e o Recoverer impede que um
 	// pânico nosso feche a ligação sem uma palavra. O Logger NÃO entra: ele
-	// regista a query string, e a §6 diz que ela leva chaves — o
-	// `/api/rate-catalog` autentica-se por `X-API-Key`.
+	// regista a query string, e o que lá cair fica no log (ver `registo.go`).
 	// ⚠️ A defesa entra PRIMEIRO, e o sítio é a decisão (KAN-46). Montada mais
 	// abaixo, punha os cabeçalhos nas respostas boas e não nas que o Recoverer
 	// e o `limitar` produzem — que são precisamente aquelas em que uma resposta

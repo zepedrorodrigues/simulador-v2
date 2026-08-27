@@ -5,9 +5,8 @@ import "net/http"
 // Os cabeçalhos de defesa (KAN-46). Quais, com que valores e porque é que o
 // HSTS NÃO sai daqui está na §3 do API.md.
 //
-// ⚠️ Aplicam-se a tudo, incluindo o `/api/rate-catalog`: acrescentar cabeçalhos
-// de resposta não toca no corpo, e aquela fronteira é congelada no corpo. O
-// teste de contrato confirma-o em vez de se assumir.
+// ⚠️ Aplicam-se a tudo, respostas de erro incluídas — é por isso que o middleware
+// é o primeiro da cadeia (ver `Rotas`).
 func defesa(seguinte http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		cabecalhos := w.Header()

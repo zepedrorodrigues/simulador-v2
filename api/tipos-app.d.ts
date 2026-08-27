@@ -281,6 +281,18 @@ export interface components {
             };
         };
         /**
+         * @description Rebentou uma coisa nossa e o pedido inteiro não se serviu. Código `erro_interno` — o mesmo que uma oferta em falha leva no `OfertaErro`, com alcance diferente (`docs/API.md` §1): ali falhou um banco e a lista continua a encher-se; aqui falhou o pedido. A `mensagem` não leva o interior do programa.
+         *     ⚠️ Estava a ser emitido sem estar declarado — a lotação sem resposta, o Recoverer, um construtor de banco que devolve nada. A app já o tratava como «o serviço não está a responder»; o contrato passa a dizê-lo.
+         */
+        ErroInterno: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["RespostaErro"];
+            };
+        };
+        /**
          * @description Já vão pedidos nossos a mais em curso contra este banco: o tecto de concorrência por banco está cheio (ARQUITETURA.md §7.2). Código `banco_ocupado`, e a resposta traz `Retry-After`.
          *     ⚠️ **Não confundir com a oferta em falha `banco_indisponivel`**, que vem com 200. Essa diz que o banco não respondeu; esta diz que quem não tem lugar somos nós, e o banco está bem. A distinção é para a app poder voltar a pedir este banco daqui a um instante em vez de o riscar da lista.
          */
@@ -333,6 +345,7 @@ export interface operations {
                 };
             };
             426: components["responses"]["VersaoDemasiadoAntiga"];
+            500: components["responses"]["ErroInterno"];
         };
     };
     ofertaDeUmBanco: {
@@ -378,6 +391,7 @@ export interface operations {
             };
             426: components["responses"]["VersaoDemasiadoAntiga"];
             429: components["responses"]["TectoExcedido"];
+            500: components["responses"]["ErroInterno"];
             503: components["responses"]["BancoOcupado"];
         };
     };
