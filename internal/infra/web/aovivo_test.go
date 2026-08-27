@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -166,6 +167,30 @@ func TestUmIdQueNaoEBancoNenhumNoCaminhoEUm404(t *testing.T) {
 	}
 	if !strings.Contains(e.Erro.Mensagem, "banco-que-nunca-existiu") {
 		t.Errorf("a mensagem não diz qual o id que não existe: %q", e.Erro.Mensagem)
+	}
+}
+
+// TestUmBancoRegistadoSemTransporteEUm404: o BPI está no registo mas o `servir`
+// não lhe dá browser, e o construtor devolve nada. Saía `500 erro_interno` — a
+// afirmar que estávamos avariados — para um banco que o `GET /api/v1/bancos` nem
+// lista. Para quem pede, é um banco que não existe aqui.
+func TestUmBancoRegistadoSemTransporteEUm404(t *testing.T) {
+	s := servidor(t).ComAoVivo(func(string) (bancos.Banco, error) {
+		return nil, fmt.Errorf("%w: o construtor de %q devolveu nada", bancos.ErrBancoIndisponivel, "bpi")
+	}, 50*time.Millisecond)
+
+	resposta := pedirOferta(t, s, "bpi", corpoDeOferta(nil))
+	if resposta.Code != http.StatusNotFound {
+		t.Fatalf("estado %d, esperava 404: %s", resposta.Code, resposta.Body.String())
+	}
+
+	var e api.RespostaErro
+	lerJSON(t, resposta, &e)
+	if e.Erro.Codigo != "banco_desconhecido" {
+		t.Errorf("código %q — um banco sem transporte não é uma avaria nossa", e.Erro.Codigo)
+	}
+	if !strings.Contains(e.Erro.Mensagem, `"bpi"`) {
+		t.Errorf("a mensagem não nomeia o banco: %q", e.Erro.Mensagem)
 	}
 }
 

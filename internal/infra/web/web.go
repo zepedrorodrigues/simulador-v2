@@ -423,6 +423,14 @@ func (s *Servidor) ofertaDeUmBanco(w http.ResponseWriter, r *http.Request) {
 				fmt.Sprintf("Não há banco nenhum com o id %q.", id))
 			return
 		}
+		// ⚠️ **404 e não 500.** Um banco registado sem o transporte de que precisa
+		// (o BPI sem browser) não sai no `GET /api/v1/bancos`; para quem pede, não
+		// existe neste servidor. Um 500 dizia «estamos avariados», e não estamos.
+		if errors.Is(err, bancos.ErrBancoIndisponivel) {
+			erro(w, http.StatusNotFound, "banco_desconhecido",
+				fmt.Sprintf("O banco %q não é servido por este servidor.", id))
+			return
+		}
 		erro(w, http.StatusInternalServerError, "erro_interno",
 			fmt.Sprintf("Não se conseguiu preparar o pedido ao banco: %v", err))
 		return
