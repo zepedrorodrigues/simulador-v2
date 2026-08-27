@@ -74,6 +74,8 @@ paths:
                 $ref: "#/components/schemas/BancosResposta"
         "426":
           $ref: "#/components/responses/VersaoDemasiadoAntiga"
+        "500":
+          $ref: "#/components/responses/ErroInterno"
 
   /api/v1/ofertas/{banco}:
     post:
@@ -130,6 +132,8 @@ paths:
           $ref: "#/components/responses/TectoExcedido"
         "503":
           $ref: "#/components/responses/BancoOcupado"
+        "500":
+          $ref: "#/components/responses/ErroInterno"
 
   /healthz:
     get:
@@ -211,6 +215,21 @@ components:
           description: Segundos a esperar antes de repetir.
           schema:
             type: integer
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/RespostaErro"
+    ErroInterno:
+      description: >-
+        Rebentou uma coisa nossa e o pedido inteiro não se serviu. Código
+        `erro_interno` — o mesmo que uma oferta em falha leva no `OfertaErro`,
+        com alcance diferente (`docs/API.md` §1): ali falhou um banco e a lista
+        continua a encher-se; aqui falhou o pedido. A `mensagem` não leva o
+        interior do programa.
+
+        ⚠️ Estava a ser emitido sem estar declarado — a lotação sem resposta, o
+        Recoverer, um construtor de banco que devolve nada. A app já o tratava
+        como «o serviço não está a responder»; o contrato passa a dizê-lo.
       content:
         application/json:
           schema:
