@@ -55,6 +55,21 @@ lint:
 teste:
 	go test -race ./...
 
+# O que se consegue correr numa máquina SEM Docker. Não é o portão e não o
+# substitui: os pacotes de integração sobem Postgres (e um Caddy) por
+# testcontainers, e sem Docker falham antes de afirmar seja o que for. Aqui
+# ficam de fora **e diz-se quais** — um alvo que os saltasse em silêncio passava
+# por verde o que não correu.
+#
+# A lista é escrita à mão e não descoberta: um pacote novo de integração que não
+# entre aqui FALHA neste alvo (sem Docker), que é o que se quer — nunca passa
+# por omissão.
+PRECISAM_DE_DOCKER := esquema limites lotacao cache catalogos
+teste-local:
+	go test -race $$(go list ./... | grep -vE '/internal/infra/($(subst $(eval) ,|,$(strip $(PRECISAM_DE_DOCKER))))$$' | grep -v '/internal/infra/web$$')
+	go test -race ./internal/infra/web/ -skip 'AtrasDeUmProxy'
+	@echo "AVISO: NAO correram, precisam de Docker: internal/infra/{$(PRECISAM_DE_DOCKER)} e os AtrasDeUmProxy* de internal/infra/web"
+
 # Os três alvos que tocam a rede dos bancos. NÃO entram no portão: dependem de
 # servidores de terceiros estarem de pé, e um portão que amarela por causa disso
 # deixa de ser lido.
