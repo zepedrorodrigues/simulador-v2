@@ -31,10 +31,10 @@ O desenho é versionado aqui, ao lado do código.
 
 | documento | o que decide |
 |---|---|
-| [`docs/ARQUITETURA.md`](docs/ARQUITETURA.md) | as quatro camadas, o modelo de dados, o varrimento e os portões. **Vinculativo** — quando o código diverge dele, um dos dois está errado |
+| [`docs/ARQUITETURA.md`](docs/ARQUITETURA.md) | as quatro camadas, o modelo de dados, a fatia ao vivo e os portões. **Vinculativo** — quando o código diverge dele, um dos dois está errado |
 | [`docs/CONTRATO-BANCO.md`](docs/CONTRATO-BANCO.md) | como se acrescenta um banco, e a disciplina de captura antes de código |
 | [`docs/DOSSIE-BANCOS.md`](docs/DOSSIE-BANCOS.md) | o que se apurou sobre cada um dos dez bancos |
-| [`docs/API.md`](docs/API.md) | as duas fronteiras HTTP e os seus estatutos diferentes |
+| [`docs/API.md`](docs/API.md) | a fronteira HTTP, os códigos de erro e o que cada um distingue |
 | [`docs/ECRAS.md`](docs/ECRAS.md) | os ecrãs da app React Native |
 | [`docs/APP.md`](docs/APP.md) | a stack da app e o que ela impõe ao servidor |
 | [`PLAN.md`](PLAN.md) | as seis fases e a ordem entre elas |
@@ -45,7 +45,8 @@ O desenho é versionado aqui, ao lado do código.
 | ferramenta | versão | onde está fixada |
 |---|---|---|
 | Go | 1.26.5 | `go.mod` (`go 1.26.5`) |
-| Node | 24.18.0 LTS | aqui — o `openapi-typescript` ainda não entrou |
+| Node | 24.18.0 LTS | `.nvmrc` — só para o `openapi-typescript` do `make gerar` |
+| `openapi-typescript` | 7.x | `package-lock.json` |
 | `sqlc` | 1.31.1 | `go.mod`, bloco `tool` |
 | `goose` | 3.27.3 | `go.mod`, bloco `tool` |
 | `golangci-lint` | 2.12.2 | `go.mod`, bloco `tool` |
@@ -53,7 +54,6 @@ O desenho é versionado aqui, ao lado do código.
 | `make` | GNU make | não fixado — só invoca; em Windows, `winget install ezwinports.make` |
 | PostgreSQL | 18.4 (`postgres:18.4-alpine`) | `docker-compose.yml` |
 | Docker Compose | v2+ | não fixado — o `make dev` usa `--wait`, que existe desde a v2 |
-| Node | 24.18.0 LTS | `.nvmrc` |
 
 As quatro ferramentas de geração e lint correm-se **pelo módulo**, não pelo
 `PATH`:
@@ -103,12 +103,15 @@ que só escuta no socket unix e é desligado a seguir. A razão está comentada 
 | Montepio | `montepio` | HTTP com sessão | implementado, confrontado ao vivo a 2026-07-27 |
 | Banco CTT | `bancoctt` | HTTP simples | implementado, confrontado ao vivo a 2026-07-28 |
 | Santander | `santander` | HTTP simples, config em runtime | implementado, confrontado ao vivo a 2026-07-28 |
+| BPI | `bpi` | browser como cliente (Playwright) | implementado a 2026-08-16, ⚠️ **não servido**: o `servir` não constrói o transporte de browser e a imagem não tem Chromium — não aparece no `/api/v1/bancos` |
 | Crédito Agrícola | `creditoagricola` | HTTP simples | por fazer |
+| Bankinter | — | browser como cliente | fase 3 |
 | ActivoBank, Millennium BCP | — | browser para credencial | fase 3 |
-| Bankinter, BPI | — | browser como cliente | fase 3 |
 
 A ordem é a da tabela: primeiro os de HTTP puro, sem browser, e por último os
-quatro que exigem browser.
+que exigem browser. ⚠️ Ligar um banco de browser ao `servir` é a decisão da §5
+do `ARQUITETURA.md` — Chromium na imagem, ou um serviço à parte — e ainda não
+está tomada.
 
 Cada banco corre offline nos testes, contra capturas reais versionadas em
 `internal/bancos/<banco>/capturas/`. O teste que bate no simulador a sério está

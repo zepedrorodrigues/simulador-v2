@@ -12,10 +12,10 @@ import (
 //
 // ⚠️ **Escrito à mão, e o `middleware.Logger` do chi continua de fora.** A razão
 // está no `Rotas()` desde que ele existe: aquele middleware regista o URL
-// **inteiro**, query string incluída, e a query string leva chaves — o
-// `/api/rate-catalog` autentica-se por `X-API-Key`, e um cliente distraído
-// pode pô-la no URL. Uma chave que entra num log é uma chave que não se apaga:
-// ela fica na plataforma, nos backups dela, e em quem os leia.
+// **inteiro**, query string incluída — e é na query string que um cliente
+// distraído põe uma chave ou um dado pessoal. Hoje não há chave nenhuma (o
+// `/api/rate-catalog` saiu a 2026-08-07), mas a regra fica: o que entra num log
+// não se apaga — fica na plataforma, nos backups dela, e em quem os leia.
 //
 // ⚠️ E `stdout` e mais nada. É o que o Fly, o Docker e qualquer plataforma
 // esperam recolher; um ficheiro dentro de um contentor não sobrevive ao

@@ -5,10 +5,9 @@
 # `fly deploy` lê — e é versionado precisamente para o deploy não depender de
 # ninguém se lembrar de uma opção na linha de comandos.
 #
-# ⚠️ **Nada de segredos aqui.** O `DATABASE_URL` e as `API_KEYS` entram por
-# `fly secrets set`, que os guarda encriptados e nunca os escreve no
-# repositório. O que está em `[env]` é configuração pública: quem a ler não
-# ganha acesso a nada.
+# ⚠️ **Nada de segredos aqui.** O `DATABASE_URL` entra por `fly secrets set`, que
+# o guarda encriptado e nunca o escreve no repositório. O que está em `[env]` é
+# configuração pública: quem a ler não ganha acesso a nada.
 
 app = "simulador-v2"
 primary_region = "mad"          # Madrid — o mais perto de Lisboa que o Fly tem
@@ -58,13 +57,9 @@ primary_region = "mad"          # Madrid — o mais perto de Lisboa que o Fly te
   internal_port = 8080
   force_https = true
 
-  # ⚠️ Adormece sem tráfego e acorda no primeiro pedido. Um serviço que responde
-  # de uma consulta a Postgres arranca em milissegundos, e isto é a diferença
-  # entre pagar uma máquina sempre a andar e pagar o que se usa.
-  #
-  # ⚠️ **E `min_machines_running = 0` não afecta o varrimento**, que corre noutra
-  # máquina, agendada (ver o README). Se um dia o varrimento passasse a viver
-  # neste processo, isto tinha de mudar — uma máquina adormecida não varre.
+  # ⚠️ Adormece sem tráfego e acorda no primeiro pedido. Foi escrito quando o
+  # servidor respondia de uma consulta a Postgres; ao vivo a espera do arranque
+  # soma-se à do banco, e é uma das razões de o `docs/DEPLOY.md` preferir um VPS.
   auto_stop_machines = "stop"
   auto_start_machines = true
   min_machines_running = 0
